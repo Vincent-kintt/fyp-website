@@ -1,0 +1,31 @@
+{
+  "name": "fyp-reminder-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start",
+    "lint": "eslint",
+    "init-users": "node scripts/initUsers.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "date-fns": "^4.1.0",
+    "mongodb": "^6.20.0",
+    "next": "15.5.4",
+    "next-auth": "^4.24.11",
+    "next-themes": "^0.4.6",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-icons": "^5.5.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.4",
+    "tailwindcss": "^4"
+  }
+}
