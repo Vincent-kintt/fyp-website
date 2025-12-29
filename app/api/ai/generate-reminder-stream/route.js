@@ -140,9 +140,13 @@ You: "Updated to 5 PM:
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error("LLM API Error:", errorData);
+      console.error("LLM API Error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
       return new Response(
-        JSON.stringify({ success: false, error: `LLM API request failed: ${response.status}` }),
+        JSON.stringify({ success: false, error: `LLM API 錯誤 (${response.status}): ${errorData.substring(0, 200)}` }),
         { status: 500 }
       );
     }

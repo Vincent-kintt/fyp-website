@@ -87,8 +87,8 @@ const translations = {
 
 const modelOptions = [
   { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
-  { value: "google/gemini-3-pro", label: "Gemini 3 Pro" },
-  { value: "google/gemini-3-flash", label: "Gemini 3 Flash" },
+  { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro" },
+  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash" },
   { value: "deepseek/deepseek-v3.2", label: "DeepSeek V3.2" },
 ];
 
@@ -236,7 +236,8 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
       });
 
       if (!response.ok) {
-        throw new Error("API request failed");
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || `API request failed: ${response.status}`);
       }
 
       const reader = response.body.getReader();
