@@ -15,7 +15,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { text } = body;
+    const { text, model, reasoningEffort } = body;
 
     if (!text || text.trim() === "") {
       return NextResponse.json(
@@ -25,7 +25,10 @@ export async function POST(request) {
     }
 
     // Generate reminder data from natural language
-    const reminderData = await generateReminderFromText(text);
+    const reminderData = await generateReminderFromText(text, {
+      model,
+      reasoningEffort,
+    });
 
     return NextResponse.json({
       success: true,

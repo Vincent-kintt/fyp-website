@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { FaPlus } from "react-icons/fa";
 import ReminderList from "@/components/reminders/ReminderList";
 import ReminderFilter from "@/components/reminders/ReminderFilter";
-import ReminderSlidingPanel from "@/components/reminders/ReminderSlidingPanel";
+import AIReminderModal from "@/components/reminders/AIReminderModal";
 
 export default function RemindersPage() {
   const { data: session } = useSession();
@@ -96,8 +96,8 @@ export default function RemindersPage() {
         <FaPlus className="text-2xl" />
       </button>
 
-      {/* Sliding Panel */}
-      <ReminderSlidingPanel
+      {/* AI Reminder Modal */}
+      <AIReminderModal
         isOpen={isPanelOpen}
         onClose={() => setIsPanelOpen(false)}
         onSuccess={fetchReminders}
