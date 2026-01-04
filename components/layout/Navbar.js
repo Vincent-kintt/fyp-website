@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { FaBell, FaUser, FaSignOutAlt, FaMoon, FaSun } from "react-icons/fa";
+import { FaBell, FaUser, FaSignOutAlt, FaMoon, FaSun, FaHome, FaInbox, FaCalendarAlt, FaList } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import Button from "../ui/Button";
 
@@ -54,21 +54,36 @@ export default function Navbar() {
           </Link>
 
           {/* Navigation Links */}
-          <div className="flex items-center space-x-6">
-            <Link
-              href="/"
-              className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
-            >
-              Home
-            </Link>
-
+          <div className="flex items-center space-x-4 sm:space-x-6">
             {session ? (
               <>
                 <Link
-                  href="/reminders"
-                  className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
+                  href="/dashboard"
+                  className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium flex items-center gap-1.5"
                 >
-                  Reminders
+                  <FaHome className="w-4 h-4" />
+                  <span className="hidden sm:inline">Today</span>
+                </Link>
+                <Link
+                  href="/inbox"
+                  className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium flex items-center gap-1.5"
+                >
+                  <FaInbox className="w-4 h-4" />
+                  <span className="hidden sm:inline">Inbox</span>
+                </Link>
+                <Link
+                  href="/calendar"
+                  className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium flex items-center gap-1.5"
+                >
+                  <FaCalendarAlt className="w-4 h-4" />
+                  <span className="hidden sm:inline">Calendar</span>
+                </Link>
+                <Link
+                  href="/reminders"
+                  className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium flex items-center gap-1.5"
+                >
+                  <FaList className="w-4 h-4" />
+                  <span className="hidden sm:inline">All</span>
                 </Link>
 
                 {/* User Info */}

@@ -6,7 +6,7 @@ export default function ReminderList({ reminders, onDelete }) {
   if (!reminders || reminders.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400 text-lg">No reminders found. Create your first reminder!</p>
+        <p className="text-lg" style={{ color: "var(--text-muted)" }}>No reminders found. Create your first reminder!</p>
       </div>
     );
   }

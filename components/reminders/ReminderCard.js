@@ -21,7 +21,7 @@ export default function ReminderCard({ reminder, onDelete }) {
   return (
     <Card>
       <div className="flex justify-between items-start mb-3">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{reminder.title}</h3>
+        <h3 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>{reminder.title}</h3>
         <div className="flex space-x-2">
           <Link href={`/reminders/${reminder.id}/edit`}>
             <FaEdit className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer" />
@@ -33,10 +33,10 @@ export default function ReminderCard({ reminder, onDelete }) {
       </div>
 
       {reminder.description && (
-        <p className="text-gray-600 dark:text-gray-300 mb-3">{reminder.description}</p>
+        <p className="mb-3" style={{ color: "var(--text-secondary)" }}>{reminder.description}</p>
       )}
 
-      <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+      <div className="flex items-center space-x-4 text-sm" style={{ color: "var(--text-secondary)" }}>
         <div className="flex items-center space-x-1">
           <FaClock />
           <span>{formatDateTime(reminder.dateTime)}</span>

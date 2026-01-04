@@ -71,7 +71,7 @@ export default function RemindersPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading reminders...</p>
+          <p style={{ color: "var(--text-secondary)" }}>Loading reminders...</p>
         </div>
       </div>
     );
@@ -80,8 +80,8 @@ export default function RemindersPage() {
   return (
     <div className="relative">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">My Reminders</h1>
-        <p className="text-gray-600 dark:text-gray-300">Manage all your reminders in one place</p>
+        <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>My Reminders</h1>
+        <p style={{ color: "var(--text-secondary)" }}>Manage all your reminders in one place</p>
       </div>
 
       <ReminderFilter filters={filters} onFilterChange={setFilters} />

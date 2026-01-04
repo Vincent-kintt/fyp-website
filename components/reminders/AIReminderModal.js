@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { FaMagic, FaSpinner, FaTimes, FaTrash, FaCheck, FaEdit } from "react-icons/fa";
+import { flushSync } from "react-dom";
+import { FaSpinner, FaTimes, FaTrash, FaCheck, FaEdit, FaRobot } from "react-icons/fa";
+import AgentStepIndicator from "./AgentStepIndicator";
+import AgentThinkingIndicator from "./AgentThinkingIndicator";
+import AgentActivityLog from "./AgentActivityLog";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Button from "../ui/Button";
@@ -13,7 +17,7 @@ const translations = {
     previewTitle: "提醒預覽",
     clearChat: "清空對話",
     confirmClear: "確定要清空對話記錄嗎？",
-    emptyChat: "開始與 AI 助理對話\n描述您想建立的提醒",
+    emptyAgenticChat: "使用多代理系統\n透明顯示每個處理步驟",
     emptyPreview: "尚無提醒預覽\n請先與 AI 對話生成提醒",
     placeholder: "描述您的提醒，例如：\"明天下午 3 點提醒我打電話\" 或要求修改現有提醒",
     send: "發送",
@@ -51,7 +55,7 @@ const translations = {
     previewTitle: "Reminder Preview",
     clearChat: "Clear Chat",
     confirmClear: "Are you sure you want to clear the chat history?",
-    emptyChat: "Start chatting with AI Assistant\nDescribe the reminder you want to create",
+    emptyAgenticChat: "Using Multi-Agent System\nTransparently shows each processing step",
     emptyPreview: "No Preview Yet\nChat with AI to generate a reminder first",
     placeholder: 'Describe your reminder, e.g., "Remind me to call tomorrow at 3 PM" or request modifications',
     send: "Send",
@@ -103,11 +107,19 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
     model: "x-ai/grok-4.1-fast",
     reasoningEffort: "medium",
     reasoningEnabled: true,
-    language: "zh"
+    language: "zh",
+    reasoningLanguage: "zh"
   });
-  const [messages, setMessages] = useState([]);
   const [previewReminder, setPreviewReminder] = useState(null);
   const [isEditingPreview, setIsEditingPreview] = useState(false);
+  const [agentSteps, setAgentSteps] = useState([]);
+  const [agentMessages, setAgentMessages] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [thinkingPhase, setThinkingPhase] = useState(null);
+  const [currentToolCall, setCurrentToolCall] = useState(null);
+  const [agentActivities, setAgentActivities] = useState([]);
+  const [currentReasoning, setCurrentReasoning] = useState("");
+  const [completedReasoning, setCompletedReasoning] = useState(""); // Saved after processing completes
   const messagesEndRef = useRef(null);
   
   const t = translations[settings.language] || translations.zh;
@@ -120,7 +132,8 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
         model: parsed.model || "x-ai/grok-4.1-fast",
         reasoningEffort: parsed.reasoningEffort || "medium",
         reasoningEnabled: parsed.reasoningEnabled !== undefined ? parsed.reasoningEnabled : true,
-        language: parsed.language || "zh"
+        language: parsed.language || "zh",
+        reasoningLanguage: parsed.reasoningLanguage || "zh"
       });
     }
   }, []);
@@ -139,10 +152,6 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
       document.body.style.overflow = "unset";
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   useEffect(() => {
     const handleEscape = (e) => {
@@ -199,39 +208,46 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
     };
   }, [isDragging, dragOffset]);
 
-  const handleGenerate = async () => {
+  const handleAgenticGenerate = async () => {
     if (!text.trim()) {
-      setError("請輸入提醒內容");
+      setError(settings.language === "en" ? "Please enter reminder content" : "請輸入提醒內容");
       return;
     }
 
     const userMessage = text.trim();
     setText("");
 
-    const newUserMsg = { role: "user", content: userMessage };
-    setMessages(prev => [...prev, newUserMsg]);
+    // Add user message to agent messages
+    setAgentMessages(prev => [...prev, { type: "user", content: userMessage }]);
 
     try {
       setIsGenerating(true);
       setError("");
+      setAgentSteps([]);
+      setSuggestions([]);
+      setThinkingPhase(null);
+      setCurrentToolCall(null);
+      setAgentActivities([]); // Clear activity log for new request
+      setCurrentReasoning(""); // Clear reasoning for new request
+      setCompletedReasoning(""); // Clear completed reasoning for new request
 
-      const conversationMessages = [...messages, newUserMsg].map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-
-      const response = await fetch("/api/ai/generate-reminder-stream", {
+      const response = await fetch("/api/ai/agentic-reminder", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           text: userMessage,
-          messages: conversationMessages,
+          // Include full conversation history (both user and agent messages)
+          messages: agentMessages.map(m => ({
+            role: m.type === "user" ? "user" : "assistant",
+            content: m.content || "",
+          })),
           model: settings.model,
           reasoningEffort: settings.reasoningEffort,
           reasoningEnabled: settings.reasoningEnabled,
           language: settings.language,
+          reasoningLanguage: settings.reasoningLanguage,
         }),
       });
 
@@ -242,56 +258,297 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let fullContent = "";
-      let fullReasoning = "";
       let buffer = "";
-      let currentReasoningExpanded = true;
 
-      const assistantMsgIndex = messages.length + 1;
-      setMessages(prev => [...prev, { role: "assistant", content: "", reasoning: "", reasoningExpanded: true }]);
+      // Track current agent state
+      let currentAgentName = "";
+      let currentAgentReasoning = "";
+      let currentAgentContent = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
+        const lines = buffer.split("\n\n");
         buffer = lines.pop() || "";
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             const data = line.slice(6);
-            if (data === "[DONE]") continue;
-
             try {
-              const parsed = JSON.parse(data);
-              const delta = parsed.choices?.[0]?.delta;
+              const event = JSON.parse(data);
 
-              if (delta?.reasoning) {
-                fullReasoning += delta.reasoning;
-                setMessages(prev => {
-                  const updated = [...prev];
-                  updated[assistantMsgIndex] = { ...updated[assistantMsgIndex], reasoning: fullReasoning };
-                  return updated;
-                });
-              }
+              switch (event.type) {
+                case "pipeline_start":
+                  setAgentSteps(event.steps.map(s => ({ ...s, status: "pending" })));
+                  break;
 
-              if (delta?.content) {
-                fullContent += delta.content;
-                setMessages(prev => {
-                  const updated = [...prev];
-                  updated[assistantMsgIndex] = { ...updated[assistantMsgIndex], content: fullContent };
-                  return updated;
-                });
-              }
+                case "step_start":
+                  setAgentSteps(prev => prev.map((s, i) => 
+                    i === event.stepIndex ? { ...s, status: "active" } : s
+                  ));
+                  break;
 
-              if (parsed.choices?.[0]?.finish_reason === "stop") {
-                currentReasoningExpanded = false;
-                setMessages(prev => {
-                  const updated = [...prev];
-                  updated[assistantMsgIndex] = { ...updated[assistantMsgIndex], reasoningExpanded: false };
-                  return updated;
-                });
+                case "thinking_phase":
+                  setThinkingPhase({
+                    phase: event.phase,
+                    description: event.description,
+                  });
+                  
+                  // Add step separator to timeline for iteration > 1
+                  if (event.iteration > 1) {
+                    setAgentMessages(prev => {
+                      const updated = [...prev];
+                      const lastMsgIdx = updated.length - 1;
+                      if (lastMsgIdx >= 0 && updated[lastMsgIdx].type === "agent") {
+                        const timeline = [...(updated[lastMsgIdx].timeline || [])];
+                        timeline.push({
+                          type: "step",
+                          iteration: event.iteration,
+                          title: event.description
+                        });
+                        updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
+                      }
+                      return updated;
+                    });
+                  }
+                  break;
+
+                // Initialize new agent message with timeline structure
+                case "agent_start":
+                  currentAgentName = event.agent;
+                  currentAgentReasoning = "";
+                  currentAgentContent = "";
+                  setAgentMessages(prev => [...prev, {
+                    type: "agent",
+                    agent: event.agent,
+                    timeline: [{
+                      type: "step",
+                      iteration: 1,
+                      title: "Step 1"
+                    }], 
+                    isStreaming: true,
+                  }]);
+                  break;
+
+                case "reasoning":
+                  currentAgentReasoning = event.fullContent;
+                  // Use flushSync for immediate rendering of streaming content
+                  flushSync(() => {
+                    setAgentMessages(prev => {
+                      const updated = [...prev];
+                      const lastMsgIdx = updated.length - 1;
+                      if (lastMsgIdx >= 0 && updated[lastMsgIdx].type === "agent") {
+                        const timeline = [...(updated[lastMsgIdx].timeline || [])];
+                        const lastBlockIdx = timeline.length - 1;
+                        
+                        // Check if we should update existing block or create new one
+                        // We update if: it's reasoning, not completed, AND belongs to same iteration
+                        const sameIteration = event.iteration ? (timeline[lastBlockIdx]?.iteration === event.iteration) : true;
+                        
+                        if (lastBlockIdx >= 0 && 
+                            timeline[lastBlockIdx].type === "reasoning" && 
+                            !timeline[lastBlockIdx].completed &&
+                            sameIteration) {
+                          // Update existing block with iteration-specific reasoning if available, or full content
+                          timeline[lastBlockIdx] = { 
+                            ...timeline[lastBlockIdx], 
+                            content: event.iterationReasoning || event.fullContent 
+                          };
+                        } else {
+                          // Start new reasoning block
+                          // If previous block was open reasoning, close it
+                          if (lastBlockIdx >= 0 && timeline[lastBlockIdx].type === "reasoning") {
+                             timeline[lastBlockIdx] = { ...timeline[lastBlockIdx], completed: true, expanded: false };
+                          }
+                          
+                          timeline.push({ 
+                            type: "reasoning", 
+                            content: event.iterationReasoning || event.fullContent, 
+                            completed: false, 
+                            expanded: true,
+                            iteration: event.iteration 
+                          });
+                        }
+                        updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
+                      }
+                      return updated;
+                    });
+                  });
+                  break;
+
+                case "content":
+                  currentAgentContent = event.fullContent;
+                  setAgentMessages(prev => {
+                    const updated = [...prev];
+                    const lastMsgIdx = updated.length - 1;
+                    if (lastMsgIdx >= 0 && updated[lastMsgIdx].type === "agent") {
+                      const timeline = [...(updated[lastMsgIdx].timeline || [])];
+                      const lastBlockIdx = timeline.length - 1;
+                      
+                      // Close any open reasoning block
+                      if (lastBlockIdx >= 0 && timeline[lastBlockIdx].type === "reasoning") {
+                         timeline[lastBlockIdx] = { ...timeline[lastBlockIdx], completed: true, expanded: false };
+                      }
+
+                      // Check if we should update existing content block or create new one
+                      const sameIteration = event.iteration ? (timeline[lastBlockIdx]?.iteration === event.iteration) : true;
+
+                      if (lastBlockIdx >= 0 && 
+                          timeline[lastBlockIdx].type === "content" &&
+                          sameIteration) {
+                        timeline[lastBlockIdx] = { 
+                          ...timeline[lastBlockIdx], 
+                          content: event.iterationContent || event.fullContent 
+                        };
+                      } else {
+                        timeline.push({ 
+                          type: "content", 
+                          content: event.iterationContent || event.fullContent,
+                          iteration: event.iteration
+                        });
+                      }
+                      
+                      updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
+                    }
+                    return updated;
+                  });
+                  break;
+
+                case "tool_call":
+                  setCurrentToolCall({
+                    tool: event.tool,
+                    description: event.description,
+                    params: event.params,
+                  });
+                  
+                  // Add tool block to timeline
+                  setAgentMessages(prev => {
+                    const updated = [...prev];
+                    const lastMsgIdx = updated.length - 1;
+                    if (lastMsgIdx >= 0 && updated[lastMsgIdx].type === "agent") {
+                      const timeline = [...(updated[lastMsgIdx].timeline || [])];
+                      
+                      // Close previous reasoning block if open
+                      const lastBlockIdx = timeline.length - 1;
+                      if (lastBlockIdx >= 0 && timeline[lastBlockIdx].type === "reasoning") {
+                         timeline[lastBlockIdx] = { ...timeline[lastBlockIdx], completed: true, expanded: false };
+                      }
+
+                      timeline.push({
+                        type: "tool",
+                        tool: event.tool,
+                        input: event.params,
+                        status: "running",
+                        description: event.description,
+                        iteration: event.iteration
+                      });
+                      
+                      updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
+                    }
+                    return updated;
+                  });
+                  break;
+
+                case "tool_result":
+                  // Update the specific tool block in timeline
+                  setAgentMessages(prev => {
+                    const updated = [...prev];
+                    const lastMsgIdx = updated.length - 1;
+                    if (lastMsgIdx >= 0 && updated[lastMsgIdx].type === "agent") {
+                      const timeline = [...(updated[lastMsgIdx].timeline || [])];
+                      // Find the running tool block (usually the last one or close to end)
+                      // We search from end backwards
+                      const toolBlockIdx = timeline.map(b => b.type).lastIndexOf("tool");
+                      
+                      if (toolBlockIdx >= 0) {
+                         timeline[toolBlockIdx] = {
+                           ...timeline[toolBlockIdx],
+                           status: event.success ? "success" : "error",
+                           result: event.result
+                         };
+                      }
+                      updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
+                    }
+                    return updated;
+                  });
+                  setCurrentToolCall(null);
+                  break;
+                  
+                case "tool_error":
+                   // Update tool block to error
+                   setAgentMessages(prev => {
+                    const updated = [...prev];
+                    const lastMsgIdx = updated.length - 1;
+                    if (lastMsgIdx >= 0 && updated[lastMsgIdx].type === "agent") {
+                      const timeline = [...(updated[lastMsgIdx].timeline || [])];
+                      const toolBlockIdx = timeline.map(b => b.type).lastIndexOf("tool");
+                      if (toolBlockIdx >= 0) {
+                         timeline[toolBlockIdx] = { ...timeline[toolBlockIdx], status: "error" };
+                      }
+                      updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
+                    }
+                    return updated;
+                  });
+                  setCurrentToolCall(null);
+                  break;
+
+                case "agent_complete":
+                  setAgentMessages(prev => {
+                    const updated = [...prev];
+                    const lastMsgIdx = updated.length - 1;
+                    if (lastMsgIdx >= 0 && updated[lastMsgIdx].type === "agent") {
+                       const timeline = [...(updated[lastMsgIdx].timeline || [])];
+                       // Ensure all blocks are marked completed
+                       const lastBlockIdx = timeline.length - 1;
+                       if (lastBlockIdx >= 0 && timeline[lastBlockIdx].type === "reasoning") {
+                          timeline[lastBlockIdx] = { ...timeline[lastBlockIdx], completed: true, expanded: false };
+                       }
+                       
+                      updated[lastMsgIdx] = { 
+                        ...updated[lastMsgIdx], 
+                        isStreaming: false,
+                        timeline
+                      };
+                    }
+                    return updated;
+                  });
+                  setCurrentReasoning("");
+                  setCompletedReasoning("");
+                  break;
+
+                case "step_complete":
+                  setAgentSteps(prev => prev.map((s, i) => 
+                    i === event.stepIndex ? { ...s, status: "completed" } : s
+                  ));
+                  break;
+
+                case "step_skip":
+                  setAgentSteps(prev => prev.map((s, i) => 
+                    i === event.stepIndex ? { ...s, status: "skipped" } : s
+                  ));
+                  break;
+
+                case "pipeline_complete":
+                  // Handle reminder from new simple orchestrator
+                  if (event.reminder) {
+                    setPreviewReminder(event.reminder);
+                  } else if (event.finalResult?.reminder) {
+                    setPreviewReminder(event.finalResult.reminder);
+                  }
+                  if (event.finalResult?.suggestions) {
+                    setSuggestions(event.finalResult.suggestions);
+                  }
+                  // Clear indicators after completion
+                  setAgentSteps([]);
+                  setThinkingPhase(null);
+                  setCurrentToolCall(null);
+                  break;
+
+                case "error":
+                  setError(event.error);
+                  break;
               }
             } catch (e) {
               console.error("Parse error:", e);
@@ -299,21 +556,9 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
           }
         }
       }
-
-      const jsonMatches = fullContent.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
-      
-      if (jsonMatches && jsonMatches.length > 0) {
-        try {
-          const jsonData = JSON.parse(jsonMatches[jsonMatches.length - 1]);
-          setPreviewReminder(jsonData);
-        } catch (e) {
-          setError("無法解析 AI 回應的 JSON");
-        }
-      }
     } catch (error) {
-      console.error("Error generating reminder:", error);
-      setError(error.message || "發生錯誤，請重試");
-      setMessages(prev => prev.slice(0, -1));
+      console.error("Error in agentic generation:", error);
+      setError(error.message || (settings.language === "en" ? "An error occurred" : "發生錯誤，請重試"));
     } finally {
       setIsGenerating(false);
     }
@@ -349,24 +594,18 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
 
   const handleClearChat = () => {
     if (window.confirm(t.confirmClear)) {
-      setMessages([]);
+      setAgentMessages([]);
+      setAgentSteps([]);
+      setSuggestions([]);
       setPreviewReminder(null);
       setError("");
     }
   };
 
-  const toggleReasoningExpanded = (index) => {
-    setMessages(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], reasoningExpanded: !updated[index].reasoningExpanded };
-      return updated;
-    });
-  };
-
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleGenerate();
+      handleAgenticGenerate();
     }
   };
 
@@ -404,11 +643,6 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/50 z-[9998] transition-opacity duration-300"
-        onClick={onClose}
-      />
-
-      <div
         className="fixed z-[9999] w-[900px] max-h-[85vh] shadow-2xl"
         style={{
           position: "fixed",
@@ -417,11 +651,11 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
           width: "900px",
           maxHeight: "85vh",
           borderRadius: "20px",
-          background: "rgba(255, 255, 255, 0.08)",
+          background: "rgba(20, 20, 30, 0.95)",
           backdropFilter: "blur(20px) saturate(180%)",
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
           border: "1px solid rgba(255, 255, 255, 0.18)",
-          boxShadow: "0 8px 32px rgba(31, 38, 135, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
           transition: isDragging ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           transform: isOpen ? "scale(1) translateY(0)" : "scale(0.95) translateY(-10px)",
           opacity: isOpen ? 1 : 0,
@@ -525,6 +759,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
               <option value="zh" style={{ background: "#1e1e2e", color: "rgba(255, 255, 255, 0.95)" }}>繁體中文</option>
               <option value="en" style={{ background: "#1e1e2e", color: "rgba(255, 255, 255, 0.95)" }}>English</option>
             </select>
+
           </div>
 
           <button
@@ -570,12 +805,12 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
             {/* 對話標題和清空按鈕 */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <FaMagic style={{ color: "rgba(139, 92, 246, 0.9)", fontSize: "16px" }} />
+                <FaRobot style={{ color: "rgba(139, 92, 246, 0.9)", fontSize: "16px" }} />
                 <h3 style={{ fontSize: "15px", fontWeight: "600", color: "rgba(255, 255, 255, 0.95)" }}>
                   {t.chatTitle}
                 </h3>
               </div>
-              {messages.length > 0 && (
+              {agentMessages.length > 0 && (
                 <button
                   onClick={handleClearChat}
                   style={{
@@ -606,45 +841,194 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
 
             {/* 對話訊息列表 */}
             <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-              {messages.length === 0 ? (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", color: "rgba(255, 255, 255, 0.5)" }}>
-                  <FaMagic style={{ fontSize: "48px", opacity: 0.3 }} />
-                  <p style={{ fontSize: "14px", textAlign: "center", whiteSpace: "pre-line" }}>{t.emptyChat}</p>
-                </div>
-              ) : (
-                messages.map((msg, index) => (
-                  <div key={index} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {msg.role === "user" ? (
-                      <div style={{ alignSelf: "flex-end", maxWidth: "80%", padding: "10px 14px", background: "rgba(139, 92, 246, 0.15)", border: "1px solid rgba(139, 92, 246, 0.3)", borderRadius: "12px 12px 2px 12px", fontSize: "13px", color: "rgba(255, 255, 255, 0.95)" }}>
-                        {msg.content}
-                      </div>
-                    ) : (
-                      <div style={{ alignSelf: "flex-start", maxWidth: "85%", display: "flex", flexDirection: "column", gap: "8px" }}>
-                        {msg.reasoning && (
-                          <div style={{ padding: "10px 14px", background: "rgba(139, 92, 246, 0.08)", borderLeft: "3px solid rgba(139, 92, 246, 0.6)", borderRadius: "0 8px 8px 0" }}>
-                            <div
-                              onClick={() => toggleReasoningExpanded(index)}
-                              style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "600", color: "rgba(139, 92, 246, 1)", marginBottom: msg.reasoningExpanded ? "8px" : "0", userSelect: "none" }}
-                            >
-                              <span style={{ transition: "transform 0.2s", transform: msg.reasoningExpanded ? "rotate(0deg)" : "rotate(-90deg)" }}>▼</span> {t.reasoning}
-                            </div>
-                            {msg.reasoningExpanded && (
-                              <div className="markdown-content" style={{ fontSize: "12px", lineHeight: "1.6", color: "rgba(255, 255, 255, 0.75)" }}>
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.reasoning}</ReactMarkdown>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {msg.content && (
-                          <div className="markdown-content" style={{ padding: "10px 14px", background: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px 12px 12px 2px", fontSize: "13px", color: "rgba(255, 255, 255, 0.9)" }}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                          </div>
-                        )}
-                      </div>
-                    )}
+              {agentMessages.length === 0 ? (
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", color: "rgba(255, 255, 255, 0.5)" }}>
+                    <FaRobot style={{ fontSize: "48px", opacity: 0.3 }} />
+                    <p style={{ fontSize: "14px", textAlign: "center", whiteSpace: "pre-line" }}>{t.emptyAgenticChat}</p>
                   </div>
-                ))
-              )}
+                ) : (
+                  <>
+                    {/* Agent Messages */}
+                    {agentMessages.map((msg, index) => (
+                      <div key={index} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {msg.type === "user" ? (
+                          /* User message */
+                          <div style={{ alignSelf: "flex-end", maxWidth: "80%", padding: "10px 14px", background: "rgba(139, 92, 246, 0.15)", border: "1px solid rgba(139, 92, 246, 0.3)", borderRadius: "12px 12px 2px 12px", fontSize: "13px", color: "rgba(255, 255, 255, 0.95)" }}>
+                            {msg.content}
+                          </div>
+                        ) : (
+                          /* Agent message - Timeline based rendering */
+                          <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignSelf: "flex-start", maxWidth: "90%", width: "100%" }}>
+                            {msg.timeline && msg.timeline.map((block, bIdx) => {
+                              if (block.type === "step") {
+                                return (
+                                  <div key={`step-${bIdx}`} style={{ 
+                                    display: "flex", 
+                                    alignItems: "center", 
+                                    gap: "8px", 
+                                    margin: "8px 0 4px 0",
+                                    opacity: 0.7 
+                                  }}>
+                                    <div style={{ 
+                                      padding: "2px 8px", 
+                                      background: "rgba(255, 255, 255, 0.1)", 
+                                      borderRadius: "4px", 
+                                      fontSize: "11px", 
+                                      fontWeight: "600",
+                                      color: "rgba(255, 255, 255, 0.9)"
+                                    }}>
+                                      Step {block.iteration}
+                                    </div>
+                                    <div style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.5)" }}>
+                                      {block.title}
+                                    </div>
+                                    <div style={{ flex: 1, height: "1px", background: "rgba(255, 255, 255, 0.1)" }}></div>
+                                  </div>
+                                );
+                              }
+
+                              if (block.type === "reasoning") {
+                                return (
+                                  <AgentActivityLog
+                                    key={`reasoning-${bIdx}`}
+                                    activities={[]}
+                                    currentPhase={null}
+                                    currentToolCall={null}
+                                    currentReasoning={block.content}
+                                    completedReasoning={block.completed ? block.content : ""}
+                                    isActive={!block.completed}
+                                    language={settings.language}
+                                  />
+                                );
+                              }
+                              
+                              if (block.type === "tool") {
+                                return (
+                                  <div key={`tool-${bIdx}`} className="tool-block" style={{ width: "100%" }}>
+                                    {/* Tool Execution Status Bar */}
+                                    <div style={{ 
+                                      display: "flex", 
+                                      alignItems: "center", 
+                                      gap: "10px", 
+                                      padding: "10px 14px", 
+                                      background: "rgba(255, 255, 255, 0.03)", 
+                                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                                      borderRadius: "8px",
+                                      marginBottom: "8px"
+                                    }}>
+                                      <div style={{ 
+                                        display: "flex", 
+                                        alignItems: "center", 
+                                        justifyContent: "center",
+                                        width: "20px", 
+                                        height: "20px"
+                                      }}>
+                                        {block.status === "running" ? (
+                                          <FaSpinner className="animate-spin" style={{ color: "rgba(139, 92, 246, 0.9)", fontSize: "14px" }} />
+                                        ) : block.status === "success" ? (
+                                          <FaCheck style={{ color: "rgba(34, 197, 94, 0.9)", fontSize: "14px" }} />
+                                        ) : (
+                                          <FaTimes style={{ color: "rgba(239, 68, 68, 0.9)", fontSize: "14px" }} />
+                                        )}
+                                      </div>
+                                      
+                                      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                                        <span style={{ fontSize: "13px", color: "rgba(255, 255, 255, 0.9)", fontWeight: "500" }}>
+                                          {block.description || block.tool}
+                                        </span>
+                                        <span style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.5)" }}>
+                                          {block.status === "running" 
+                                            ? (settings.language === "en" ? "Executing..." : "執行中...") 
+                                            : block.status === "success"
+                                              ? (settings.language === "en" ? "Completed" : "已完成")
+                                              : (settings.language === "en" ? "Failed" : "失敗")}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Tool Result Details */}
+                                    {block.status === "success" && block.result && (
+                                      <div style={{ marginLeft: "4px" }}>
+                                        {block.tool === "listReminders" && block.result.reminders ? (
+                                          <div style={{
+                                            background: "rgba(34, 197, 94, 0.05)",
+                                            border: "1px solid rgba(34, 197, 94, 0.2)",
+                                            borderRadius: "8px",
+                                            padding: "12px",
+                                          }}>
+                                            <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.5)", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+                                              <span>📋</span>
+                                              <span>{settings.language === "en" ? `Found ${block.result.count} reminders` : `找到 ${block.result.count} 個提醒`}</span>
+                                            </div>
+                                            {block.result.reminders.length > 0 && (
+                                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                                {block.result.reminders.slice(0, 5).map((reminder, rIdx) => (
+                                                  <div key={rIdx} style={{ padding: "8px 10px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                    <div>
+                                                      <div style={{ fontWeight: "500", color: "rgba(255, 255, 255, 0.9)", fontSize: "12px" }}>{reminder.title}</div>
+                                                      <div style={{ fontSize: "10px", color: "rgba(255, 255, 255, 0.5)", marginTop: "2px" }}>
+                                                        {new Date(reminder.dateTime).toLocaleDateString()}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                                {block.result.reminders.length > 5 && (
+                                                   <div style={{ fontSize: "10px", color: "rgba(255, 255, 255, 0.4)", paddingLeft: "4px" }}>
+                                                     ... +{block.result.reminders.length - 5} more
+                                                   </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ) : block.tool === "deleteReminder" ? (
+                                           <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "8px", fontSize: "12px" }}>
+                                              <span style={{ color: "rgba(239, 68, 68, 0.8)" }}>🗑</span>
+                                              <span>{settings.language === "en" ? `Deleted: ${block.input?.title || 'Reminder'}` : `已刪除: ${block.input?.title || '提醒'}`}</span>
+                                            </div>
+                                        ) : block.tool === "createReminder" && block.result.reminder ? (
+                                            <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "rgba(34, 197, 94, 0.05)", border: "1px solid rgba(34, 197, 94, 0.2)", borderRadius: "8px", fontSize: "12px" }}>
+                                              <span style={{ color: "rgba(34, 197, 94, 0.8)" }}>✓</span>
+                                              <span>{settings.language === "en" ? "Created: " : "已建立: "}</span>
+                                              <span style={{ fontWeight: "500" }}>{block.result.reminder.title}</span>
+                                            </div>
+                                        ) : null}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              if (block.type === "content") {
+                                return (
+                                  <div key={`content-${bIdx}`} className="markdown-content" style={{ padding: "12px 16px", background: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px 12px 12px 2px", fontSize: "13px", color: "rgba(255, 255, 255, 0.9)" }}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content}</ReactMarkdown>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {/* Live Activity Log - only shown during generation */}
+                    {/* Note: In new timeline architecture, live events are directly appended to the timeline above.
+                        However, if we are in "thinking phase" before any timeline events, we might want to show this.
+                        Currently "agent_start" creates the message and timeline, so this might be redundant or for pre-agent work.
+                    */}
+                    {isGenerating && agentMessages.length === 0 && (
+                       <AgentActivityLog
+                        activities={agentActivities}
+                        currentPhase={thinkingPhase}
+                        currentToolCall={currentToolCall}
+                        currentReasoning={currentReasoning}
+                        completedReasoning={completedReasoning}
+                        isActive={isGenerating}
+                        language={settings.language}
+                      />
+                    )}
+                  </>
+                )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -686,7 +1070,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                   }}
                 />
                 <button
-                  onClick={handleGenerate}
+                  onClick={handleAgenticGenerate}
                   disabled={isGenerating || !text.trim()}
                   style={{
                     padding: "10px 16px",
@@ -714,7 +1098,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                     e.currentTarget.style.boxShadow = "none";
                   }}
                 >
-                  {isGenerating ? <FaSpinner className="animate-spin" /> : <FaMagic />}
+                  {isGenerating ? <FaSpinner className="animate-spin" /> : <FaRobot />}
                   {isGenerating ? t.generating : t.send}
                 </button>
               </div>

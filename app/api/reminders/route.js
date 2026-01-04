@@ -51,6 +51,7 @@ export async function GET(request) {
       category: reminder.category,
       recurring: reminder.recurring,
       recurringType: reminder.recurringType,
+      completed: reminder.completed || false,
       username: reminder.username,
       createdAt: reminder.createdAt,
       updatedAt: reminder.updatedAt,
@@ -113,6 +114,7 @@ export async function POST(request) {
     const createdReminder = {
       id: result.insertedId.toString(),
       ...newReminder,
+      completed: false,
       dateTime: newReminder.dateTime.toISOString(),
       createdAt: newReminder.createdAt.toISOString(),
       updatedAt: newReminder.updatedAt.toISOString(),

@@ -2,13 +2,23 @@
 
 @layer base {
   :root {
-    --background: #ffffff;
+    --background: #f9fafb;
     --foreground: #171717;
+    --card-bg: #ffffff;
+    --card-border: #e5e7eb;
+    --text-primary: #1f2937;
+    --text-secondary: #4b5563;
+    --text-muted: #6b7280;
   }
 
   .dark {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --card-bg: #1f2937;
+    --card-border: #374151;
+    --text-primary: #f3f4f6;
+    --text-secondary: #d1d5db;
+    --text-muted: #9ca3af;
   }
 }
 

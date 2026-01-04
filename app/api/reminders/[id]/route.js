@@ -47,6 +47,7 @@ export async function GET(request, { params }) {
       category: reminder.category,
       recurring: reminder.recurring,
       recurringType: reminder.recurringType,
+      completed: reminder.completed || false,
       username: reminder.username,
       createdAt: reminder.createdAt,
       updatedAt: reminder.updatedAt,
@@ -135,6 +136,7 @@ export async function PUT(request, { params }) {
       category: updatedReminder.category,
       recurring: updatedReminder.recurring,
       recurringType: updatedReminder.recurringType,
+      completed: updatedReminder.completed || false,
       username: updatedReminder.username,
       createdAt: updatedReminder.createdAt.toISOString(),
       updatedAt: updatedReminder.updatedAt.toISOString(),
@@ -210,6 +212,7 @@ export async function DELETE(request, { params }) {
       category: reminder.category,
       recurring: reminder.recurring,
       recurringType: reminder.recurringType,
+      completed: reminder.completed || false,
       username: reminder.username,
     };
 
@@ -219,6 +222,86 @@ export async function DELETE(request, { params }) {
     });
   } catch (error) {
     console.error("DELETE /api/reminders/[id] error:", error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/reminders/[id] - Partial update (e.g., toggle completed)
+export async function PATCH(request, { params }) {
+  try {
+    const session = await getServerSession();
+
+    if (!session || !session.user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+
+    // Validate ObjectId
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid reminder ID" },
+        { status: 400 }
+      );
+    }
+
+    const remindersCollection = await getCollection("reminders");
+
+    // Build update object with only provided fields
+    const updateData = { updatedAt: new Date() };
+    if (typeof body.completed === "boolean") {
+      updateData.completed = body.completed;
+    }
+    if (body.title) updateData.title = body.title;
+    if (body.description !== undefined) updateData.description = body.description;
+    if (body.dateTime) updateData.dateTime = new Date(body.dateTime);
+    if (body.category) updateData.category = body.category;
+
+    const result = await remindersCollection.updateOne(
+      {
+        _id: new ObjectId(id),
+        username: session.user.username,
+      },
+      { $set: updateData }
+    );
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json(
+        { success: false, error: "Reminder not found" },
+        { status: 404 }
+      );
+    }
+
+    // Fetch updated reminder
+    const updatedReminder = await remindersCollection.findOne({ _id: new ObjectId(id) });
+
+    const formattedReminder = {
+      id: updatedReminder._id.toString(),
+      title: updatedReminder.title,
+      description: updatedReminder.description,
+      dateTime: updatedReminder.dateTime,
+      category: updatedReminder.category,
+      recurring: updatedReminder.recurring,
+      recurringType: updatedReminder.recurringType,
+      completed: updatedReminder.completed || false,
+      username: updatedReminder.username,
+      createdAt: updatedReminder.createdAt,
+      updatedAt: updatedReminder.updatedAt,
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: formattedReminder,
+    });
+  } catch (error) {
+    console.error("PATCH /api/reminders/[id] error:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
