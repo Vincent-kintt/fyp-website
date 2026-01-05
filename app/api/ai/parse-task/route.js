@@ -7,44 +7,23 @@ const LLM_API_URL = process.env.LLM_API_URL;
 const LLM_API_KEY = process.env.LLM_API_KEY;
 const PARSE_MODEL = "x-ai/grok-4.1-fast";
 
-// Custom chrono parser to handle common abbreviations
-const customChrono = chrono.casual.clone();
-customChrono.parsers.push({
-  pattern: () => /\b(tmr|tmrw|tom|2moro|2morrow)\b/i,
-  extract: (context, match) => {
-    const refDate = context.refDate;
-    const tomorrow = new Date(refDate);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return {
-      day: tomorrow.getDate(),
-      month: tomorrow.getMonth() + 1,
-      year: tomorrow.getFullYear(),
-    };
-  },
-});
-// Add "tdy" for today
-customChrono.parsers.push({
-  pattern: () => /\b(tdy|2day)\b/i,
-  extract: (context) => {
-    const refDate = context.refDate;
-    return {
-      day: refDate.getDate(),
-      month: refDate.getMonth() + 1,
-      year: refDate.getFullYear(),
-    };
-  },
-});
+// Custom chrono parser (keep standard casual for now, let LLM handle normalization)
+const standardChrono = chrono.casual;
 
 /**
  * POST /api/ai/parse-task
  * Lightweight NLP endpoint for Quick Add - extracts structured data from natural language
  * Returns parsed task data without creating the task
  */
+
 /**
  * Parse date/time using chrono-node (reliable NLP date parsing)
  */
 function parseDateTimeWithChrono(text, refDate) {
-  const results = customChrono.parse(text, refDate, { forwardDate: true });
+  if (!text) return null;
+  
+  // Use standard casual parser
+  const results = standardChrono.parse(text, refDate, { forwardDate: true });
   
   if (results.length === 0) return null;
   
@@ -73,18 +52,6 @@ function parseDateTimeWithChrono(text, refDate) {
   };
 }
 
-/**
- * Remove date/time text from input to get cleaner title
- */
-function removeDateTimeFromText(text, matchedText) {
-  if (!matchedText) return text;
-  // Remove the matched date/time text and clean up
-  return text
-    .replace(new RegExp(matchedText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 export async function POST(request) {
   try {
     const session = await getServerSession();
@@ -106,40 +73,41 @@ export async function POST(request) {
 
     const now = new Date();
     
-    // Step 1: Parse date/time with chrono-node (RELIABLE)
-    const chronoResult = parseDateTimeWithChrono(text, now);
+    // HYBRID APPROACH: LLM Normalization + Deterministic Parsing
+    // 1. LLM extracts intent and normalizes date string (e.g. "tmr" -> "tomorrow")
+    // 2. Chrono parses the normalized date string reliably
     
-    // Step 2: Use LLM only for title, tags, priority (NOT date)
-    const textForLLM = chronoResult 
-      ? removeDateTimeFromText(text, chronoResult.matchedText)
-      : text;
+    const systemPrompt = `You are a smart task parser.
+Extract structured data from the user's natural language input.
 
-    const systemPrompt = `You are a task parser. Extract title, tags, and priority from user input.
-DO NOT extract dates - dates are handled separately.
+**Date Handling Strategy:**
+- Identify any date/time references (fuzzy, typos, slang, or foreign language).
+- **Normalize** them into standard English time expressions (e.g., "tmr" -> "tomorrow", "下週二" -> "next Tuesday", "25號" -> "25th").
+- If no date is present, return null for date_expression.
 
-**Extract:**
-1. **title** (required): Clean task title, remove date/time words
-2. **tags** (optional): Array of tags from #hashtags or inferred from context
-3. **priority** (optional): "low", "medium", or "high"
+**Extraction Rules:**
+1. **title** (required): The task description with date/time words REMOVED. Clean and capitalize.
+2. **tags** (optional): Inferred category tags (e.g., "buy milk" -> ["personal", "shopping"]).
+3. **priority** (optional): "high", "medium", or "low".
+4. **date_expression** (optional): The normalized English date string suitable for a parser.
 
-**Priority Rules:**
-- HIGH: "urgent", "ASAP", "important", "緊急", "重要"
-- LOW: "when free", "no rush", "有空"
+**Priority Logic:**
+- HIGH: Urgent words ("ASAP", "emergency", "dead", "important")
+- LOW: Relaxed words ("whenever", "maybe", "someday")
 - MEDIUM: Default
 
-**Tag Inference:**
-- Extract explicit #tags
-- Infer: meeting/work→work, doctor→health, shopping→personal, bill/pay→finance
-
-**Return ONLY valid JSON:**
+**Return JSON ONLY:**
 {
-  "title": "Clean task title",
-  "tags": ["tag1", "tag2"],
-  "priority": "medium"
+  "title": "Clean Title",
+  "tags": ["tag1"],
+  "priority": "medium",
+  "date_expression": "normalized date string or null"
 }
 
-**Example:** "pay the bill" → {"title": "Pay the bill", "tags": ["finance"], "priority": "medium"}
-**Example:** "meeting #work urgent" → {"title": "Meeting", "tags": ["work"], "priority": "high"}`;
+**Examples:**
+- "submit report tmr morning" -> {"title": "Submit report", "tags": ["work"], "priority": "high", "date_expression": "tomorrow morning"}
+- "buy milk 2day" -> {"title": "Buy milk", "tags": ["shopping"], "priority": "medium", "date_expression": "today"}
+- "check email" -> {"title": "Check email", "tags": ["work"], "priority": "medium", "date_expression": null}`;
 
     const response = await fetch(LLM_API_URL, {
       method: "POST",
@@ -153,9 +121,9 @@ DO NOT extract dates - dates are handled separately.
         model: PARSE_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: textForLLM },
+          { role: "user", content: text },
         ],
-        temperature: 0.3,
+        temperature: 0.1, // Lower temperature for more deterministic output
         max_tokens: 300,
       }),
     });
@@ -190,12 +158,29 @@ DO NOT extract dates - dates are handled separately.
       llmParsed = JSON.parse(jsonString);
     } catch (parseError) {
       console.error("[parse-task] JSON parse error:", jsonString);
-      llmParsed = { title: textForLLM || text.trim() };
+      llmParsed = { title: text.trim() };
     }
 
-    // Merge chrono date result with LLM result
+    // Parse the normalized date expression with Chrono
+    let chronoResult = null;
+    if (llmParsed.date_expression) {
+      chronoResult = parseDateTimeWithChrono(llmParsed.date_expression, now);
+    }
+    
+    // Fallback: If LLM missed the date but Chrono can find something in the original text
+    if (!chronoResult) {
+       // Only try fallback if LLM didn't return a date_expression (meaning it didn't think there was a date)
+       // If LLM returned one but Chrono failed, it might be garbage, so we could try original text too, 
+       // but typically normalized is better. Let's just try original as a safety net.
+       const fallbackResult = parseDateTimeWithChrono(text, now);
+       if (fallbackResult) {
+         chronoResult = fallbackResult;
+       }
+    }
+
+    // Construct final result
     const result = {
-      title: llmParsed.title || textForLLM || text.trim(),
+      title: llmParsed.title || text.trim(),
       tags: normalizeTags(llmParsed.tags || []),
       priority: llmParsed.priority || "medium",
       confidence: {
