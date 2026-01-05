@@ -9,12 +9,15 @@ import TaskSection from "@/components/tasks/TaskSection";
 import QuickAdd from "@/components/tasks/QuickAdd";
 import NextTaskCard from "@/components/dashboard/NextTaskCard";
 import StatsOverview from "@/components/dashboard/StatsOverview";
+import FloatingActionButton from "@/components/ui/FloatingActionButton";
+import AIReminderModal from "@/components/reminders/AIReminderModal";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -90,19 +93,25 @@ export default function DashboardPage() {
     }
   };
 
-  // Categorize tasks by time
   const now = new Date();
-  const todayTasks = tasks.filter((t) => {
+  
+  // Sort tasks by dateTime
+  const sortedTasks = [...tasks].sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+
+  const todayTasks = sortedTasks.filter((t) => {
     const taskDate = new Date(t.dateTime);
     return isToday(taskDate) && !t.completed;
   });
 
-  const tomorrowTasks = tasks.filter((t) => {
+  // Find next upcoming task
+  const nextTask = todayTasks.find(t => new Date(t.dateTime) > now) || todayTasks[0];
+
+  const tomorrowTasks = sortedTasks.filter((t) => {
     const taskDate = new Date(t.dateTime);
     return isTomorrow(taskDate) && !t.completed;
   });
 
-  const thisWeekTasks = tasks.filter((t) => {
+  const thisWeekTasks = sortedTasks.filter((t) => {
     const taskDate = new Date(t.dateTime);
     return (
       isThisWeek(taskDate, { weekStartsOn: 1 }) &&
@@ -112,12 +121,12 @@ export default function DashboardPage() {
     );
   });
 
-  const completedToday = tasks.filter((t) => {
+  const completedToday = sortedTasks.filter((t) => {
     const taskDate = new Date(t.dateTime);
     return isToday(taskDate) && t.completed;
   });
 
-  const overdueTasks = tasks.filter((t) => {
+  const overdueTasks = sortedTasks.filter((t) => {
     const taskDate = new Date(t.dateTime);
     return taskDate < startOfDay(now) && !t.completed;
   });
@@ -134,9 +143,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto pb-24">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
           <FaSun className="text-yellow-500" />
           Today
@@ -150,8 +159,19 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {/* Stats Overview */}
+      <StatsOverview tasks={todayTasks.concat(completedToday)} />
+
+      {/* Next Task Card (Hero) */}
+      {nextTask && (
+        <div className="mb-8">
+          <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-gray-500 dark:text-gray-400">Focus</h2>
+          <NextTaskCard task={nextTask} onComplete={handleToggleComplete} />
+        </div>
+      )}
+
       {/* Quick Add */}
-      <div className="mb-6">
+      <div className="mb-8">
         <QuickAdd onAdd={handleQuickAdd} placeholder="What do you need to do today?" />
       </div>
 
@@ -179,7 +199,13 @@ export default function DashboardPage() {
         onUpdate={handleUpdate}
         accentColor="blue"
         showDate={false}
-        emptyMessage="No tasks for today. Add one above!"
+        emptyMessage="No tasks for today."
+        emptyAction={{
+          text: "Plan my day with AI",
+          subtext: "Let AI organize your schedule",
+          icon: "✨",
+          onClick: () => setIsAIModalOpen(true)
+        }}
       />
 
       {/* Tomorrow's Tasks */}
@@ -223,6 +249,14 @@ export default function DashboardPage() {
           showDate={false}
         />
       )}
+
+      <FloatingActionButton onClick={() => setIsAIModalOpen(true)} />
+      
+      <AIReminderModal
+        isOpen={isAIModalOpen}
+        onClose={() => setIsAIModalOpen(false)}
+        onSuccess={fetchTasks}
+      />
     </div>
   );
 }

@@ -52,6 +52,8 @@ export async function GET(request) {
       recurring: reminder.recurring,
       recurringType: reminder.recurringType,
       completed: reminder.completed || false,
+      priority: reminder.priority || "medium",
+      subtasks: reminder.subtasks || [],
       username: reminder.username,
       createdAt: reminder.createdAt,
       updatedAt: reminder.updatedAt,
@@ -83,7 +85,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { title, description, dateTime, category, recurring, recurringType } = body;
+    const { title, description, dateTime, category, recurring, recurringType, priority, subtasks } = body;
 
     // Validation
     if (!title || !dateTime || !category) {
@@ -104,6 +106,12 @@ export async function POST(request) {
       category,
       recurring: recurring || false,
       recurringType: recurring ? recurringType : null,
+      priority: priority || "medium",
+      subtasks: Array.isArray(subtasks) ? subtasks.map((st, idx) => ({
+        id: st.id || `st-${Date.now()}-${idx}`,
+        title: st.title,
+        completed: st.completed || false,
+      })) : [],
       createdAt: new Date(),
       updatedAt: new Date(),
     };

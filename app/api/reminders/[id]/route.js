@@ -48,6 +48,8 @@ export async function GET(request, { params }) {
       recurring: reminder.recurring,
       recurringType: reminder.recurringType,
       completed: reminder.completed || false,
+      priority: reminder.priority || "medium",
+      subtasks: reminder.subtasks || [],
       username: reminder.username,
       createdAt: reminder.createdAt,
       updatedAt: reminder.updatedAt,
@@ -80,7 +82,7 @@ export async function PUT(request, { params }) {
 
     const { id } = await params;
     const body = await request.json();
-    const { title, description, dateTime, category, recurring, recurringType } = body;
+    const { title, description, dateTime, category, recurring, recurringType, priority, subtasks } = body;
 
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
@@ -107,6 +109,12 @@ export async function PUT(request, { params }) {
       category,
       recurring: recurring || false,
       recurringType: recurring ? recurringType : null,
+      priority: priority || "medium",
+      subtasks: Array.isArray(subtasks) ? subtasks.map((st, idx) => ({
+        id: st.id || `st-${Date.now()}-${idx}`,
+        title: st.title,
+        completed: st.completed || false,
+      })) : [],
       updatedAt: new Date(),
     };
 
@@ -137,6 +145,8 @@ export async function PUT(request, { params }) {
       recurring: updatedReminder.recurring,
       recurringType: updatedReminder.recurringType,
       completed: updatedReminder.completed || false,
+      priority: updatedReminder.priority || "medium",
+      subtasks: updatedReminder.subtasks || [],
       username: updatedReminder.username,
       createdAt: updatedReminder.createdAt.toISOString(),
       updatedAt: updatedReminder.updatedAt.toISOString(),
@@ -263,6 +273,14 @@ export async function PATCH(request, { params }) {
     if (body.description !== undefined) updateData.description = body.description;
     if (body.dateTime) updateData.dateTime = new Date(body.dateTime);
     if (body.category) updateData.category = body.category;
+    if (body.priority) updateData.priority = body.priority;
+    if (body.subtasks !== undefined) {
+      updateData.subtasks = Array.isArray(body.subtasks) ? body.subtasks.map((st, idx) => ({
+        id: st.id || `st-${Date.now()}-${idx}`,
+        title: st.title,
+        completed: st.completed || false,
+      })) : [];
+    }
 
     const result = await remindersCollection.updateOne(
       {
@@ -291,6 +309,8 @@ export async function PATCH(request, { params }) {
       recurring: updatedReminder.recurring,
       recurringType: updatedReminder.recurringType,
       completed: updatedReminder.completed || false,
+      priority: updatedReminder.priority || "medium",
+      subtasks: updatedReminder.subtasks || [],
       username: updatedReminder.username,
       createdAt: updatedReminder.createdAt,
       updatedAt: updatedReminder.updatedAt,

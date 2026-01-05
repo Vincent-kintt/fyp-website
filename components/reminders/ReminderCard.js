@@ -22,10 +22,10 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
 
   const getCategoryColor = (category) => {
     const colors = {
-      work: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
-      personal: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
-      health: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
-      other: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+      work: "bg-primary-light text-primary",
+      personal: "bg-success-light text-success",
+      health: "bg-danger-light text-danger",
+      other: "bg-background-tertiary text-text-secondary"
     };
     return colors[category] || colors.other;
   };
@@ -37,10 +37,10 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
           <h3 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>{currentReminder.title}</h3>
           <div className="flex space-x-2">
             <button onClick={() => setIsEditModalOpen(true)}>
-              <FaEdit className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer" />
+              <FaEdit className="text-primary hover:text-primary-hover cursor-pointer" />
             </button>
             <button onClick={() => onDelete(currentReminder.id)}>
-              <FaTrash className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300" />
+              <FaTrash className="text-danger hover:text-danger-hover" />
             </button>
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
 
         {currentReminder.recurring && (
           <div className="mt-3 text-sm">
-            <span className="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-1 rounded font-medium">
+            <span className="bg-info-light text-info px-2 py-1 rounded font-medium">
               Recurring: {currentReminder.recurringType}
             </span>
           </div>

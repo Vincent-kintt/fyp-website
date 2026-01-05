@@ -51,15 +51,15 @@ export default function AIReminderInput({ onGenerate }) {
   };
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-6 rounded-lg border-2 border-blue-200 dark:border-blue-800 mb-8">
+    <div className="bg-gradient-to-r from-primary-light to-info-light p-6 rounded-lg border-2 border-primary/30 mb-8">
       <div className="flex items-center space-x-2 mb-4">
-        <FaMagic className="text-blue-600 dark:text-blue-400 text-xl" />
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <FaMagic className="text-primary text-xl" />
+        <h3 className="text-lg font-semibold text-text-primary">
           AI-Powered Reminder Generator
         </h3>
       </div>
 
-      <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+      <p className="text-sm text-text-secondary mb-4">
         Just type what you want to remember in natural language, and AI will create a structured reminder for you!
       </p>
 
@@ -71,11 +71,11 @@ export default function AIReminderInput({ onGenerate }) {
           placeholder="E.g., 'Remind me to call John tomorrow at 3pm' or 'Team meeting every Monday at 10am'"
           rows="3"
           disabled={isGenerating}
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none transition-all resize-none"
+          className="w-full px-4 py-3 border border-input-border rounded-lg bg-input-bg text-text-primary placeholder-text-muted focus:ring-2 focus:ring-input-border-focus focus:border-transparent outline-none transition-all resize-none"
         />
 
         {error && (
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p className="text-sm text-danger">{error}</p>
         )}
 
         <Button
@@ -98,8 +98,8 @@ export default function AIReminderInput({ onGenerate }) {
         </Button>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+      <div className="mt-4 pt-4 border-t border-primary/30">
+        <p className="text-xs text-text-muted">
           💡 <strong>Examples:</strong> "Doctor appointment next Friday at 2pm" • "Pay bills on the 1st of every month" • "Daily standup at 9am"
         </p>
       </div>

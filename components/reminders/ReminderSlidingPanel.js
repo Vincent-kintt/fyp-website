@@ -118,7 +118,7 @@ export default function ReminderSlidingPanel({ isOpen, onClose, onSuccess }) {
       {/* Sliding Panel */}
       <div
         ref={panelRef}
-        className="fixed inset-y-0 right-0 bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-y-auto"
+        className="fixed inset-y-0 right-0 bg-surface shadow-2xl z-50 overflow-y-auto"
         style={{
           width: window.innerWidth < 640 ? '100%' : `${panelWidth}px`,
           transition: isResizing ? 'none' : 'transform 0.3s ease-in-out'
@@ -126,20 +126,20 @@ export default function ReminderSlidingPanel({ isOpen, onClose, onSuccess }) {
       >
         {/* Resize Handle */}
         <div
-          className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors group"
+          className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary transition-colors group"
           onMouseDown={handleResizeStart}
         >
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-500 dark:group-hover:bg-blue-400 transition-colors rounded-r" />
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-border group-hover:bg-primary transition-colors rounded-r" />
         </div>
 
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <div className="sticky top-0 bg-surface border-b border-border px-6 py-4 flex items-center justify-between z-10">
+          <h2 className="text-2xl font-bold text-text-primary">
             Create New Reminder
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
+            className="p-2 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
             aria-label="Close panel"
           >
             <FaTimes className="text-xl" />
@@ -148,12 +148,12 @@ export default function ReminderSlidingPanel({ isOpen, onClose, onSuccess }) {
 
         {/* Content */}
         <div className="p-6">
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
+          <p className="text-text-secondary mb-6">
             Describe your reminder in natural language and let AI handle the rest!
           </p>
 
           {error && (
-            <div className="mb-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded">
+            <div className="mb-4 bg-danger-light border border-danger/30 text-danger px-4 py-3 rounded">
               {error}
             </div>
           )}

@@ -30,12 +30,12 @@ export default function Navbar() {
   // Prevent hydration mismatch by not rendering until mounted
   if (!mounted) {
     return (
-      <nav className="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700">
+      <nav className="bg-navbar-bg shadow-md border-b border-navbar-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
-              <FaBell className="text-blue-600 dark:text-blue-400 text-2xl" />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">ReminderApp</span>
+              <FaBell className="text-primary text-2xl" />
+              <span className="text-xl font-bold text-text-primary">ReminderApp</span>
             </div>
           </div>
         </div>
@@ -44,13 +44,13 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700">
+    <nav className="bg-navbar-bg shadow-md border-b border-navbar-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <FaBell className="text-blue-600 dark:text-blue-400 text-2xl" />
-            <span className="text-xl font-bold text-gray-900 dark:text-white">ReminderApp</span>
+            <FaBell className="text-primary text-2xl" />
+            <span className="text-xl font-bold text-text-primary">ReminderApp</span>
           </Link>
 
           {/* Navigation Links */}
@@ -59,41 +59,41 @@ export default function Navbar() {
               <>
                 <Link
                   href="/dashboard"
-                  className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium flex items-center gap-1.5"
+                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
                 >
                   <FaHome className="w-4 h-4" />
                   <span className="hidden sm:inline">Today</span>
                 </Link>
                 <Link
                   href="/inbox"
-                  className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium flex items-center gap-1.5"
+                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
                 >
                   <FaInbox className="w-4 h-4" />
                   <span className="hidden sm:inline">Inbox</span>
                 </Link>
                 <Link
                   href="/calendar"
-                  className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium flex items-center gap-1.5"
+                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
                 >
                   <FaCalendarAlt className="w-4 h-4" />
                   <span className="hidden sm:inline">Calendar</span>
                 </Link>
                 <Link
                   href="/reminders"
-                  className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium flex items-center gap-1.5"
+                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
                 >
                   <FaList className="w-4 h-4" />
                   <span className="hidden sm:inline">All</span>
                 </Link>
 
                 {/* User Info */}
-                <div className="flex items-center space-x-3 border-l border-gray-300 dark:border-gray-600 pl-6">
+                <div className="flex items-center space-x-3 border-l border-border pl-6">
                   <div className="flex items-center space-x-2">
-                    <FaUser className="text-gray-700 dark:text-gray-300" />
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                    <FaUser className="text-text-secondary" />
+                    <span className="text-sm font-medium text-text-primary">
                       {session.user?.username}
                       {session.user?.role === "admin" && (
-                        <span className="ml-2 text-xs bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-1 rounded font-semibold">
+                        <span className="ml-2 text-xs bg-info-light text-info px-2 py-1 rounded font-semibold">
                           Admin
                         </span>
                       )}
@@ -112,7 +112,7 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/login"
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="bg-primary text-text-inverted px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors font-medium"
               >
                 Login
               </Link>
@@ -121,11 +121,11 @@ export default function Navbar() {
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-yellow-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              className="p-2 rounded-lg bg-background-tertiary text-text-primary hover:bg-surface-active transition-colors"
               aria-label="Toggle theme"
             >
               {currentTheme === "dark" ? (
-                <FaSun className="text-lg" />
+                <FaSun className="text-lg text-warning" />
               ) : (
                 <FaMoon className="text-lg" />
               )}

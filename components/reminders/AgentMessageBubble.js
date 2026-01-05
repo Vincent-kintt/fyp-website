@@ -52,13 +52,13 @@ export default function AgentMessageBubble({
           >
             <span style={{ 
               fontSize: "10px",
-              color: "rgba(255, 255, 255, 0.35)",
+              color: "var(--modal-text-muted)",
               transition: "transform 0.15s ease",
               transform: reasoningExpanded ? "rotate(90deg)" : "rotate(0deg)",
             }}>▶</span>
             <span style={{ 
               fontSize: "13px",
-              color: "rgba(139, 92, 246, 0.8)",
+              color: "var(--modal-accent)",
             }}>{t.reasoning}</span>
           </div>
           {reasoningExpanded && (
@@ -67,10 +67,10 @@ export default function AgentMessageBubble({
               style={{ 
                 fontSize: "13px", 
                 lineHeight: "1.6", 
-                color: "rgba(255, 255, 255, 0.7)",
+                color: "var(--modal-text-secondary)",
                 paddingLeft: "12px",
                 marginTop: "4px",
-                borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
+                borderLeft: "1px solid var(--glass-border)",
               }}
             >
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{reasoning}</ReactMarkdown>
@@ -85,11 +85,11 @@ export default function AgentMessageBubble({
           className="markdown-content" 
           style={{ 
             padding: "10px 14px", 
-            background: "rgba(255, 255, 255, 0.06)", 
-            border: "1px solid rgba(255, 255, 255, 0.1)", 
+            background: "var(--agent-bubble-bg)", 
+            border: "1px solid var(--agent-bubble-border)", 
             borderRadius: "12px 12px 12px 2px", 
             fontSize: "13px", 
-            color: "rgba(255, 255, 255, 0.9)" 
+            color: "var(--modal-text)" 
           }}
         >
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
@@ -110,7 +110,7 @@ export default function AgentMessageBubble({
             <div>
               <div style={{ 
                 fontSize: "11px", 
-                color: "rgba(255, 255, 255, 0.5)", 
+                color: "var(--modal-text-muted)", 
                 marginBottom: "8px",
                 display: "flex",
                 alignItems: "center",
@@ -124,17 +124,17 @@ export default function AgentMessageBubble({
                   {tr.result.reminders.slice(0, 10).map((reminder, rIdx) => (
                     <div key={rIdx} style={{
                       padding: "8px 10px",
-                      background: "rgba(255, 255, 255, 0.03)",
+                      background: "var(--glass-bg)",
                       borderRadius: "6px",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
                     }}>
                       <div>
-                        <div style={{ fontWeight: "500", color: "rgba(255, 255, 255, 0.9)" }}>
+                        <div style={{ fontWeight: "500", color: "var(--modal-text)" }}>
                           {reminder.title}
                         </div>
-                        <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.5)", marginTop: "2px" }}>
+                        <div style={{ fontSize: "11px", color: "var(--modal-text-muted)", marginTop: "2px" }}>
                           {new Date(reminder.dateTime).toLocaleString(language === "en" ? "en-US" : "zh-TW", {
                             month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
                           })}
@@ -153,18 +153,18 @@ export default function AgentMessageBubble({
                         </div>
                       </div>
                       {reminder.completed && (
-                        <span style={{ color: "rgba(34, 197, 94, 0.8)" }}>✓</span>
+                        <span style={{ color: "var(--success-text)" }}>✓</span>
                       )}
                     </div>
                   ))}
                   {tr.result.reminders.length > 10 && (
-                    <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.4)", textAlign: "center" }}>
+                    <div style={{ fontSize: "11px", background: "var(--glass-border)", textAlign: "center" }}>
                       {language === "en" ? `... and ${tr.result.reminders.length - 10} more` : `... 還有 ${tr.result.reminders.length - 10} 個`}
                     </div>
                   )}
                 </div>
               ) : (
-                <div style={{ color: "rgba(255, 255, 255, 0.5)", textAlign: "center", padding: "8px" }}>
+                <div style={{ color: "var(--modal-text-muted)", textAlign: "center", padding: "8px" }}>
                   {language === "en" ? "No reminders found" : "沒有找到提醒"}
                 </div>
               )}

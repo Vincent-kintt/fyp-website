@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { FaTimes, FaClock, FaTag, FaSync } from "react-icons/fa";
+import { FaTimes, FaClock, FaTag, FaSync, FaFlag, FaPlus, FaTrash } from "react-icons/fa";
 
 export default function EditReminderModal({ isOpen, onClose, reminder, onSave }) {
   const [formData, setFormData] = useState({
@@ -10,8 +10,11 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
     dateTime: "",
     category: "personal",
     recurring: false,
-    recurringType: "daily"
+    recurringType: "daily",
+    priority: "medium",
+    subtasks: []
   });
+  const [newSubtask, setNewSubtask] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -25,8 +28,11 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
           : "",
         category: reminder.category || "personal",
         recurring: reminder.recurring || false,
-        recurringType: reminder.recurringType || "daily"
+        recurringType: reminder.recurringType || "daily",
+        priority: reminder.priority || "medium",
+        subtasks: reminder.subtasks || []
       });
+      setNewSubtask("");
       setError("");
     }
   }, [reminder, isOpen]);
@@ -103,6 +109,43 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
       other: "border-gray-500 bg-gray-500/10"
     };
     return colors[category] || colors.other;
+  };
+
+  const getPriorityColor = (priority) => {
+    const colors = {
+      high: "border-red-500 bg-red-500/10 text-red-500",
+      medium: "border-yellow-500 bg-yellow-500/10 text-yellow-500",
+      low: "border-green-500 bg-green-500/10 text-green-500"
+    };
+    return colors[priority] || colors.medium;
+  };
+
+  const handleAddSubtask = () => {
+    if (!newSubtask.trim()) return;
+    const subtask = {
+      id: `st-${Date.now()}`,
+      title: newSubtask.trim(),
+      completed: false
+    };
+    setFormData(prev => ({
+      ...prev,
+      subtasks: [...prev.subtasks, subtask]
+    }));
+    setNewSubtask("");
+  };
+
+  const handleRemoveSubtask = (subtaskId) => {
+    setFormData(prev => ({
+      ...prev,
+      subtasks: prev.subtasks.filter(st => st.id !== subtaskId)
+    }));
+  };
+
+  const handleSubtaskKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddSubtask();
+    }
   };
 
   return (
@@ -242,6 +285,97 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Priority */}
+          <div>
+            <label 
+              className="flex items-center gap-1.5 text-sm font-medium mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              <FaFlag className="w-3 h-3" />
+              Priority
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {["low", "medium", "high"].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, priority: p }))}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium capitalize border-2 transition-all ${
+                    formData.priority === p 
+                      ? getPriorityColor(p)
+                      : "border-transparent bg-gray-500/10"
+                  }`}
+                  style={{ color: formData.priority === p ? undefined : "var(--text-primary)" }}
+                >
+                  {p === "high" ? "🔴 High" : p === "medium" ? "🟡 Medium" : "🟢 Low"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Subtasks */}
+          <div>
+            <label 
+              className="flex items-center gap-1.5 text-sm font-medium mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Subtasks
+              {formData.subtasks.length > 0 && (
+                <span className="text-xs bg-purple-500/20 text-purple-500 px-1.5 py-0.5 rounded">
+                  {formData.subtasks.length}
+                </span>
+              )}
+            </label>
+            
+            {/* Add Subtask Input */}
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={newSubtask}
+                onChange={(e) => setNewSubtask(e.target.value)}
+                onKeyDown={handleSubtaskKeyDown}
+                placeholder="Add a subtask..."
+                className="flex-1 px-3 py-2 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-purple-500/50 text-sm"
+                style={{
+                  backgroundColor: "var(--input-bg)",
+                  borderColor: "var(--card-border)",
+                  color: "var(--text-primary)"
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleAddSubtask}
+                disabled={!newSubtask.trim()}
+                className="px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FaPlus className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Subtask List */}
+            {formData.subtasks.length > 0 && (
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {formData.subtasks.map((subtask) => (
+                  <div
+                    key={subtask.id}
+                    className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg bg-gray-500/10"
+                  >
+                    <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                      {subtask.title}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSubtask(subtask.id)}
+                      className="p-1 text-red-500 hover:bg-red-500/20 rounded transition-colors"
+                    >
+                      <FaTrash className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Recurring */}

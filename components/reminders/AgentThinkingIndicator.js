@@ -25,16 +25,16 @@ export default function AgentThinkingIndicator({
       alignItems: "center",
       gap: "12px",
       padding: "14px 18px",
-      background: "rgba(255, 255, 255, 0.03)",
+      background: "var(--glass-bg)",
       borderRadius: "8px",
-      borderLeft: "2px solid rgba(139, 92, 246, 0.6)",
+      borderLeft: "2px solid var(--modal-accent)",
     }}>
       {/* Minimal spinner */}
       <div style={{
         width: "16px",
         height: "16px",
-        border: "2px solid rgba(139, 92, 246, 0.2)",
-        borderTopColor: "rgba(139, 92, 246, 0.8)",
+        border: "2px solid var(--modal-accent-border)",
+        borderTopColor: "var(--modal-accent)",
         borderRadius: "50%",
         animation: "spin 0.8s linear infinite",
       }} />
@@ -43,7 +43,7 @@ export default function AgentThinkingIndicator({
         <span style={{
           fontSize: "13px",
           fontWeight: "500",
-          color: "rgba(255, 255, 255, 0.7)",
+          color: "var(--modal-text-secondary)",
           letterSpacing: "0.01em",
         }}>
           {toolCall ? toolCall.description : phaseDescription}{dots}
@@ -52,7 +52,7 @@ export default function AgentThinkingIndicator({
           <span style={{
             display: "block",
             fontSize: "12px",
-            color: "rgba(255, 255, 255, 0.4)",
+            color: "var(--modal-text-muted)",
             marginTop: "4px",
           }}>
             {toolCall.params.title}

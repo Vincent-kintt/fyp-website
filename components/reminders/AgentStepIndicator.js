@@ -38,9 +38,9 @@ export default function AgentStepIndicator({ steps, currentStep, language = "zh"
       alignItems: "center",
       justifyContent: "space-between",
       padding: "12px 16px",
-      background: "rgba(139, 92, 246, 0.05)",
+      background: "var(--modal-accent-light)",
       borderRadius: "12px",
-      border: "1px solid rgba(139, 92, 246, 0.15)",
+      border: "1px solid var(--modal-accent-border)",
       marginBottom: "12px",
       gap: "4px",
       flexWrap: "wrap",
@@ -61,20 +61,20 @@ export default function AgentStepIndicator({ steps, currentStep, language = "zh"
               padding: "6px 10px",
               borderRadius: "8px",
               background: isActive 
-                ? "rgba(139, 92, 246, 0.2)" 
+                ? "var(--modal-accent-active)" 
                 : isCompleted 
-                  ? "rgba(34, 197, 94, 0.15)" 
+                  ? "var(--modal-accent-completed)" 
                   : isSkipped
-                    ? "rgba(255, 255, 255, 0.05)"
-                    : "rgba(255, 255, 255, 0.05)",
+                    ? "var(--glass-bg)"
+                    : "var(--glass-bg)",
               border: `1px solid ${
                 isActive 
-                  ? "rgba(139, 92, 246, 0.4)" 
+                  ? "var(--modal-accent-active-border)" 
                   : isCompleted 
-                    ? "rgba(34, 197, 94, 0.3)" 
+                    ? "var(--modal-accent-completed-border)" 
                     : isSkipped
-                      ? "rgba(255, 255, 255, 0.1)"
-                      : "rgba(255, 255, 255, 0.1)"
+                      ? "var(--glass-border)"
+                      : "var(--glass-border)"
               }`,
               opacity: isSkipped ? 0.6 : 1,
               transition: "all 0.3s ease",
@@ -87,26 +87,26 @@ export default function AgentStepIndicator({ steps, currentStep, language = "zh"
                 alignItems: "center",
                 justifyContent: "center",
                 background: isActive 
-                  ? "rgba(139, 92, 246, 0.3)" 
+                  ? "var(--modal-accent-active)" 
                   : isCompleted 
-                    ? "rgba(34, 197, 94, 0.3)" 
+                    ? "var(--modal-accent-completed)" 
                     : isSkipped
-                      ? "rgba(255, 255, 255, 0.1)"
-                      : "rgba(255, 255, 255, 0.1)",
+                      ? "var(--glass-border)"
+                      : "var(--glass-border)",
               }}>
-                {isActive && <FaSpinner className="animate-spin" style={{ fontSize: "10px", color: "rgba(139, 92, 246, 1)" }} />}
-                {isCompleted && <FaCheck style={{ fontSize: "10px", color: "rgba(34, 197, 94, 1)" }} />}
-                {isSkipped && <FaForward style={{ fontSize: "10px", color: "rgba(255, 255, 255, 0.4)" }} />}
-                {isPending && <Icon style={{ fontSize: "10px", color: "rgba(255, 255, 255, 0.4)" }} />}
+                {isActive && <FaSpinner className="animate-spin" style={{ fontSize: "10px", color: "var(--modal-accent-active)" }} />}
+                {isCompleted && <FaCheck style={{ fontSize: "10px", color: "var(--modal-accent-completed)" }} />}
+                {isSkipped && <FaForward style={{ fontSize: "10px", color: "var(--modal-text-muted)" }} />}
+                {isPending && <Icon style={{ fontSize: "10px", color: "var(--modal-text-muted)" }} />}
               </div>
               <span style={{
                 fontSize: "11px",
                 fontWeight: isActive ? "600" : "500",
                 color: isActive 
-                  ? "rgba(139, 92, 246, 1)" 
+                  ? "var(--modal-accent-active)" 
                   : isCompleted 
-                    ? "rgba(34, 197, 94, 0.9)" 
-                    : "rgba(255, 255, 255, 0.5)",
+                    ? "var(--modal-accent-completed)" 
+                    : "var(--modal-text-muted)",
                 whiteSpace: "nowrap",
                 textDecoration: isSkipped ? "line-through" : "none",
               }}>
@@ -122,8 +122,8 @@ export default function AgentStepIndicator({ steps, currentStep, language = "zh"
                 maxWidth: "24px",
                 margin: "0 4px",
                 background: isCompleted || isSkipped
-                  ? "rgba(255, 255, 255, 0.2)" 
-                  : "rgba(255, 255, 255, 0.15)",
+                  ? "var(--glass-border)" 
+                  : "var(--glass-border)",
                 borderRadius: "1px",
                 transition: "all 0.3s ease",
               }} />

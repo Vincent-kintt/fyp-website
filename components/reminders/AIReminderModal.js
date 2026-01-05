@@ -445,7 +445,29 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                   }]);
                   break;
 
+                case "reasoning_hide":
+                  // Hide/remove the last reasoning block for this iteration
+                  // (reasoning without action is internal processing, not useful to user)
+                  setAgentMessages(prev => {
+                    const updated = [...prev];
+                    const lastMsgIdx = updated.length - 1;
+                    if (lastMsgIdx >= 0 && updated[lastMsgIdx].type === "agent") {
+                      const timeline = [...(updated[lastMsgIdx].timeline || [])];
+                      // Find and remove the reasoning block for this iteration
+                      const reasoningIdx = timeline.findIndex(
+                        b => b.type === "reasoning" && b.iteration === event.iteration
+                      );
+                      if (reasoningIdx >= 0) {
+                        timeline.splice(reasoningIdx, 1);
+                      }
+                      updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
+                    }
+                    return updated;
+                  });
+                  break;
+
                 case "reasoning":
+                case "reasoning_complete":
                   currentAgentReasoning = event.fullContent;
                   // Use flushSync for immediate rendering of streaming content
                   flushSync(() => {
@@ -465,6 +487,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                             !timeline[lastBlockIdx].completed &&
                             sameIteration) {
                           // Update existing block with iteration-specific reasoning if available, or full content
+                          // For reasoning_complete, always use the full iterationReasoning
                           timeline[lastBlockIdx] = { 
                             ...timeline[lastBlockIdx], 
                             content: event.iterationReasoning || event.fullContent 
@@ -779,18 +802,18 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
           width: "900px",
           maxHeight: "85vh",
           borderRadius: "20px",
-          background: "rgba(20, 20, 30, 0.95)",
+          background: "var(--modal-bg)",
           backdropFilter: "blur(20px) saturate(180%)",
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          border: "1px solid rgba(255, 255, 255, 0.18)",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+          border: "1px solid var(--modal-border)",
+          boxShadow: "var(--modal-shadow)",
           transition: isDragging ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           transform: isOpen ? "scale(1) translateY(0)" : "scale(0.95) translateY(-10px)",
           opacity: isOpen ? 1 : 0,
         }}
         onMouseDown={handleMouseDown}
       >
-        <div className="modal-header flex items-center justify-between cursor-move select-none" style={{ padding: "10px 12px", borderRadius: "20px 20px 0 0", background: "rgba(255, 255, 255, 0.06)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(255, 255, 255, 0.12)" }}>
+        <div className="modal-header flex items-center justify-between cursor-move select-none" style={{ padding: "10px 12px", borderRadius: "20px 20px 0 0", background: "var(--modal-header-bg)", backdropFilter: "blur(10px)", borderBottom: "1px solid var(--modal-header-border)" }}>
           <div className="flex items-center gap-2.5 flex-1">
             <select
               value={settings.model}
@@ -798,20 +821,19 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
               onMouseDown={(e) => e.stopPropagation()}
               style={{
                 padding: "5px 10px",
-                background: "rgba(255, 255, 255, 0.08)",
-                border: "1px solid rgba(255, 255, 255, 0.18)",
+                background: "var(--select-bg)",
+                border: "1px solid var(--glass-border)",
                 borderRadius: "8px",
-                color: "rgba(255, 255, 255, 0.95)",
+                color: "var(--modal-text)",
                 fontSize: "11px",
                 cursor: "pointer",
                 outline: "none",
                 transition: "all 0.2s ease",
-                minWidth: "140px",
-                colorScheme: "dark"
+                minWidth: "140px"
               }}
             >
               {modelOptions.map(option => (
-                <option key={option.value} value={option.value} style={{ background: "#1e1e2e", color: "rgba(255, 255, 255, 0.95)" }}>
+                <option key={option.value} value={option.value} style={{ background: "var(--select-option-bg)", color: "var(--modal-text)" }}>
                   {option.label}
                 </option>
               ))}
@@ -824,21 +846,20 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                 onMouseDown={(e) => e.stopPropagation()}
                 style={{
                   padding: "5px 10px",
-                  background: "rgba(255, 255, 255, 0.08)",
-                  border: "1px solid rgba(255, 255, 255, 0.18)",
+                  background: "var(--select-bg)",
+                  border: "1px solid var(--glass-border)",
                   borderRadius: "8px",
-                  color: "rgba(255, 255, 255, 0.95)",
+                  color: "var(--modal-text)",
                   fontSize: "11px",
                   cursor: "pointer",
                   outline: "none",
                   transition: "all 0.2s ease",
-                  minWidth: "60px",
-                  colorScheme: "dark"
+                  minWidth: "60px"
                 }}
               >
-                <option value="low" style={{ background: "#1e1e2e", color: "rgba(255, 255, 255, 0.95)" }}>{t.low}</option>
-                <option value="medium" style={{ background: "#1e1e2e", color: "rgba(255, 255, 255, 0.95)" }}>{t.medium}</option>
-                <option value="high" style={{ background: "#1e1e2e", color: "rgba(255, 255, 255, 0.95)" }}>{t.high}</option>
+                <option value="low" style={{ background: "var(--select-option-bg)", color: "var(--modal-text)" }}>{t.low}</option>
+                <option value="medium" style={{ background: "var(--select-option-bg)", color: "var(--modal-text)" }}>{t.medium}</option>
+                <option value="high" style={{ background: "var(--select-option-bg)", color: "var(--modal-text)" }}>{t.high}</option>
               </select>
             )}
 
@@ -849,20 +870,19 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                 onMouseDown={(e) => e.stopPropagation()}
                 style={{
                   padding: "5px 10px",
-                  background: "rgba(255, 255, 255, 0.08)",
-                  border: "1px solid rgba(255, 255, 255, 0.18)",
+                  background: "var(--select-bg)",
+                  border: "1px solid var(--glass-border)",
                   borderRadius: "8px",
-                  color: "rgba(255, 255, 255, 0.95)",
+                  color: "var(--modal-text)",
                   fontSize: "11px",
                   cursor: "pointer",
                   outline: "none",
                   transition: "all 0.2s ease",
-                  minWidth: "60px",
-                  colorScheme: "dark"
+                  minWidth: "60px"
                 }}
               >
-                <option value="true" style={{ background: "#1e1e2e", color: "rgba(255, 255, 255, 0.95)" }}>{t.enabled}</option>
-                <option value="false" style={{ background: "#1e1e2e", color: "rgba(255, 255, 255, 0.95)" }}>{t.disabled}</option>
+                <option value="true" style={{ background: "var(--select-option-bg)", color: "var(--modal-text)" }}>{t.enabled}</option>
+                <option value="false" style={{ background: "var(--select-option-bg)", color: "var(--modal-text)" }}>{t.disabled}</option>
               </select>
             )}
 
@@ -872,20 +892,19 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
               onMouseDown={(e) => e.stopPropagation()}
               style={{
                 padding: "5px 10px",
-                background: "rgba(255, 255, 255, 0.08)",
-                border: "1px solid rgba(255, 255, 255, 0.18)",
+                background: "var(--select-bg)",
+                border: "1px solid var(--glass-border)",
                 borderRadius: "8px",
-                color: "rgba(255, 255, 255, 0.95)",
+                color: "var(--modal-text)",
                 fontSize: "11px",
                 cursor: "pointer",
                 outline: "none",
                 transition: "all 0.2s ease",
-                minWidth: "80px",
-                colorScheme: "dark"
+                minWidth: "80px"
               }}
             >
-              <option value="zh" style={{ background: "#1e1e2e", color: "rgba(255, 255, 255, 0.95)" }}>繁體中文</option>
-              <option value="en" style={{ background: "#1e1e2e", color: "rgba(255, 255, 255, 0.95)" }}>English</option>
+              <option value="zh" style={{ background: "var(--select-option-bg)", color: "var(--modal-text)" }}>繁體中文</option>
+              <option value="en" style={{ background: "var(--select-option-bg)", color: "var(--modal-text)" }}>English</option>
             </select>
 
           </div>
@@ -896,10 +915,10 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
               width: "28px",
               height: "28px",
               borderRadius: "50%",
-              background: "rgba(255, 255, 255, 0.15)",
+              background: "var(--glass-bg-hover)",
               backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255, 255, 255, 0.25)",
-              color: "rgba(255, 255, 255, 0.9)",
+              border: "1px solid var(--glass-border-hover)",
+              color: "var(--modal-text)",
               cursor: "pointer",
               fontSize: "18px",
               fontWeight: "300",
@@ -910,16 +929,16 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
               flexShrink: 0
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)";
-              e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.4)";
+              e.currentTarget.style.background = "var(--tool-error-bg)";
+              e.currentTarget.style.borderColor = "var(--tool-error-border)";
               e.currentTarget.style.transform = "rotate(90deg) scale(1.1)";
-              e.currentTarget.style.color = "rgba(239, 68, 68, 1)";
+              e.currentTarget.style.color = "#ef4444";
             }}
             onMouseOut={(e) => {
-              e.currentTarget.style.background = "rgba(255, 255, 255, 0.12)";
-              e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
+              e.currentTarget.style.background = "var(--glass-bg-hover)";
+              e.currentTarget.style.borderColor = "var(--glass-border-hover)";
               e.currentTarget.style.transform = "rotate(0deg) scale(1)";
-              e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
+              e.currentTarget.style.color = "var(--modal-text)";
             }}
             aria-label="關閉"
           >
@@ -929,12 +948,12 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
 
         <div style={{ display: "flex", height: "calc(85vh - 60px)", gap: "16px", padding: "16px" }}>
           {/* 左側對話區 */}
-          <div style={{ flex: "1 1 60%", display: "flex", flexDirection: "column", background: "rgba(255, 255, 255, 0.04)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+          <div style={{ flex: "1 1 60%", display: "flex", flexDirection: "column", background: "var(--glass-bg)", borderRadius: "12px", border: "1px solid var(--glass-border)" }}>
             {/* 對話標題和清空按鈕 */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid var(--glass-border)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <FaRobot style={{ color: "rgba(139, 92, 246, 0.9)", fontSize: "16px" }} />
-                <h3 style={{ fontSize: "15px", fontWeight: "600", color: "rgba(255, 255, 255, 0.95)" }}>
+                <FaRobot style={{ color: "var(--modal-accent)", fontSize: "16px" }} />
+                <h3 style={{ fontSize: "15px", fontWeight: "600", color: "var(--modal-text)" }}>
                   {t.chatTitle}
                 </h3>
               </div>
@@ -943,10 +962,10 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                   onClick={handleClearChat}
                   style={{
                     padding: "6px 12px",
-                    background: "rgba(239, 68, 68, 0.1)",
-                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                    background: "var(--tool-error-bg)",
+                    border: "1px solid var(--tool-error-border)",
                     borderRadius: "8px",
-                    color: "rgba(239, 68, 68, 0.9)",
+                    color: "#ef4444",
                     fontSize: "12px",
                     cursor: "pointer",
                     display: "flex",
@@ -955,10 +974,10 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                     transition: "all 0.2s"
                   }}
                   onMouseOver={(e) => {
-                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)";
+                    e.currentTarget.style.background = "var(--tool-error-border)";
                   }}
                   onMouseOut={(e) => {
-                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                    e.currentTarget.style.background = "var(--tool-error-bg)";
                   }}
                 >
                   <FaTrash style={{ fontSize: "11px" }} />
@@ -970,7 +989,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
             {/* 對話訊息列表 */}
             <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
               {agentMessages.length === 0 ? (
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", color: "rgba(255, 255, 255, 0.5)" }}>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", color: "var(--modal-text-muted)" }}>
                     <FaRobot style={{ fontSize: "48px", opacity: 0.3 }} />
                     <p style={{ fontSize: "14px", textAlign: "center", whiteSpace: "pre-line" }}>{t.emptyAgenticChat}</p>
                   </div>
@@ -981,7 +1000,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                       <div key={index} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                         {msg.type === "user" ? (
                           /* User message */
-                          <div style={{ alignSelf: "flex-end", maxWidth: "80%", padding: "10px 14px", background: "rgba(139, 92, 246, 0.15)", border: "1px solid rgba(139, 92, 246, 0.3)", borderRadius: "12px 12px 2px 12px", fontSize: "13px", color: "rgba(255, 255, 255, 0.95)" }}>
+                          <div style={{ alignSelf: "flex-end", maxWidth: "80%", padding: "10px 14px", background: "var(--user-bubble-bg)", border: "1px solid var(--user-bubble-border)", borderRadius: "12px 12px 2px 12px", fontSize: "13px", color: "var(--modal-text)" }}>
                             {msg.content}
                           </div>
                         ) : (
@@ -999,18 +1018,18 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                                   }}>
                                     <div style={{ 
                                       padding: "2px 8px", 
-                                      background: "rgba(255, 255, 255, 0.1)", 
+                                      background: "var(--glass-border)", 
                                       borderRadius: "4px", 
                                       fontSize: "11px", 
                                       fontWeight: "600",
-                                      color: "rgba(255, 255, 255, 0.9)"
+                                      color: "var(--modal-text)"
                                     }}>
                                       Step {block.iteration}
                                     </div>
-                                    <div style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.5)" }}>
+                                    <div style={{ fontSize: "12px", color: "var(--modal-text-muted)" }}>
                                       {block.title}
                                     </div>
-                                    <div style={{ flex: 1, height: "1px", background: "rgba(255, 255, 255, 0.1)" }}></div>
+                                    <div style={{ flex: 1, height: "1px", background: "var(--glass-border)" }}></div>
                                   </div>
                                 );
                               }
@@ -1061,10 +1080,10 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                                       </div>
                                       
                                       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                                        <span style={{ fontSize: "13px", color: "rgba(255, 255, 255, 0.9)", fontWeight: "500" }}>
+                                        <span style={{ fontSize: "13px", color: "var(--modal-text)", fontWeight: "500" }}>
                                           {block.description || block.tool}
                                         </span>
-                                        <span style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.5)" }}>
+                                        <span style={{ fontSize: "11px", color: "var(--modal-text-muted)" }}>
                                           {block.status === "running" 
                                             ? (settings.language === "en" ? "Executing..." : "執行中...") 
                                             : block.status === "success"
@@ -1084,7 +1103,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                                             borderRadius: "8px",
                                             padding: "12px",
                                           }}>
-                                            <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.5)", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+                                            <div style={{ fontSize: "11px", color: "var(--modal-text-muted)", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
                                               <span>📋</span>
                                               <span>{settings.language === "en" ? `Found ${block.result.count} reminders` : `找到 ${block.result.count} 個提醒`}</span>
                                             </div>
@@ -1093,15 +1112,15 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                                                 {block.result.reminders.slice(0, 5).map((reminder, rIdx) => (
                                                   <div key={rIdx} style={{ padding: "8px 10px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                                     <div>
-                                                      <div style={{ fontWeight: "500", color: "rgba(255, 255, 255, 0.9)", fontSize: "12px" }}>{reminder.title}</div>
-                                                      <div style={{ fontSize: "10px", color: "rgba(255, 255, 255, 0.5)", marginTop: "2px" }}>
+                                                      <div style={{ fontWeight: "500", color: "var(--modal-text)", fontSize: "12px" }}>{reminder.title}</div>
+                                                      <div style={{ fontSize: "10px", color: "var(--modal-text-muted)", marginTop: "2px" }}>
                                                         {new Date(reminder.dateTime).toLocaleDateString()}
                                                       </div>
                                                     </div>
                                                   </div>
                                                 ))}
                                                 {block.result.reminders.length > 5 && (
-                                                   <div style={{ fontSize: "10px", color: "rgba(255, 255, 255, 0.4)", paddingLeft: "4px" }}>
+                                                   <div style={{ fontSize: "10px", color: "var(--modal-text-secondary)", paddingLeft: "4px" }}>
                                                      ... +{block.result.reminders.length - 5} more
                                                    </div>
                                                 )}
@@ -1127,9 +1146,17 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                               }
 
                               if (block.type === "content") {
+                                // Filter out any remaining tool markup that might have slipped through
+                                const cleanContent = (block.content || "")
+                                  .replace(/<!--TOOL:[\w]+:[\s\S]*?-->/g, "")
+                                  .replace(/<!--TOOL[^>]*$/g, "")
+                                  .trim();
+                                
+                                if (!cleanContent) return null;
+                                
                                 return (
-                                  <div key={`content-${bIdx}`} className="markdown-content" style={{ padding: "12px 16px", background: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px 12px 12px 2px", fontSize: "13px", color: "rgba(255, 255, 255, 0.9)" }}>
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content}</ReactMarkdown>
+                                  <div key={`content-${bIdx}`} className="markdown-content" style={{ padding: "12px 16px", background: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px 12px 12px 2px", fontSize: "13px", color: "var(--modal-text)" }}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent}</ReactMarkdown>
                                   </div>
                                 );
                               }
@@ -1161,9 +1188,9 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
             </div>
 
             {/* 輸入區 */}
-            <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255, 255, 255, 0.1)" }}>
+            <div style={{ padding: "12px 16px", borderTop: "1px solid var(--glass-border)" }}>
               {error && (
-                <p style={{ fontSize: "12px", color: "rgba(239, 68, 68, 0.9)", background: "rgba(239, 68, 68, 0.1)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(239, 68, 68, 0.3)", marginBottom: "8px" }}>
+                <p style={{ fontSize: "12px", color: "#ef4444", background: "var(--tool-error-bg)", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--tool-error-border)", marginBottom: "8px" }}>
                   {error}
                 </p>
               )}
@@ -1178,10 +1205,10 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                   style={{
                     flex: 1,
                     padding: "10px 12px",
-                    background: "rgba(255, 255, 255, 0.08)",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    background: "var(--modal-input-bg)",
+                    border: "1px solid var(--modal-input-border)",
                     borderRadius: "10px",
-                    color: "rgba(255, 255, 255, 0.95)",
+                    color: "var(--modal-text)",
                     fontSize: "13px",
                     outline: "none",
                     transition: "all 0.2s ease",
@@ -1189,12 +1216,12 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                     resize: "none"
                   }}
                   onFocus={(e) => {
-                    e.target.style.background = "rgba(255, 255, 255, 0.12)";
-                    e.target.style.borderColor = "rgba(139, 92, 246, 0.5)";
+                    e.target.style.background = "var(--glass-bg-hover)";
+                    e.target.style.borderColor = "var(--modal-input-focus-border)";
                   }}
                   onBlur={(e) => {
-                    e.target.style.background = "rgba(255, 255, 255, 0.08)";
-                    e.target.style.borderColor = "rgba(255, 255, 255, 0.15)";
+                    e.target.style.background = "var(--modal-input-bg)";
+                    e.target.style.borderColor = "var(--modal-input-border)";
                   }}
                 />
                 <button
@@ -1234,9 +1261,9 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
           </div>
 
           {/* 右側預覽區 */}
-          <div style={{ flex: "1 1 40%", display: "flex", flexDirection: "column", background: "rgba(255, 255, 255, 0.04)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
-              <h3 style={{ fontSize: "15px", fontWeight: "600", color: "rgba(255, 255, 255, 0.95)" }}>
+          <div style={{ flex: "1 1 40%", display: "flex", flexDirection: "column", background: "var(--glass-bg)", borderRadius: "12px", border: "1px solid var(--glass-border)" }}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--glass-border)" }}>
+              <h3 style={{ fontSize: "15px", fontWeight: "600", color: "var(--modal-text-muted)" }}>
                 {t.previewTitle}
               </h3>
             </div>
@@ -1246,7 +1273,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                   <div style={{ padding: "16px", background: "rgba(6, 182, 212, 0.08)", border: "1px solid rgba(6, 182, 212, 0.3)", borderRadius: "12px" }}>
                     <div style={{ marginBottom: "12px" }}>
-                      <label style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.6)", display: "block", marginBottom: "4px" }}>{t.titleLabel}</label>
+                      <label style={{ fontSize: "11px", color: "var(--modal-text-muted)", display: "block", marginBottom: "4px" }}>{t.titleLabel}</label>
                       {isEditingPreview ? (
                         <input
                           type="text"
@@ -1258,20 +1285,20 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                             background: "rgba(255, 255, 255, 0.08)",
                             border: "1px solid rgba(255, 255, 255, 0.2)",
                             borderRadius: "8px",
-                            color: "rgba(255, 255, 255, 0.95)",
+                            color: "var(--modal-text-muted)",
                             fontSize: "14px",
                             fontWeight: "600",
                             outline: "none"
                           }}
                         />
                       ) : (
-                        <p style={{ fontSize: "15px", fontWeight: "600", color: "rgba(255, 255, 255, 0.95)" }}>{previewReminder.title}</p>
+                        <p style={{ fontSize: "15px", fontWeight: "600", color: "var(--modal-text-muted)" }}>{previewReminder.title}</p>
                       )}
                     </div>
 
                     {previewReminder.description && (
                       <div style={{ marginBottom: "12px" }}>
-                        <label style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.6)", display: "block", marginBottom: "4px" }}>{t.descLabel}</label>
+                        <label style={{ fontSize: "11px", color: "var(--modal-text-muted)", display: "block", marginBottom: "4px" }}>{t.descLabel}</label>
                         {isEditingPreview ? (
                           <textarea
                             value={previewReminder.description}
@@ -1283,7 +1310,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                               background: "rgba(255, 255, 255, 0.08)",
                               border: "1px solid rgba(255, 255, 255, 0.2)",
                               borderRadius: "8px",
-                              color: "rgba(255, 255, 255, 0.9)",
+                              color: "var(--modal-text-muted)",
                               fontSize: "13px",
                               outline: "none",
                               resize: "none",
@@ -1291,13 +1318,13 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                             }}
                           />
                         ) : (
-                          <p style={{ fontSize: "13px", color: "rgba(255, 255, 255, 0.9)" }}>{previewReminder.description}</p>
+                          <p style={{ fontSize: "13px", color: "var(--modal-text-muted)" }}>{previewReminder.description}</p>
                         )}
                       </div>
                     )}
 
                     <div style={{ marginBottom: "12px" }}>
-                      <label style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.6)", display: "block", marginBottom: "4px" }}>{t.dateTimeLabel}</label>
+                      <label style={{ fontSize: "11px", color: "var(--modal-text-muted)", display: "block", marginBottom: "4px" }}>{t.dateTimeLabel}</label>
                       {isEditingPreview ? (
                         <input
                           type="datetime-local"
@@ -1309,19 +1336,19 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                             background: "rgba(255, 255, 255, 0.08)",
                             border: "1px solid rgba(255, 255, 255, 0.2)",
                             borderRadius: "8px",
-                            color: "rgba(255, 255, 255, 0.95)",
+                            color: "var(--modal-text-muted)",
                             fontSize: "13px",
                             outline: "none",
                             colorScheme: "dark"
                           }}
                         />
                       ) : (
-                        <p style={{ fontSize: "13px", color: "rgba(255, 255, 255, 0.9)" }}>{new Date(previewReminder.dateTime).toLocaleString('zh-TW')}</p>
+                        <p style={{ fontSize: "13px", color: "var(--modal-text-muted)" }}>{new Date(previewReminder.dateTime).toLocaleString('zh-TW')}</p>
                       )}
                     </div>
 
                     <div style={{ marginBottom: "12px" }}>
-                      <label style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.6)", display: "block", marginBottom: "4px" }}>{t.categoryLabel}</label>
+                      <label style={{ fontSize: "11px", color: "var(--modal-text-muted)", display: "block", marginBottom: "4px" }}>{t.categoryLabel}</label>
                       {isEditingPreview ? (
                         <select
                           value={previewReminder.category}
@@ -1332,7 +1359,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                             background: "rgba(255, 255, 255, 0.08)",
                             border: "1px solid rgba(255, 255, 255, 0.2)",
                             borderRadius: "8px",
-                            color: "rgba(255, 255, 255, 0.95)",
+                            color: "var(--modal-text-muted)",
                             fontSize: "13px",
                             outline: "none",
                             cursor: "pointer",
@@ -1345,7 +1372,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                           <option value="other">{t.other}</option>
                         </select>
                       ) : (
-                        <p style={{ fontSize: "13px", color: "rgba(255, 255, 255, 0.9)" }}>
+                        <p style={{ fontSize: "13px", color: "var(--modal-text-muted)" }}>
                           {t[previewReminder.category] || previewReminder.category}
                         </p>
                       )}
@@ -1353,8 +1380,8 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
 
                     {previewReminder.recurring && (
                       <div>
-                        <label style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.6)", display: "block", marginBottom: "4px" }}>{t.recurringLabel}</label>
-                        <p style={{ fontSize: "13px", color: "rgba(255, 255, 255, 0.9)" }}>
+                        <label style={{ fontSize: "11px", color: "var(--modal-text-muted)", display: "block", marginBottom: "4px" }}>{t.recurringLabel}</label>
+                        <p style={{ fontSize: "13px", color: "var(--modal-text-muted)" }}>
                           {t[previewReminder.recurringType] || previewReminder.recurringType}
                         </p>
                       </div>
@@ -1370,7 +1397,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                         background: "rgba(255, 255, 255, 0.08)",
                         border: "1px solid rgba(255, 255, 255, 0.2)",
                         borderRadius: "10px",
-                        color: "rgba(255, 255, 255, 0.9)",
+                        color: "var(--modal-text-muted)",
                         fontSize: "13px",
                         cursor: "pointer",
                         display: "flex",
@@ -1422,7 +1449,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                   </div>
                 </div>
               ) : (
-                <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", color: "rgba(255, 255, 255, 0.4)" }}>
+                <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", color: "var(--modal-text-secondary)" }}>
                   <div style={{ fontSize: "48px", opacity: 0.3 }}>📋</div>
                   <p style={{ fontSize: "13px", textAlign: "center", whiteSpace: "pre-line" }}>{t.emptyPreview}</p>
                 </div>

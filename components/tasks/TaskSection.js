@@ -14,17 +14,18 @@ export default function TaskSection({
   collapsible = true,
   defaultCollapsed = false,
   emptyMessage = "No tasks",
+  emptyAction = null, // New prop for actionable empty state
   showDate = true,
   accentColor = "blue"
 }) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   const accentColors = {
-    blue: "text-blue-600 dark:text-blue-400",
-    green: "text-green-600 dark:text-green-400",
-    orange: "text-orange-600 dark:text-orange-400",
-    purple: "text-purple-600 dark:text-purple-400",
-    gray: "text-gray-600 dark:text-gray-400",
+    blue: "text-primary",
+    green: "text-success",
+    orange: "text-warning",
+    purple: "text-info",
+    gray: "text-text-muted",
   };
 
   const completedCount = tasks.filter((t) => t.completed).length;
@@ -71,6 +72,17 @@ export default function TaskSection({
                 showDate={showDate}
               />
             ))
+          ) : emptyAction ? (
+            <div 
+              onClick={emptyAction.onClick}
+              className="p-4 rounded-lg border border-dashed border-[var(--card-border)] hover:bg-[var(--background)] transition-colors cursor-pointer group text-center"
+            >
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-xl group-hover:scale-110 transition-transform">{emptyAction.icon || "🤖"}</span>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{emptyAction.text}</p>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{emptyAction.subtext}</p>
+              </div>
+            </div>
           ) : (
             <p className="text-sm py-3 px-4" style={{ color: "var(--text-muted)" }}>
               {emptyMessage}

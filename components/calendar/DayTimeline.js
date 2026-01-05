@@ -33,10 +33,10 @@ export default function DayTimeline({ date, tasks, onToggleComplete, onDelete })
 
   const getCategoryColor = (category) => {
     const colors = {
-      work: "bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-100",
-      personal: "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-100",
-      health: "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-100",
-      other: "bg-gray-100 border-gray-300 text-gray-800 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
+      work: "bg-primary-light border-primary/30 text-primary",
+      personal: "bg-success-light border-success/30 text-success",
+      health: "bg-danger-light border-danger/30 text-danger",
+      other: "bg-background-tertiary border-border text-text-secondary"
     };
     return colors[category] || colors.other;
   };

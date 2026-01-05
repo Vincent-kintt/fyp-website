@@ -28,9 +28,9 @@ export default function ReminderForm({ initialData = {}, onSubmit, onCancel, dis
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-4 rounded-lg">
+    <form onSubmit={handleSubmit} className="bg-surface p-4 rounded-lg">
       {showTitle && (
-        <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
+        <h2 className="text-2xl font-bold mb-6 text-text-primary">
           {isEditing ? "Edit Reminder" : "Create New Reminder"}
         </h2>
       )}
@@ -45,7 +45,7 @@ export default function ReminderForm({ initialData = {}, onSubmit, onCancel, dis
       />
 
       <div className="mb-4">
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label htmlFor="description" className="block text-sm font-medium text-text-secondary mb-1">
           Description
         </label>
         <textarea
@@ -55,7 +55,7 @@ export default function ReminderForm({ initialData = {}, onSubmit, onCancel, dis
           onChange={handleChange}
           placeholder="Enter reminder description (optional)"
           rows="4"
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none transition-all"
+          className="w-full px-3 py-2 border border-input-border rounded-lg bg-input-bg text-text-primary focus:ring-2 focus:ring-input-border-focus focus:border-transparent outline-none transition-all"
         />
       </div>
 
@@ -69,8 +69,8 @@ export default function ReminderForm({ initialData = {}, onSubmit, onCancel, dis
       />
 
       <div className="mb-4">
-        <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Category <span className="text-red-500 dark:text-red-400">*</span>
+        <label htmlFor="category" className="block text-sm font-medium text-text-secondary mb-1">
+          Category <span className="text-danger">*</span>
         </label>
         <select
           id="category"
@@ -78,7 +78,7 @@ export default function ReminderForm({ initialData = {}, onSubmit, onCancel, dis
           value={formData.category}
           onChange={handleChange}
           required
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none transition-all"
+          className="w-full px-3 py-2 border border-input-border rounded-lg bg-input-bg text-text-primary focus:ring-2 focus:ring-input-border-focus focus:border-transparent outline-none transition-all"
         >
           <option value="personal">Personal</option>
           <option value="work">Work</option>
@@ -94,23 +94,23 @@ export default function ReminderForm({ initialData = {}, onSubmit, onCancel, dis
             name="recurring"
             checked={formData.recurring}
             onChange={handleChange}
-            className="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400"
+            className="w-4 h-4 text-primary border-input-border rounded focus:ring-input-border-focus"
           />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Recurring Reminder</span>
+          <span className="text-sm font-medium text-text-secondary">Recurring Reminder</span>
         </label>
       </div>
 
       {formData.recurring && (
         <div className="mb-4">
-          <label htmlFor="recurringType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Repeat <span className="text-red-500 dark:text-red-400">*</span>
+          <label htmlFor="recurringType" className="block text-sm font-medium text-text-secondary mb-1">
+            Repeat <span className="text-danger">*</span>
           </label>
           <select
             id="recurringType"
             name="recurringType"
             value={formData.recurringType}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none transition-all"
+            className="w-full px-3 py-2 border border-input-border rounded-lg bg-input-bg text-text-primary focus:ring-2 focus:ring-input-border-focus focus:border-transparent outline-none transition-all"
           >
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>

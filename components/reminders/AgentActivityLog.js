@@ -84,7 +84,7 @@ export default function AgentActivityLog({
           >
             <span style={{
               fontSize: "13px",
-              color: "rgba(180, 140, 100, 0.9)",
+              color: "var(--modal-accent)",
               fontWeight: "400",
             }}>
               {isActive && currentReasoning 
@@ -93,7 +93,7 @@ export default function AgentActivityLog({
             </span>
             <span style={{
               fontSize: "10px",
-              color: "rgba(255, 255, 255, 0.35)",
+              color: "var(--modal-text-muted)",
               transform: thinkingExpanded ? "rotate(90deg)" : "rotate(0deg)",
               transition: "transform 0.15s ease",
             }}>▶</span>
@@ -106,7 +106,7 @@ export default function AgentActivityLog({
               style={{
                 marginTop: "6px",
                 paddingLeft: "12px",
-                borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
+                borderLeft: "1px solid var(--glass-border)",
                 maxHeight: "250px",
                 overflowY: "auto",
               }}
@@ -114,7 +114,7 @@ export default function AgentActivityLog({
               {isActive && !reasoning && currentPhase && (
                 <div style={{
                   fontSize: "13px",
-                  color: "rgba(255, 255, 255, 0.5)",
+                  color: "var(--modal-text-muted)",
                   fontStyle: "italic",
                 }}>
                   {currentPhase.description}...
@@ -123,7 +123,7 @@ export default function AgentActivityLog({
               {reasoning && (
                 <div style={{
                   fontSize: "13px",
-                  color: "rgba(255, 255, 255, 0.7)",
+                  color: "var(--modal-text-secondary)",
                   lineHeight: 1.6,
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
@@ -158,13 +158,13 @@ export default function AgentActivityLog({
           >
             <span style={{
               fontSize: "10px",
-              color: "rgba(255, 255, 255, 0.35)",
+              color: "var(--modal-text-muted)",
               transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
               transition: "transform 0.15s ease",
             }}>▶</span>
             <span style={{
               fontSize: "13px",
-              color: "rgba(255, 255, 255, 0.5)",
+              color: "var(--modal-text-muted)",
             }}>
               {successCount > 0 
                 ? (language === "en" ? `${successCount} task${successCount > 1 ? 's' : ''} done` : `${successCount} 個任務完成`)
@@ -180,7 +180,7 @@ export default function AgentActivityLog({
             <div style={{
               marginTop: "4px",
               paddingLeft: "12px",
-              borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
+              borderLeft: "1px solid var(--glass-border)",
             }}>
               {activities.map((activity, idx) => (
                 <div 
@@ -202,7 +202,7 @@ export default function AgentActivityLog({
                   </span>
                   <span>{activity.message}</span>
                   {activity.detail && (
-                    <span style={{ color: "rgba(255, 255, 255, 0.35)", fontSize: "11px" }}>
+                    <span style={{ color: "var(--modal-text-muted)", fontSize: "11px" }}>
                       ({activity.detail})
                     </span>
                   )}
@@ -222,7 +222,7 @@ export default function AgentActivityLog({
           padding: "6px 0",
           marginTop: "4px",
           fontSize: "12px",
-          color: "rgba(255, 255, 255, 0.55)",
+          color: "var(--modal-text-muted)",
         }}>
           <span style={{ fontSize: "11px" }}>→</span>
           <span>{currentToolCall.description}</span>

@@ -2,35 +2,288 @@
 
 @layer base {
   :root {
+    /* Background colors */
     --background: #f9fafb;
-    --foreground: #171717;
-    --card-bg: #ffffff;
-    --card-border: #e5e7eb;
-    --text-primary: #1f2937;
-    --text-secondary: #4b5563;
+    --background-secondary: #f3f4f6;
+    --background-tertiary: #e5e7eb;
+    
+    /* Surface/Card colors */
+    --surface: #ffffff;
+    --surface-hover: #f9fafb;
+    --surface-active: #f3f4f6;
+    
+    /* Legacy aliases for backward compatibility */
+    --card-bg: var(--surface);
+    --card-border: var(--border);
+    
+    /* Border colors */
+    --border: #e5e7eb;
+    --border-hover: #d1d5db;
+    --border-focus: #3b82f6;
+    
+    /* Text colors */
+    --text-primary: #111827;
+    --text-secondary: #374151;
     --text-muted: #6b7280;
+    --text-inverted: #ffffff;
+    
+    /* Brand colors */
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --primary-light: #dbeafe;
+    
+    /* Semantic colors */
+    --success: #16a34a;
+    --success-hover: #15803d;
+    --success-light: #dcfce7;
+    
+    --warning: #d97706;
+    --warning-hover: #b45309;
+    --warning-light: #fef3c7;
+    
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --danger-light: #fee2e2;
+    
+    --info: #0891b2;
+    --info-hover: #0e7490;
+    --info-light: #cffafe;
+    
+    /* Input/Form colors */
+    --input-bg: #ffffff;
+    --input-border: #d1d5db;
+    --input-border-focus: #3b82f6;
+    
+    /* Shadow */
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    
+    /* Navbar */
+    --navbar-bg: #ffffff;
+    --navbar-border: #e5e7eb;
+    
+    /* Modal/Glassmorphism - Light mode */
+    --modal-bg: rgba(255, 255, 255, 0.92);
+    --modal-border: rgba(0, 0, 0, 0.1);
+    --modal-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    --modal-header-bg: rgba(0, 0, 0, 0.03);
+    --modal-header-border: rgba(0, 0, 0, 0.08);
+    
+    /* Glass elements - Light mode */
+    --glass-bg: rgba(0, 0, 0, 0.04);
+    --glass-bg-hover: rgba(0, 0, 0, 0.08);
+    --glass-border: rgba(0, 0, 0, 0.1);
+    --glass-border-hover: rgba(0, 0, 0, 0.15);
+    
+    /* Modal text - Light mode */
+    --modal-text: #1f2937;
+    --modal-text-secondary: #4b5563;
+    --modal-text-muted: #6b7280;
+    
+    /* Modal accents */
+    --modal-accent: #8b5cf6;
+    --modal-accent-light: rgba(139, 92, 246, 0.1);
+    --modal-accent-border: rgba(139, 92, 246, 0.3);
+    --modal-accent-active: rgba(139, 92, 246, 0.8);
+    --modal-accent-active-border: rgba(139, 92, 246, 0.4);
+    --modal-accent-completed: rgba(34, 197, 94, 0.8);
+    --modal-accent-completed-border: rgba(34, 197, 94, 0.3);
+    
+    /* User message bubble */
+    --user-bubble-bg: rgba(139, 92, 246, 0.12);
+    --user-bubble-border: rgba(139, 92, 246, 0.25);
+    
+    /* Agent message bubble */
+    --agent-bubble-bg: rgba(0, 0, 0, 0.04);
+    --agent-bubble-border: rgba(0, 0, 0, 0.08);
+    
+    /* Tool/Status colors */
+    --tool-success-bg: rgba(34, 197, 94, 0.08);
+    --tool-success-border: rgba(34, 197, 94, 0.2);
+    --tool-error-bg: rgba(239, 68, 68, 0.08);
+    --tool-error-border: rgba(239, 68, 68, 0.2);
+    
+    /* Input in modal */
+    --modal-input-bg: rgba(0, 0, 0, 0.04);
+    --modal-input-border: rgba(0, 0, 0, 0.12);
+    --modal-input-focus-border: rgba(139, 92, 246, 0.5);
+    
+    /* Select dropdown */
+    --select-bg: rgba(0, 0, 0, 0.05);
+    --select-option-bg: #ffffff;
   }
 
   .dark {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card-bg: #1f2937;
-    --card-border: #374151;
-    --text-primary: #f3f4f6;
-    --text-secondary: #d1d5db;
-    --text-muted: #9ca3af;
+    /* Background colors - Neutral grays for better dark mode */
+    --background: #121212;
+    --background-secondary: #1a1a1a;
+    --background-tertiary: #242424;
+    
+    /* Surface/Card colors - Elevated surfaces are slightly lighter */
+    --surface: #1e1e1e;
+    --surface-hover: #2a2a2a;
+    --surface-active: #333333;
+    
+    /* Legacy aliases for backward compatibility */
+    --card-bg: var(--surface);
+    --card-border: var(--border);
+    
+    /* Border colors - Subtle neutral borders */
+    --border: #2e2e2e;
+    --border-hover: #404040;
+    --border-focus: #60a5fa;
+    
+    /* Text colors - Off-white to reduce eye strain */
+    --text-primary: #e4e4e7;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --text-inverted: #121212;
+    
+    /* Brand colors */
+    --primary: #3b82f6;
+    --primary-hover: #60a5fa;
+    --primary-light: #1e3a5f;
+    
+    /* Semantic colors */
+    --success: #22c55e;
+    --success-hover: #4ade80;
+    --success-light: #14532d;
+    
+    --warning: #f59e0b;
+    --warning-hover: #fbbf24;
+    --warning-light: #78350f;
+    
+    --danger: #ef4444;
+    --danger-hover: #f87171;
+    --danger-light: #7f1d1d;
+    
+    --info: #22d3ee;
+    --info-hover: #67e8f9;
+    --info-light: #164e63;
+    
+    /* Input/Form colors */
+    --input-bg: #1e1e1e;
+    --input-border: #3f3f46;
+    --input-border-focus: #60a5fa;
+    
+    /* Shadow */
+    --shadow-color: rgba(0, 0, 0, 0.4);
+    
+    /* Navbar */
+    --navbar-bg: #181818;
+    --navbar-border: #2e2e2e;
+    
+    /* Modal/Glassmorphism - Dark mode with neutral tones */
+    --modal-bg: rgba(24, 24, 24, 0.96);
+    --modal-border: rgba(255, 255, 255, 0.12);
+    --modal-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --modal-header-bg: rgba(255, 255, 255, 0.04);
+    --modal-header-border: rgba(255, 255, 255, 0.08);
+    
+    /* Glass elements - Dark mode */
+    --glass-bg: rgba(255, 255, 255, 0.04);
+    --glass-bg-hover: rgba(255, 255, 255, 0.08);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-border-hover: rgba(255, 255, 255, 0.15);
+    
+    /* Modal text - Dark mode with softer contrast */
+    --modal-text: #e4e4e7;
+    --modal-text-secondary: #a1a1aa;
+    --modal-text-muted: #71717a;
+    
+    /* Modal accents */
+    --modal-accent: #a78bfa;
+    --modal-accent-light: rgba(139, 92, 246, 0.2);
+    --modal-accent-border: rgba(139, 92, 246, 0.4);
+    --modal-accent-active: rgba(139, 92, 246, 1);
+    --modal-accent-active-border: rgba(139, 92, 246, 0.4);
+    --modal-accent-completed: rgba(34, 197, 94, 1);
+    --modal-accent-completed-border: rgba(34, 197, 94, 0.3);
+    
+    /* User message bubble */
+    --user-bubble-bg: rgba(139, 92, 246, 0.15);
+    --user-bubble-border: rgba(139, 92, 246, 0.3);
+    
+    /* Agent message bubble */
+    --agent-bubble-bg: rgba(255, 255, 255, 0.06);
+    --agent-bubble-border: rgba(255, 255, 255, 0.1);
+    
+    /* Tool/Status colors */
+    --tool-success-bg: rgba(34, 197, 94, 0.1);
+    --tool-success-border: rgba(34, 197, 94, 0.25);
+    --tool-error-bg: rgba(239, 68, 68, 0.1);
+    --tool-error-border: rgba(239, 68, 68, 0.25);
+    
+    /* Input in modal */
+    --modal-input-bg: rgba(255, 255, 255, 0.08);
+    --modal-input-border: rgba(255, 255, 255, 0.15);
+    --modal-input-focus-border: rgba(139, 92, 246, 0.5);
+    
+    /* Select dropdown */
+    --select-bg: rgba(255, 255, 255, 0.06);
+    --select-option-bg: #1e1e1e;
   }
 }
 
 @theme inline {
+  /* Background */
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background-secondary: var(--background-secondary);
+  --color-background-tertiary: var(--background-tertiary);
+  
+  /* Surface */
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  
+  /* Border */
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
+  --color-border-focus: var(--border-focus);
+  
+  /* Text */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-inverted: var(--text-inverted);
+  
+  /* Brand */
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  
+  /* Semantic */
+  --color-success: var(--success);
+  --color-success-hover: var(--success-hover);
+  --color-success-light: var(--success-light);
+  
+  --color-warning: var(--warning);
+  --color-warning-hover: var(--warning-hover);
+  --color-warning-light: var(--warning-light);
+  
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-light: var(--danger-light);
+  
+  --color-info: var(--info);
+  --color-info-hover: var(--info-hover);
+  --color-info-light: var(--info-light);
+  
+  /* Input */
+  --color-input-bg: var(--input-bg);
+  --color-input-border: var(--input-border);
+  --color-input-border-focus: var(--input-border-focus);
+  
+  /* Navbar */
+  --color-navbar-bg: var(--navbar-bg);
+  --color-navbar-border: var(--navbar-border);
+  
+  /* Fonts */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
-  color: var(--foreground);
+  color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
 }

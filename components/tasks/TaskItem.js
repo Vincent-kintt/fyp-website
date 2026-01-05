@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FaClock, FaEdit, FaTrash } from "react-icons/fa";
+import { FaClock, FaEdit, FaTrash, FaFlag, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
 
@@ -9,6 +9,7 @@ export default function TaskItem({ task, onToggleComplete, onDelete, onUpdate, s
   const [isCompleting, setIsCompleting] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState(task);
+  const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
 
   const handleToggle = async () => {
     setIsCompleting(true);
@@ -36,6 +37,41 @@ export default function TaskItem({ task, onToggleComplete, onDelete, onUpdate, s
       other: "bg-gray-500"
     };
     return colors[category] || colors.other;
+  };
+
+  const getPriorityConfig = (priority) => {
+    const configs = {
+      high: { color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/30", label: "High" },
+      medium: { color: "text-yellow-500", bg: "bg-yellow-500/10", border: "border-yellow-500/30", label: "Med" },
+      low: { color: "text-green-500", bg: "bg-green-500/10", border: "border-green-500/30", label: "Low" },
+    };
+    return configs[priority] || configs.medium;
+  };
+
+  const subtasks = currentTask.subtasks || [];
+  const completedSubtasks = subtasks.filter(st => st.completed).length;
+  const hasSubtasks = subtasks.length > 0;
+
+  const handleSubtaskToggle = async (subtaskId) => {
+    const updatedSubtasks = subtasks.map(st =>
+      st.id === subtaskId ? { ...st, completed: !st.completed } : st
+    );
+    
+    try {
+      const response = await fetch(`/api/reminders/${currentTask.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subtasks: updatedSubtasks }),
+      });
+      
+      if (response.ok) {
+        const updated = { ...currentTask, subtasks: updatedSubtasks };
+        setCurrentTask(updated);
+        if (onUpdate) onUpdate(updated);
+      }
+    } catch (error) {
+      console.error("Error updating subtask:", error);
+    }
   };
 
   const isOverdue = !currentTask.completed && isPast(new Date(currentTask.dateTime));
@@ -114,18 +150,37 @@ export default function TaskItem({ task, onToggleComplete, onDelete, onUpdate, s
           <FaClock className="w-3 h-3" />
           <span>{showDate ? formatTaskDate(currentTask.dateTime) : formatTimeOnly(currentTask.dateTime)}</span>
           
+          {/* Priority Badge */}
+          {currentTask.priority && currentTask.priority !== "medium" && (
+            <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-0.5 border ${getPriorityConfig(currentTask.priority).bg} ${getPriorityConfig(currentTask.priority).border} ${getPriorityConfig(currentTask.priority).color}`}>
+              <FaFlag className="w-2 h-2" />
+              {getPriorityConfig(currentTask.priority).label}
+            </span>
+          )}
+
           {/* Category Badge */}
           <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] capitalize border ${
-            currentTask.category === 'work' ? 'bg-blue-100 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300' :
-            currentTask.category === 'personal' ? 'bg-green-100 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-300' :
-            currentTask.category === 'health' ? 'bg-red-100 border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300' :
-            'bg-gray-100 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'
+            currentTask.category === 'work' ? 'bg-primary-light border-primary/30 text-primary' :
+            currentTask.category === 'personal' ? 'bg-success-light border-success/30 text-success' :
+            currentTask.category === 'health' ? 'bg-danger-light border-danger/30 text-danger' :
+            'bg-background-tertiary border-border text-text-secondary'
           }`}>
             {currentTask.category}
           </span>
 
+          {/* Subtasks Progress */}
+          {hasSubtasks && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsSubtasksExpanded(!isSubtasksExpanded); }}
+              className="ml-2 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1 border bg-purple-500/10 border-purple-500/30 text-purple-500 hover:bg-purple-500/20 transition-colors"
+            >
+              {completedSubtasks}/{subtasks.length}
+              {isSubtasksExpanded ? <FaChevronUp className="w-2 h-2" /> : <FaChevronDown className="w-2 h-2" />}
+            </button>
+          )}
+
           {currentTask.recurring && (
-            <span className="ml-1 px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded text-[10px]">
+            <span className="ml-1 px-1.5 py-0.5 bg-info-light text-info rounded text-[10px]">
               {currentTask.recurringType}
             </span>
           )}
@@ -149,6 +204,46 @@ export default function TaskItem({ task, onToggleComplete, onDelete, onUpdate, s
           <FaTrash className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Subtasks List */}
+      {hasSubtasks && isSubtasksExpanded && (
+        <div className="col-span-full ml-9 mt-2 space-y-1">
+          {subtasks.map((subtask) => (
+            <div
+              key={subtask.id}
+              className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-500/10 transition-colors"
+            >
+              <button
+                onClick={() => handleSubtaskToggle(subtask.id)}
+                className={`flex-shrink-0 w-4 h-4 rounded border transition-all duration-200 ${
+                  subtask.completed
+                    ? "bg-purple-500 border-purple-500"
+                    : "hover:border-purple-500"
+                }`}
+                style={{
+                  borderColor: subtask.completed ? undefined : "var(--text-muted)",
+                }}
+              >
+                {subtask.completed && (
+                  <svg className="w-full h-full text-white p-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </button>
+              <span
+                className={`text-xs transition-all duration-200 ${
+                  subtask.completed ? "line-through" : ""
+                }`}
+                style={{
+                  color: subtask.completed ? "var(--text-muted)" : "var(--text-secondary)",
+                }}
+              >
+                {subtask.title}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
 
     {/* Edit Modal */}
