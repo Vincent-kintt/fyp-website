@@ -96,8 +96,8 @@ const modelOptions = [
   { value: "deepseek/deepseek-v3.2", label: "DeepSeek V3.2" },
 ];
 
-export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
-  const [text, setText] = useState("");
+export default function AIReminderModal({ isOpen, onClose, onSuccess, initialText = "" }) {
+  const [text, setText] = useState(initialText);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -244,6 +244,13 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
       }
     };
   }, []);
+
+  // Update text when initialText changes (from QuickAdd forward)
+  useEffect(() => {
+    if (initialText && isOpen) {
+      setText(initialText);
+    }
+  }, [initialText, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -1098,31 +1105,166 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                                       <div style={{ marginLeft: "4px" }}>
                                         {block.tool === "listReminders" && block.result.reminders ? (
                                           <div style={{
-                                            background: "rgba(34, 197, 94, 0.05)",
-                                            border: "1px solid rgba(34, 197, 94, 0.2)",
-                                            borderRadius: "8px",
-                                            padding: "12px",
+                                            background: "var(--card-bg, rgba(255, 255, 255, 0.02))",
+                                            border: "1px solid var(--card-border, rgba(255, 255, 255, 0.08))",
+                                            borderRadius: "12px",
+                                            padding: "16px",
+                                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
                                           }}>
-                                            <div style={{ fontSize: "11px", color: "var(--modal-text-muted)", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
-                                              <span>📋</span>
-                                              <span>{settings.language === "en" ? `Found ${block.result.count} reminders` : `找到 ${block.result.count} 個提醒`}</span>
+                                            {/* Header */}
+                                            <div style={{ 
+                                              display: "flex", 
+                                              alignItems: "center", 
+                                              justifyContent: "space-between",
+                                              marginBottom: block.result.reminders.length > 0 ? "12px" : "0",
+                                              paddingBottom: block.result.reminders.length > 0 ? "12px" : "0",
+                                              borderBottom: block.result.reminders.length > 0 ? "1px solid rgba(255, 255, 255, 0.06)" : "none"
+                                            }}>
+                                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                <span style={{ fontSize: "16px" }}>📋</span>
+                                                <span style={{ 
+                                                  fontSize: "14px", 
+                                                  fontWeight: "600", 
+                                                  color: "var(--modal-text)" 
+                                                }}>
+                                                  {settings.language === "en" ? "Reminders" : "提醒列表"}
+                                                </span>
+                                              </div>
+                                              <span style={{ 
+                                                fontSize: "12px", 
+                                                fontWeight: "500",
+                                                color: "var(--modal-text-muted)",
+                                                background: "rgba(99, 102, 241, 0.1)",
+                                                padding: "4px 10px",
+                                                borderRadius: "9999px",
+                                              }}>
+                                                {block.result.count} {settings.language === "en" ? "found" : "個"}
+                                              </span>
                                             </div>
+                                            
+                                            {/* Empty State */}
+                                            {block.result.reminders.length === 0 && (
+                                              <div style={{ 
+                                                textAlign: "center", 
+                                                padding: "24px 16px", 
+                                                color: "var(--modal-text-muted)" 
+                                              }}>
+                                                <div style={{ fontSize: "24px", marginBottom: "8px", opacity: 0.5 }}>📭</div>
+                                                <div style={{ fontSize: "13px" }}>
+                                                  {settings.language === "en" ? "No reminders found" : "沒有找到提醒"}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Reminder List */}
                                             {block.result.reminders.length > 0 && (
-                                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                                                {block.result.reminders.slice(0, 5).map((reminder, rIdx) => (
-                                                  <div key={rIdx} style={{ padding: "8px 10px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                    <div>
-                                                      <div style={{ fontWeight: "500", color: "var(--modal-text)", fontSize: "12px" }}>{reminder.title}</div>
-                                                      <div style={{ fontSize: "10px", color: "var(--modal-text-muted)", marginTop: "2px" }}>
-                                                        {new Date(reminder.dateTime).toLocaleDateString()}
+                                              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                                {block.result.reminders.slice(0, 4).map((reminder, rIdx) => {
+                                                  // Format date safely
+                                                  const dateObj = reminder.dateTime ? new Date(reminder.dateTime) : null;
+                                                  const isValidDate = dateObj && !isNaN(dateObj.getTime()) && dateObj.getFullYear() > 1970;
+                                                  const formattedDate = isValidDate 
+                                                    ? dateObj.toLocaleDateString(settings.language === "en" ? "en-US" : "zh-TW", { 
+                                                        month: "short", 
+                                                        day: "numeric",
+                                                        hour: "2-digit",
+                                                        minute: "2-digit"
+                                                      })
+                                                    : (settings.language === "en" ? "No date" : "未設定");
+                                                  
+                                                  // Status badge config
+                                                  const statusConfig = {
+                                                    pending: { label: settings.language === "en" ? "Pending" : "待辦", color: "#6B7280", bg: "rgba(107, 114, 128, 0.1)" },
+                                                    in_progress: { label: settings.language === "en" ? "In Progress" : "進行中", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)" },
+                                                    completed: { label: settings.language === "en" ? "Done" : "完成", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" },
+                                                    snoozed: { label: settings.language === "en" ? "Snoozed" : "已延後", color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)" },
+                                                  };
+                                                  const status = statusConfig[reminder.status] || statusConfig.pending;
+                                                  
+                                                  // Priority indicator
+                                                  const priorityDot = {
+                                                    high: "#EF4444",
+                                                    medium: "#F59E0B", 
+                                                    low: "#10B981"
+                                                  }[reminder.priority] || "#6B7280";
+                                                  
+                                                  return (
+                                                    <div key={rIdx} style={{ 
+                                                      padding: "12px 14px", 
+                                                      background: "rgba(255, 255, 255, 0.03)", 
+                                                      borderRadius: "8px", 
+                                                      border: "1px solid rgba(255, 255, 255, 0.04)",
+                                                      display: "flex", 
+                                                      justifyContent: "space-between", 
+                                                      alignItems: "center",
+                                                      gap: "12px",
+                                                      transition: "background 0.15s ease",
+                                                    }}>
+                                                      {/* Left: Priority dot + Title */}
+                                                      <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "10px" }}>
+                                                        <div style={{ 
+                                                          width: "8px", 
+                                                          height: "8px", 
+                                                          borderRadius: "50%", 
+                                                          background: priorityDot,
+                                                          flexShrink: 0
+                                                        }} />
+                                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                                          <div style={{ 
+                                                            fontWeight: "500", 
+                                                            color: "var(--modal-text)", 
+                                                            fontSize: "13px",
+                                                            whiteSpace: "nowrap",
+                                                            overflow: "hidden",
+                                                            textOverflow: "ellipsis",
+                                                            maxWidth: "180px"
+                                                          }}>
+                                                            {reminder.title || (settings.language === "en" ? "Untitled" : "未命名")}
+                                                          </div>
+                                                          <div style={{ 
+                                                            fontSize: "11px", 
+                                                            color: "var(--modal-text-muted)", 
+                                                            marginTop: "3px",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: "6px"
+                                                          }}>
+                                                            <span>🕐</span>
+                                                            <span>{formattedDate}</span>
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                                                      
+                                                      {/* Right: Status Badge */}
+                                                      <div style={{ 
+                                                        fontSize: "10px", 
+                                                        fontWeight: "500",
+                                                        color: status.color,
+                                                        background: status.bg,
+                                                        padding: "3px 8px",
+                                                        borderRadius: "9999px",
+                                                        whiteSpace: "nowrap",
+                                                        flexShrink: 0
+                                                      }}>
+                                                        {status.label}
                                                       </div>
                                                     </div>
+                                                  );
+                                                })}
+                                                
+                                                {/* Overflow indicator */}
+                                                {block.result.reminders.length > 4 && (
+                                                  <div style={{ 
+                                                    fontSize: "12px", 
+                                                    color: "var(--modal-text-muted)", 
+                                                    textAlign: "center",
+                                                    padding: "8px",
+                                                    background: "rgba(255, 255, 255, 0.02)",
+                                                    borderRadius: "6px",
+                                                    border: "1px dashed rgba(255, 255, 255, 0.08)"
+                                                  }}>
+                                                    +{block.result.reminders.length - 4} {settings.language === "en" ? "more reminders" : "個更多提醒"}
                                                   </div>
-                                                ))}
-                                                {block.result.reminders.length > 5 && (
-                                                   <div style={{ fontSize: "10px", color: "var(--modal-text-secondary)", paddingLeft: "4px" }}>
-                                                     ... +{block.result.reminders.length - 5} more
-                                                   </div>
                                                 )}
                                               </div>
                                             )}

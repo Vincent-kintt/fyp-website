@@ -1,26 +1,173 @@
 "use client";
 
-import { useState } from "react";
-import { FaPlus, FaCalendarAlt, FaTag } from "react-icons/fa";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { FaPlus, FaCalendarAlt, FaTag, FaRobot, FaTimes, FaFlag, FaClock, FaSpinner } from "react-icons/fa";
+import { getTagClasses, formatDuration, DURATION_PRESETS } from "@/lib/utils";
 
-export default function QuickAdd({ onAdd, placeholder = "Add a task..." }) {
+const DEBOUNCE_MS = 600;
+
+const PRIORITY_CONFIG = {
+  high: { label: "High", labelZh: "高", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300" },
+  medium: { label: "Medium", labelZh: "中", color: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300" },
+  low: { label: "Low", labelZh: "低", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" },
+};
+
+export default function QuickAdd({ 
+  onAdd, 
+  onOpenAI, 
+  placeholder = "Add a task...",
+  language = "zh" 
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [title, setTitle] = useState("");
+  const [inputText, setInputText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parsedData, setParsedData] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [manualDate, setManualDate] = useState("");
+  const [manualTime, setManualTime] = useState("");
+  const [newTag, setNewTag] = useState("");
+  
+  const debounceRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const t = {
+    zh: {
+      placeholder: "快速新增任務...",
+      add: "新增",
+      adding: "新增中...",
+      cancel: "取消",
+      aiAssist: "AI 助手",
+      parsing: "AI 解析中...",
+      setDate: "設定日期",
+      setTag: "新增標籤",
+      removeTag: "移除標籤",
+      removePriority: "移除優先級",
+      removeDate: "移除日期",
+      tagPlaceholder: "輸入標籤...",
+      parsingHint: "等待解析完成可獲得更準確的結果",
+      today: "今天",
+      tomorrow: "明天",
+    },
+    en: {
+      placeholder: "Quick add task...",
+      add: "Add",
+      adding: "Adding...",
+      cancel: "Cancel",
+      aiAssist: "AI Assistant",
+      parsing: "AI parsing...",
+      setDate: "Set date",
+      setTag: "Add tag",
+      removeTag: "Remove tag",
+      removePriority: "Remove priority",
+      removeDate: "Remove date",
+      tagPlaceholder: "Enter tag...",
+      parsingHint: "Wait for parsing for better results",
+      today: "Today",
+      tomorrow: "Tomorrow",
+    },
+  }[language] || {};
+
+  // Debounced NLP parsing
+  const parseInput = useCallback(async (text) => {
+    if (!text.trim() || text.length < 3) {
+      setParsedData(null);
+      return;
+    }
+
+    setIsParsing(true);
+    try {
+      const response = await fetch("/api/ai/parse-task", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, language }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setParsedData(result.data);
+        }
+      }
+    } catch (error) {
+      console.error("Parse error:", error);
+    } finally {
+      setIsParsing(false);
+    }
+  }, [language]);
+
+  // Handle input change with debounce
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setInputText(value);
+
+    // Clear previous debounce
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    // Schedule new parse
+    debounceRef.current = setTimeout(() => {
+      parseInput(value);
+    }, DEBOUNCE_MS);
+  };
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  // Build final task data from parsed + manual overrides
+  const buildTaskData = () => {
+    const data = {
+      title: parsedData?.title || inputText.trim(),
+      tags: parsedData?.tags || [],
+      priority: parsedData?.priority || "medium",
+      status: "pending",
+    };
+
+    // Date/time - use manual override or parsed
+    if (manualDate) {
+      data.dateTime = manualTime 
+        ? `${manualDate}T${manualTime}`
+        : `${manualDate}T09:00`;
+    } else if (parsedData?.dateTime) {
+      data.dateTime = parsedData.dateTime;
+    } else {
+      // Default to now
+      data.dateTime = new Date().toISOString();
+    }
+
+    // Duration
+    if (parsedData?.duration) {
+      data.duration = parsedData.duration;
+    }
+
+    return data;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!inputText.trim()) return;
 
     setIsSubmitting(true);
     try {
-      await onAdd({
-        title: title.trim(),
-        dateTime: new Date().toISOString(),
-        category: "personal",
-      });
-      setTitle("");
+      const taskData = buildTaskData();
+      await onAdd(taskData);
+      
+      // Reset state
+      setInputText("");
+      setParsedData(null);
+      setManualDate("");
+      setManualTime("");
       setIsExpanded(false);
+      setShowDatePicker(false);
+      setShowTagInput(false);
     } catch (error) {
       console.error("Error adding task:", error);
     } finally {
@@ -30,33 +177,128 @@ export default function QuickAdd({ onAdd, placeholder = "Add a task..." }) {
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
       handleSubmit(e);
     }
     if (e.key === "Escape") {
-      setIsExpanded(false);
-      setTitle("");
+      handleCancel();
     }
+  };
+
+  const handleCancel = () => {
+    setIsExpanded(false);
+    setInputText("");
+    setParsedData(null);
+    setManualDate("");
+    setManualTime("");
+    setShowDatePicker(false);
+    setShowTagInput(false);
+  };
+
+  const handleForwardToAI = () => {
+    if (onOpenAI) {
+      onOpenAI(inputText);
+    }
+    handleCancel();
+  };
+
+  // Chip removal handlers
+  const removeTag = (tagToRemove) => {
+    setParsedData(prev => ({
+      ...prev,
+      tags: (prev?.tags || []).filter(t => t !== tagToRemove),
+    }));
+  };
+
+  const removePriority = () => {
+    setParsedData(prev => ({ ...prev, priority: null }));
+  };
+
+  const removeDateTime = () => {
+    setParsedData(prev => ({ ...prev, dateTime: null }));
+    setManualDate("");
+    setManualTime("");
+  };
+
+  const addTag = (tag) => {
+    if (!tag.trim()) return;
+    const normalized = tag.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 30);
+    setParsedData(prev => ({
+      ...prev,
+      tags: [...new Set([...(prev?.tags || []), normalized])],
+    }));
+    setNewTag("");
+    setShowTagInput(false);
+  };
+
+  // Format datetime with relative labels (Today, Tomorrow, etc.)
+  const formatDateTime = (dateTimeStr) => {
+    if (!dateTimeStr) return null;
+    const date = new Date(dateTimeStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfterTomorrow = new Date(today);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    
+    const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const timeStr = date.toLocaleTimeString(language === "en" ? "en-US" : "zh-TW", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: language !== "en",
+    });
+    
+    // Relative date labels
+    if (targetDate.getTime() === today.getTime()) {
+      return language === "zh" ? `今天 ${timeStr}` : `Today ${timeStr}`;
+    }
+    if (targetDate.getTime() === tomorrow.getTime()) {
+      return language === "zh" ? `明天 ${timeStr}` : `Tomorrow ${timeStr}`;
+    }
+    if (targetDate.getTime() === dayAfterTomorrow.getTime()) {
+      return language === "zh" ? `後天 ${timeStr}` : `Day after tomorrow ${timeStr}`;
+    }
+    
+    // Within a week - show day name
+    if (targetDate < nextWeek) {
+      const dayName = date.toLocaleDateString(language === "en" ? "en-US" : "zh-TW", { weekday: "long" });
+      return `${dayName} ${timeStr}`;
+    }
+    
+    // Further out - show full date
+    return date.toLocaleString(language === "en" ? "en-US" : "zh-TW", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
     <div className="relative">
       {!isExpanded ? (
         <button
-          onClick={() => setIsExpanded(true)}
-          className="w-full flex items-center gap-3 p-3 text-left rounded-lg transition-colors border-2 border-dashed hover:border-blue-400"
+          onClick={() => {
+            setIsExpanded(true);
+            setTimeout(() => inputRef.current?.focus(), 50);
+          }}
+          className="w-full flex items-center gap-3 p-3 text-left rounded-lg transition-colors border-2 border-dashed hover:border-blue-400 group"
           style={{
             color: "var(--text-muted)",
             backgroundColor: "var(--card-bg)",
             borderColor: "var(--card-border)",
           }}
         >
-          <FaPlus className="w-4 h-4" />
-          <span>{placeholder}</span>
+          <FaPlus className="w-4 h-4 group-hover:text-blue-500 transition-colors" />
+          <span>{placeholder || t.placeholder}</span>
         </button>
       ) : (
         <form 
           onSubmit={handleSubmit} 
-          className="rounded-lg shadow-lg p-3"
+          className="rounded-lg shadow-lg p-3 transition-all"
           style={{
             backgroundColor: "var(--card-bg)",
             borderColor: "var(--card-border)",
@@ -64,56 +306,218 @@ export default function QuickAdd({ onAdd, placeholder = "Add a task..." }) {
             borderStyle: "solid",
           }}
         >
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            autoFocus
-            className="w-full bg-transparent border-none outline-none text-sm"
-            style={{ color: "var(--text-primary)" }}
-          />
+          {/* Input field */}
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputText}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder || t.placeholder}
+              autoFocus
+              className="flex-1 bg-transparent border-none outline-none text-sm"
+              style={{ color: "var(--text-primary)" }}
+            />
+            {isParsing && (
+              <FaSpinner className="w-4 h-4 animate-spin text-blue-500" />
+            )}
+          </div>
+
+          {/* Parsed preview chips */}
+          {parsedData && (inputText.length >= 3) && (
+            <div className="flex flex-wrap gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--card-border)" }}>
+              {/* DateTime chip */}
+              {(parsedData.dateTime || manualDate) && (
+                <span 
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={removeDateTime}
+                  title={t.removeDate}
+                >
+                  <FaCalendarAlt className="w-3 h-3" />
+                  {formatDateTime(manualDate ? `${manualDate}T${manualTime || "09:00"}` : parsedData.dateTime)}
+                  <FaTimes className="w-2.5 h-2.5 ml-0.5" />
+                </span>
+              )}
+
+              {/* Priority chip */}
+              {parsedData.priority && parsedData.priority !== "medium" && (
+                <span 
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${PRIORITY_CONFIG[parsedData.priority]?.color}`}
+                  onClick={removePriority}
+                  title={t.removePriority}
+                >
+                  <FaFlag className="w-3 h-3" />
+                  {language === "zh" ? PRIORITY_CONFIG[parsedData.priority]?.labelZh : PRIORITY_CONFIG[parsedData.priority]?.label}
+                  <FaTimes className="w-2.5 h-2.5 ml-0.5" />
+                </span>
+              )}
+
+              {/* Duration chip */}
+              {parsedData.duration && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                  <FaClock className="w-3 h-3" />
+                  {formatDuration(parsedData.duration)}
+                </span>
+              )}
+
+              {/* Tag chips */}
+              {parsedData.tags?.map((tag) => (
+                <span
+                  key={tag}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${getTagClasses(tag)}`}
+                  onClick={() => removeTag(tag)}
+                  title={t.removeTag}
+                >
+                  #{tag}
+                  <FaTimes className="w-2.5 h-2.5 ml-0.5" />
+                </span>
+              ))}
+
+              {/* Parsed title preview */}
+              {parsedData.title && parsedData.title !== inputText.trim() && (
+                <span className="text-xs text-gray-500 dark:text-gray-400 self-center ml-auto">
+                  → {parsedData.title}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Manual date picker */}
+          {showDatePicker && (
+            <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--card-border)" }}>
+              <input
+                type="date"
+                value={manualDate}
+                onChange={(e) => setManualDate(e.target.value)}
+                className="text-xs px-2 py-1 rounded border bg-transparent"
+                style={{ borderColor: "var(--card-border)", color: "var(--text-primary)" }}
+              />
+              <input
+                type="time"
+                value={manualTime}
+                onChange={(e) => setManualTime(e.target.value)}
+                className="text-xs px-2 py-1 rounded border bg-transparent"
+                style={{ borderColor: "var(--card-border)", color: "var(--text-primary)" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowDatePicker(false)}
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
+          {/* Manual tag input */}
+          {showTagInput && (
+            <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--card-border)" }}>
+              <input
+                type="text"
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addTag(newTag);
+                  }
+                }}
+                placeholder={t.tagPlaceholder}
+                className="flex-1 text-xs px-2 py-1 rounded border bg-transparent"
+                style={{ borderColor: "var(--card-border)", color: "var(--text-primary)" }}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => addTag(newTag)}
+                className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTagInput(false)}
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
+          {/* Action bar */}
           <div 
             className="flex items-center justify-between mt-3 pt-3"
             style={{ borderTop: "1px solid var(--card-border)" }}
           >
-            <div className="flex items-center gap-2">
+            {/* Left: Quick actions */}
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                className="p-2 rounded transition-colors hover:opacity-70"
-                style={{ color: "var(--text-muted)" }}
-                title="Set date"
+                onClick={() => {
+                  setShowDatePicker(!showDatePicker);
+                  setShowTagInput(false);
+                }}
+                className={`p-2 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${showDatePicker ? "text-blue-500" : ""}`}
+                style={{ color: showDatePicker ? undefined : "var(--text-muted)" }}
+                title={t.setDate}
               >
                 <FaCalendarAlt className="w-4 h-4" />
               </button>
               <button
                 type="button"
-                className="p-2 rounded transition-colors hover:opacity-70"
-                style={{ color: "var(--text-muted)" }}
-                title="Set category"
+                onClick={() => {
+                  setShowTagInput(!showTagInput);
+                  setShowDatePicker(false);
+                }}
+                className={`p-2 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${showTagInput ? "text-blue-500" : ""}`}
+                style={{ color: showTagInput ? undefined : "var(--text-muted)" }}
+                title={t.setTag}
               >
                 <FaTag className="w-4 h-4" />
               </button>
+              
+              {/* AI Assistant button */}
+              {onOpenAI && (
+                <button
+                  type="button"
+                  onClick={handleForwardToAI}
+                  className="p-2 rounded transition-colors hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-500 hover:text-purple-600 ml-1"
+                  title={t.aiAssist}
+                >
+                  <FaRobot className="w-4 h-4" />
+                </button>
+              )}
             </div>
+
+            {/* Right: Submit/Cancel */}
             <div className="flex items-center gap-2">
+              {/* Parsing indicator with hint */}
+              {isParsing && (
+                <span className="text-xs text-blue-500 flex items-center gap-1" title={t.parsingHint}>
+                  <FaSpinner className="w-3 h-3 animate-spin" />
+                  {t.parsing}
+                </span>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  setIsExpanded(false);
-                  setTitle("");
-                }}
+                onClick={handleCancel}
                 className="px-3 py-1.5 text-sm rounded transition-colors hover:opacity-70"
                 style={{ color: "var(--text-secondary)" }}
               >
-                Cancel
+                {t.cancel}
               </button>
               <button
                 type="submit"
-                disabled={!title.trim() || isSubmitting}
-                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                disabled={!inputText.trim() || isSubmitting}
+                className={`px-3 py-1.5 text-sm text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isParsing 
+                    ? "bg-blue-400 hover:bg-blue-500" 
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+                title={isParsing ? t.parsingHint : undefined}
               >
-                {isSubmitting ? "Adding..." : "Add"}
+                {isSubmitting ? t.adding : t.add}
               </button>
             </div>
           </div>

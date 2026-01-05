@@ -15,6 +15,7 @@ export default function RemindersPage() {
   const [filters, setFilters] = useState({
     search: "",
     category: "all",
+    tag: null,
     type: "all"
   });
 
@@ -63,11 +64,12 @@ export default function RemindersPage() {
     const matchesSearch = reminder.title.toLowerCase().includes(filters.search.toLowerCase()) ||
                          reminder.description?.toLowerCase().includes(filters.search.toLowerCase());
     const matchesCategory = filters.category === "all" || reminder.category === filters.category;
+    const matchesTag = !filters.tag || (reminder.tags && reminder.tags.includes(filters.tag));
     const matchesType = filters.type === "all" ||
                        (filters.type === "recurring" && reminder.recurring) ||
                        (filters.type === "one-time" && !reminder.recurring);
 
-    return matchesSearch && matchesCategory && matchesType;
+    return matchesSearch && matchesCategory && matchesTag && matchesType;
   });
 
   if (loading) {

@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [aiInitialText, setAiInitialText] = useState("");
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -91,6 +92,11 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error adding task:", error);
     }
+  };
+
+  const handleOpenAIFromQuickAdd = (text) => {
+    setAiInitialText(text || "");
+    setIsAIModalOpen(true);
   };
 
   const now = new Date();
@@ -172,7 +178,11 @@ export default function DashboardPage() {
 
       {/* Quick Add */}
       <div className="mb-8">
-        <QuickAdd onAdd={handleQuickAdd} placeholder="What do you need to do today?" />
+        <QuickAdd 
+          onAdd={handleQuickAdd} 
+          onOpenAI={handleOpenAIFromQuickAdd}
+          placeholder="What do you need to do today?" 
+        />
       </div>
 
       {/* Overdue Tasks */}
@@ -254,8 +264,12 @@ export default function DashboardPage() {
       
       <AIReminderModal
         isOpen={isAIModalOpen}
-        onClose={() => setIsAIModalOpen(false)}
+        onClose={() => {
+          setIsAIModalOpen(false);
+          setAiInitialText("");
+        }}
         onSuccess={fetchTasks}
+        initialText={aiInitialText}
       />
     </div>
   );

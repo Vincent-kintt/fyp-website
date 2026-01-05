@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { ObjectId } from "mongodb";
+import { 
+  normalizeTags, 
+  getMainCategory,
+  isValidStatus,
+  isValidStatusTransition,
+  deriveStatusFromCompleted,
+  deriveCompletedFromStatus,
+  validateDuration
+} from "@/lib/utils";
 
 // GET /api/reminders/[id] - Get a single reminder (must belong to user)
 export async function GET(request, { params }) {
@@ -43,11 +52,18 @@ export async function GET(request, { params }) {
       id: reminder._id.toString(),
       title: reminder.title,
       description: reminder.description,
+      remark: reminder.remark || "",
       dateTime: reminder.dateTime,
-      category: reminder.category,
+      duration: reminder.duration || null,
+      category: reminder.category || getMainCategory(reminder.tags),
+      tags: reminder.tags || [],
       recurring: reminder.recurring,
       recurringType: reminder.recurringType,
+      status: reminder.status || deriveStatusFromCompleted(reminder.completed),
       completed: reminder.completed || false,
+      snoozedUntil: reminder.snoozedUntil || null,
+      startedAt: reminder.startedAt || null,
+      completedAt: reminder.completedAt || null,
       priority: reminder.priority || "medium",
       subtasks: reminder.subtasks || [],
       username: reminder.username,
@@ -82,7 +98,7 @@ export async function PUT(request, { params }) {
 
     const { id } = await params;
     const body = await request.json();
-    const { title, description, dateTime, category, recurring, recurringType, priority, subtasks } = body;
+    const { title, description, remark, dateTime, duration, status, category, tags, recurring, recurringType, priority, subtasks } = body;
 
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
@@ -93,20 +109,46 @@ export async function PUT(request, { params }) {
     }
 
     // Validation
-    if (!title || !dateTime || !category) {
+    if (!title || !dateTime) {
       return NextResponse.json(
-        { success: false, error: "Missing required fields" },
+        { success: false, error: "Missing required fields (title, dateTime)" },
         { status: 400 }
       );
     }
+
+    // Validate duration if provided
+    if (duration !== undefined && duration !== null) {
+      const durationValidation = validateDuration(duration);
+      if (!durationValidation.isValid) {
+        return NextResponse.json(
+          { success: false, error: durationValidation.error },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate status if provided
+    if (status !== undefined && !isValidStatus(status)) {
+      return NextResponse.json(
+        { success: false, error: `Invalid status: ${status}. Valid values: pending, in_progress, completed, snoozed` },
+        { status: 400 }
+      );
+    }
+
+    // Process tags
+    const processedTags = normalizeTags(tags || []);
+    const effectiveCategory = category || getMainCategory(processedTags) || "personal";
 
     const remindersCollection = await getCollection("reminders");
 
     const updateData = {
       title,
       description: description || "",
+      remark: remark || "",
       dateTime: new Date(dateTime),
-      category,
+      duration: duration || null,
+      category: effectiveCategory,
+      tags: processedTags,
       recurring: recurring || false,
       recurringType: recurring ? recurringType : null,
       priority: priority || "medium",
@@ -117,6 +159,12 @@ export async function PUT(request, { params }) {
       })) : [],
       updatedAt: new Date(),
     };
+
+    // Handle status update
+    if (status !== undefined) {
+      updateData.status = status;
+      updateData.completed = deriveCompletedFromStatus(status);
+    }
 
     const result = await remindersCollection.updateOne(
       {
@@ -140,11 +188,18 @@ export async function PUT(request, { params }) {
       id: updatedReminder._id.toString(),
       title: updatedReminder.title,
       description: updatedReminder.description,
+      remark: updatedReminder.remark || "",
       dateTime: updatedReminder.dateTime.toISOString(),
-      category: updatedReminder.category,
+      duration: updatedReminder.duration || null,
+      category: updatedReminder.category || getMainCategory(updatedReminder.tags),
+      tags: updatedReminder.tags || [],
       recurring: updatedReminder.recurring,
       recurringType: updatedReminder.recurringType,
+      status: updatedReminder.status || deriveStatusFromCompleted(updatedReminder.completed),
       completed: updatedReminder.completed || false,
+      snoozedUntil: updatedReminder.snoozedUntil || null,
+      startedAt: updatedReminder.startedAt || null,
+      completedAt: updatedReminder.completedAt || null,
       priority: updatedReminder.priority || "medium",
       subtasks: updatedReminder.subtasks || [],
       username: updatedReminder.username,
@@ -219,7 +274,8 @@ export async function DELETE(request, { params }) {
       title: reminder.title,
       description: reminder.description,
       dateTime: reminder.dateTime,
-      category: reminder.category,
+      category: reminder.category || getMainCategory(reminder.tags),
+      tags: reminder.tags || [],
       recurring: reminder.recurring,
       recurringType: reminder.recurringType,
       completed: reminder.completed || false,
@@ -266,13 +322,69 @@ export async function PATCH(request, { params }) {
 
     // Build update object with only provided fields
     const updateData = { updatedAt: new Date() };
-    if (typeof body.completed === "boolean") {
+    
+    // Handle status update (new lifecycle field)
+    if (body.status !== undefined) {
+      if (!isValidStatus(body.status)) {
+        return NextResponse.json(
+          { success: false, error: `Invalid status: ${body.status}` },
+          { status: 400 }
+        );
+      }
+      
+      // Fetch current reminder to validate status transition
+      const currentReminder = await remindersCollection.findOne({
+        _id: new ObjectId(id),
+        username: session.user.username,
+      });
+      
+      if (currentReminder) {
+        const currentStatus = currentReminder.status || "pending";
+        if (!isValidStatusTransition(currentStatus, body.status)) {
+          return NextResponse.json(
+            { success: false, error: `Invalid status transition from '${currentStatus}' to '${body.status}'` },
+            { status: 400 }
+          );
+        }
+        
+        updateData.status = body.status;
+        updateData.completed = deriveCompletedFromStatus(body.status);
+        
+        // Track status change timestamps
+        if (body.status === "in_progress" && currentStatus !== "in_progress") {
+          updateData.startedAt = new Date();
+        }
+        if (body.status === "completed" && currentStatus !== "completed") {
+          updateData.completedAt = new Date();
+        }
+      }
+    } else if (typeof body.completed === "boolean") {
+      // Backward compatibility: handle completed boolean
       updateData.completed = body.completed;
+      updateData.status = body.completed ? "completed" : "pending";
+      if (body.completed) {
+        updateData.completedAt = new Date();
+      }
     }
+    
+    // Handle duration update
+    if (body.duration !== undefined) {
+      const durationValidation = validateDuration(body.duration);
+      if (!durationValidation.isValid) {
+        return NextResponse.json(
+          { success: false, error: durationValidation.error },
+          { status: 400 }
+        );
+      }
+      updateData.duration = body.duration;
+    }
+    
     if (body.title) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;
+    if (body.remark !== undefined) updateData.remark = body.remark;
     if (body.dateTime) updateData.dateTime = new Date(body.dateTime);
     if (body.category) updateData.category = body.category;
+    if (body.tags !== undefined) updateData.tags = normalizeTags(body.tags || []);
     if (body.priority) updateData.priority = body.priority;
     if (body.subtasks !== undefined) {
       updateData.subtasks = Array.isArray(body.subtasks) ? body.subtasks.map((st, idx) => ({
@@ -304,11 +416,18 @@ export async function PATCH(request, { params }) {
       id: updatedReminder._id.toString(),
       title: updatedReminder.title,
       description: updatedReminder.description,
+      remark: updatedReminder.remark || "",
       dateTime: updatedReminder.dateTime,
-      category: updatedReminder.category,
+      duration: updatedReminder.duration || null,
+      category: updatedReminder.category || getMainCategory(updatedReminder.tags),
+      tags: updatedReminder.tags || [],
       recurring: updatedReminder.recurring,
       recurringType: updatedReminder.recurringType,
+      status: updatedReminder.status || deriveStatusFromCompleted(updatedReminder.completed),
       completed: updatedReminder.completed || false,
+      snoozedUntil: updatedReminder.snoozedUntil || null,
+      startedAt: updatedReminder.startedAt || null,
+      completedAt: updatedReminder.completedAt || null,
       priority: updatedReminder.priority || "medium",
       subtasks: updatedReminder.subtasks || [],
       username: updatedReminder.username,

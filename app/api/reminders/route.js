@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { ObjectId } from "mongodb";
+import { 
+  normalizeTags, 
+  getMainCategory, 
+  isValidStatus,
+  deriveStatusFromCompleted,
+  deriveCompletedFromStatus,
+  validateDuration,
+  formatDuration
+} from "@/lib/utils";
 
 // GET /api/reminders - Get all reminders for logged-in user
 export async function GET(request) {
@@ -18,6 +27,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category");
     const type = searchParams.get("type");
+    const tag = searchParams.get("tag");
 
     const remindersCollection = await getCollection("reminders");
 
@@ -26,9 +36,18 @@ export async function GET(request) {
       username: session.user.username,
     };
 
-    // Filter by category
+    // Filter by category (backward compatible)
     if (category && category !== "all") {
-      filter.category = category;
+      // Support both legacy category field and new tags array
+      filter.$or = [
+        { category: category },
+        { tags: category }
+      ];
+    }
+
+    // Filter by specific tag
+    if (tag) {
+      filter.tags = tag;
     }
 
     // Filter by type (recurring or one-time)
@@ -47,11 +66,18 @@ export async function GET(request) {
       id: reminder._id.toString(),
       title: reminder.title,
       description: reminder.description,
+      remark: reminder.remark || "",
       dateTime: reminder.dateTime,
-      category: reminder.category,
+      duration: reminder.duration || null,
+      category: reminder.category || getMainCategory(reminder.tags),
+      tags: reminder.tags || [],
       recurring: reminder.recurring,
       recurringType: reminder.recurringType,
+      status: reminder.status || deriveStatusFromCompleted(reminder.completed),
       completed: reminder.completed || false,
+      snoozedUntil: reminder.snoozedUntil || null,
+      startedAt: reminder.startedAt || null,
+      completedAt: reminder.completedAt || null,
       priority: reminder.priority || "medium",
       subtasks: reminder.subtasks || [],
       username: reminder.username,
@@ -85,15 +111,30 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { title, description, dateTime, category, recurring, recurringType, priority, subtasks } = body;
+    const { title, description, dateTime, duration, category, tags, recurring, recurringType, priority, subtasks, remark } = body;
 
-    // Validation
-    if (!title || !dateTime || !category) {
+    // Validation - tags or category required
+    if (!title || !dateTime) {
       return NextResponse.json(
-        { success: false, error: "Missing required fields" },
+        { success: false, error: "Missing required fields (title, dateTime)" },
         { status: 400 }
       );
     }
+
+    // Validate duration if provided
+    if (duration !== undefined && duration !== null) {
+      const durationValidation = validateDuration(duration);
+      if (!durationValidation.isValid) {
+        return NextResponse.json(
+          { success: false, error: durationValidation.error },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Process tags - normalize and ensure we have at least one
+    const processedTags = normalizeTags(tags || []);
+    const effectiveCategory = category || getMainCategory(processedTags) || "personal";
 
     const remindersCollection = await getCollection("reminders");
 
@@ -102,11 +143,15 @@ export async function POST(request) {
       username: session.user.username,
       title,
       description: description || "",
+      remark: remark || "",
       dateTime: new Date(dateTime),
-      category,
+      duration: duration || null, // Duration in minutes for time blocking
+      category: effectiveCategory,
+      tags: processedTags,
       recurring: recurring || false,
       recurringType: recurring ? recurringType : null,
       priority: priority || "medium",
+      status: "pending", // New status lifecycle field
       subtasks: Array.isArray(subtasks) ? subtasks.map((st, idx) => ({
         id: st.id || `st-${Date.now()}-${idx}`,
         title: st.title,
@@ -122,7 +167,9 @@ export async function POST(request) {
     const createdReminder = {
       id: result.insertedId.toString(),
       ...newReminder,
+      status: "pending",
       completed: false,
+      tags: processedTags,
       dateTime: newReminder.dateTime.toISOString(),
       createdAt: newReminder.createdAt.toISOString(),
       updatedAt: newReminder.updatedAt.toISOString(),

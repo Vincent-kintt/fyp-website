@@ -14,6 +14,7 @@ export default function InboxPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [aiInitialText, setAiInitialText] = useState("");
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -93,6 +94,11 @@ export default function InboxPage() {
     }
   };
 
+  const handleOpenAIFromQuickAdd = (text) => {
+    setAiInitialText(text || "");
+    setIsAIModalOpen(true);
+  };
+
   // Separate incomplete and completed tasks
   const incompleteTasks = tasks.filter((t) => !t.completed);
   const completedTasks = tasks.filter((t) => t.completed);
@@ -122,8 +128,12 @@ export default function InboxPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <QuickAdd onAdd={handleQuickAdd} placeholder="Quick capture..." />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+        <QuickAdd 
+          onAdd={handleQuickAdd} 
+          onOpenAI={handleOpenAIFromQuickAdd}
+          placeholder="Quick capture..." 
+        />
         <button
           onClick={() => setIsAIModalOpen(true)}
           className="flex items-center justify-center gap-2 p-3 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors border-2 border-dashed border-purple-300 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500"
@@ -183,8 +193,12 @@ export default function InboxPage() {
       {/* AI Modal */}
       <AIReminderModal
         isOpen={isAIModalOpen}
-        onClose={() => setIsAIModalOpen(false)}
+        onClose={() => {
+          setIsAIModalOpen(false);
+          setAiInitialText("");
+        }}
         onSuccess={fetchTasks}
+        initialText={aiInitialText}
       />
     </div>
   );

@@ -1,20 +1,26 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { FaTimes, FaClock, FaTag, FaSync, FaFlag, FaPlus, FaTrash } from "react-icons/fa";
+import { FaTimes, FaClock, FaTag, FaSync, FaFlag, FaPlus, FaTrash, FaStickyNote, FaHourglass, FaPlay, FaCheck, FaPause } from "react-icons/fa";
+import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig } from "@/lib/utils";
 
 export default function EditReminderModal({ isOpen, onClose, reminder, onSave }) {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    remark: "",
     dateTime: "",
+    duration: null,
+    status: "pending",
     category: "personal",
+    tags: [],
     recurring: false,
     recurringType: "daily",
     priority: "medium",
     subtasks: []
   });
   const [newSubtask, setNewSubtask] = useState("");
+  const [newTag, setNewTag] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,12 +32,17 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
         dateTime: reminder.dateTime 
           ? new Date(reminder.dateTime).toISOString().slice(0, 16) 
           : "",
+        duration: reminder.duration || null,
+        status: reminder.status || "pending",
         category: reminder.category || "personal",
+        tags: reminder.tags || [],
+        remark: reminder.remark || "",
         recurring: reminder.recurring || false,
         recurringType: reminder.recurringType || "daily",
         priority: reminder.priority || "medium",
         subtasks: reminder.subtasks || []
       });
+      setNewTag("");
       setNewSubtask("");
       setError("");
     }
@@ -148,6 +159,34 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
     }
   };
 
+  const handleAddTag = () => {
+    const normalized = normalizeTag(newTag);
+    if (!normalized || normalized.length < 2) return;
+    if (formData.tags.includes(normalized)) {
+      setNewTag("");
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      tags: [...prev.tags, normalized]
+    }));
+    setNewTag("");
+  };
+
+  const handleRemoveTag = (tagToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(t => t !== tagToRemove)
+    }));
+  };
+
+  const handleTagKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       {/* Backdrop */}
@@ -156,13 +195,14 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
         onClick={onClose}
       />
       
-      {/* Modal */}
+      {/* Modal - Flexbox layout for fixed header/footer with scrollable body */}
       <div 
-        className="relative w-full max-w-md bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-md bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col"
+        style={{ maxHeight: "min(90vh, 800px)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[var(--card-border)]">
+        {/* Fixed Header */}
+        <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-[var(--card-border)]">
           <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
             Edit Reminder
           </h2>
@@ -175,10 +215,10 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        {/* Scrollable Form Body - Typography: labels 14px, inputs 14px, buttons 13px, badges 12px */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(155, 155, 155, 0.5) transparent", fontSize: "14px" }}>
           {error && (
-            <div className="p-3 text-sm bg-red-500/10 border border-red-500/30 text-red-500 rounded-lg">
+            <div className="p-3 text-[13px] bg-red-500/10 border border-red-500/30 text-red-500 rounded-lg">
               {error}
             </div>
           )}
@@ -187,7 +227,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
           <div>
             <label 
               htmlFor="edit-title" 
-              className="block text-sm font-medium mb-1.5"
+              className="block text-[13px] font-medium mb-2"
               style={{ color: "var(--text-secondary)" }}
             >
               Title <span className="text-red-500">*</span>
@@ -199,7 +239,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
               value={formData.title}
               onChange={handleChange}
               placeholder="Reminder title"
-              className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50"
+              className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 text-[14px]"
               style={{
                 backgroundColor: "var(--input-bg)",
                 borderColor: "var(--card-border)",
@@ -213,7 +253,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
           <div>
             <label 
               htmlFor="edit-description" 
-              className="block text-sm font-medium mb-1.5"
+              className="block text-[13px] font-medium mb-2"
               style={{ color: "var(--text-secondary)" }}
             >
               Description
@@ -225,7 +265,33 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
               onChange={handleChange}
               placeholder="Optional description"
               rows="2"
-              className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 resize-none"
+              className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 resize-none text-[14px]"
+              style={{
+                backgroundColor: "var(--input-bg)",
+                borderColor: "var(--card-border)",
+                color: "var(--text-primary)"
+              }}
+            />
+          </div>
+
+          {/* Remark */}
+          <div>
+            <label 
+              htmlFor="edit-remark" 
+              className="flex items-center gap-1.5 text-[13px] font-medium mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              <FaStickyNote className="w-3.5 h-3.5" />
+              Remark
+            </label>
+            <textarea
+              id="edit-remark"
+              name="remark"
+              value={formData.remark}
+              onChange={handleChange}
+              placeholder="Additional notes or info..."
+              rows="2"
+              className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-yellow-500/50 resize-none text-[14px]"
               style={{
                 backgroundColor: "var(--input-bg)",
                 borderColor: "var(--card-border)",
@@ -238,10 +304,10 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
           <div>
             <label 
               htmlFor="edit-dateTime" 
-              className="flex items-center gap-1.5 text-sm font-medium mb-1.5"
+              className="flex items-center gap-1.5 text-[13px] font-medium mb-2"
               style={{ color: "var(--text-secondary)" }}
             >
-              <FaClock className="w-3 h-3" />
+              <FaClock className="w-3.5 h-3.5" />
               Date & Time <span className="text-red-500">*</span>
             </label>
             <input
@@ -250,7 +316,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
               type="datetime-local"
               value={formData.dateTime}
               onChange={handleChange}
-              className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50"
+              className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 text-[14px]"
               style={{
                 backgroundColor: "var(--input-bg)",
                 borderColor: "var(--card-border)",
@@ -259,41 +325,173 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
             />
           </div>
 
-          {/* Category */}
+          {/* Duration (Time Blocking) */}
           <div>
             <label 
-              className="flex items-center gap-1.5 text-sm font-medium mb-2"
+              className="flex items-center gap-1.5 text-[13px] font-medium mb-2"
               style={{ color: "var(--text-secondary)" }}
             >
-              <FaTag className="w-3 h-3" />
-              Category
+              <FaHourglass className="w-3.5 h-3.5" />
+              Duration
+              {formData.duration && (
+                <span className="text-[11px] bg-gray-500/20 px-1.5 py-0.5 rounded" style={{ color: "var(--text-muted)" }}>
+                  {formData.duration} min
+                </span>
+              )}
             </label>
-            <div className="grid grid-cols-4 gap-2">
-              {["personal", "work", "health", "other"].map((cat) => (
+            <div className="flex flex-wrap gap-2">
+              {DURATION_PRESETS.map((preset) => (
                 <button
-                  key={cat}
+                  key={preset.value}
                   type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, category: cat }))}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium capitalize border-2 transition-all ${
-                    formData.category === cat 
-                      ? getCategoryColor(cat)
-                      : "border-transparent bg-gray-500/10"
+                  onClick={() => setFormData(prev => ({ 
+                    ...prev, 
+                    duration: prev.duration === preset.value ? null : preset.value 
+                  }))}
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all ${
+                    formData.duration === preset.value
+                      ? "border-blue-500 bg-blue-500/20 text-blue-500"
+                      : "border-gray-500/30 bg-gray-500/10 hover:bg-gray-500/20"
                   }`}
-                  style={{ color: "var(--text-primary)" }}
+                  style={{ color: formData.duration === preset.value ? undefined : "var(--text-secondary)" }}
                 >
-                  {cat}
+                  {preset.label}
                 </button>
               ))}
             </div>
           </div>
 
+          {/* Status */}
+          <div>
+            <label 
+              className="flex items-center gap-1.5 text-[13px] font-medium mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Status
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {REMINDER_STATUSES.map((s) => {
+                const config = getStatusConfig(s);
+                const StatusIcon = {
+                  pending: FaClock,
+                  in_progress: FaPlay,
+                  completed: FaCheck,
+                  snoozed: FaPause,
+                }[s];
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, status: s }))}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium border-2 transition-all ${
+                      formData.status === s
+                        ? config.color
+                        : "border-transparent bg-gray-500/10"
+                    }`}
+                    style={{ color: formData.status === s ? undefined : "var(--text-secondary)" }}
+                  >
+                    <StatusIcon className="w-3.5 h-3.5" />
+                    {config.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label 
+              className="flex items-center gap-1.5 text-[13px] font-medium mb-2"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              <FaTag className="w-3.5 h-3.5" />
+              Tags
+              {formData.tags.length > 0 && (
+                <span className="text-[11px] bg-blue-500/20 text-blue-500 px-1.5 py-0.5 rounded">
+                  {formData.tags.length}
+                </span>
+              )}
+            </label>
+            
+            {/* Quick Category Tags */}
+            <div className="flex flex-wrap gap-2 mb-2">
+              {["personal", "work", "health", "urgent"].map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => {
+                    if (formData.tags.includes(tag)) {
+                      handleRemoveTag(tag);
+                    } else {
+                      setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all ${
+                    formData.tags.includes(tag)
+                      ? getTagClasses(tag)
+                      : "border-gray-500/30 bg-gray-500/10 hover:bg-gray-500/20"
+                  }`}
+                  style={{ color: formData.tags.includes(tag) ? undefined : "var(--text-secondary)" }}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Tag Input */}
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                placeholder="Add custom tag..."
+                className="flex-1 px-3 py-2 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 text-[13px]"
+                style={{
+                  backgroundColor: "var(--input-bg)",
+                  borderColor: "var(--card-border)",
+                  color: "var(--text-primary)"
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleAddTag}
+                disabled={!newTag.trim() || newTag.length < 2}
+                className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FaPlus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Current Tags Display */}
+            {formData.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {formData.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium border ${getTagClasses(tag)}`}
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      className="hover:bg-black/10 rounded-full p-0.5 transition-colors"
+                    >
+                      <FaTimes className="w-2.5 h-2.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Priority */}
           <div>
             <label 
-              className="flex items-center gap-1.5 text-sm font-medium mb-2"
+              className="flex items-center gap-1.5 text-[13px] font-medium mb-2"
               style={{ color: "var(--text-secondary)" }}
             >
-              <FaFlag className="w-3 h-3" />
+              <FaFlag className="w-3.5 h-3.5" />
               Priority
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -302,7 +500,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
                   key={p}
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, priority: p }))}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium capitalize border-2 transition-all ${
+                  className={`px-3 py-2 rounded-lg text-[12px] font-medium capitalize border-2 transition-all ${
                     formData.priority === p 
                       ? getPriorityColor(p)
                       : "border-transparent bg-gray-500/10"
@@ -318,12 +516,12 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
           {/* Subtasks */}
           <div>
             <label 
-              className="flex items-center gap-1.5 text-sm font-medium mb-2"
+              className="flex items-center gap-1.5 text-[13px] font-medium mb-2"
               style={{ color: "var(--text-secondary)" }}
             >
               Subtasks
               {formData.subtasks.length > 0 && (
-                <span className="text-xs bg-purple-500/20 text-purple-500 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] bg-purple-500/20 text-purple-500 px-1.5 py-0.5 rounded">
                   {formData.subtasks.length}
                 </span>
               )}
@@ -337,7 +535,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
                 onChange={(e) => setNewSubtask(e.target.value)}
                 onKeyDown={handleSubtaskKeyDown}
                 placeholder="Add a subtask..."
-                className="flex-1 px-3 py-2 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-purple-500/50 text-sm"
+                className="flex-1 px-3 py-2 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-purple-500/50 text-[13px]"
                 style={{
                   backgroundColor: "var(--input-bg)",
                   borderColor: "var(--card-border)",
@@ -350,19 +548,19 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
                 disabled={!newSubtask.trim()}
                 className="px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <FaPlus className="w-3 h-3" />
+                <FaPlus className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {/* Subtask List */}
             {formData.subtasks.length > 0 && (
-              <div className="space-y-1 max-h-32 overflow-y-auto">
+              <div className="space-y-1.5 max-h-32 overflow-y-auto">
                 {formData.subtasks.map((subtask) => (
                   <div
                     key={subtask.id}
-                    className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg bg-gray-500/10"
+                    className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg bg-gray-500/10"
                   >
-                    <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                    <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
                       {subtask.title}
                     </span>
                     <button
@@ -370,7 +568,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
                       onClick={() => handleRemoveSubtask(subtask.id)}
                       className="p-1 text-red-500 hover:bg-red-500/20 rounded transition-colors"
                     >
-                      <FaTrash className="w-2.5 h-2.5" />
+                      <FaTrash className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
@@ -388,8 +586,8 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
                 onChange={handleChange}
                 className="w-4 h-4 rounded border-gray-500 text-blue-600 focus:ring-blue-500"
               />
-              <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-                <FaSync className="w-3 h-3" />
+              <span className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>
+                <FaSync className="w-3.5 h-3.5" />
                 Recurring
               </span>
             </label>
@@ -399,7 +597,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
                 name="recurringType"
                 value={formData.recurringType}
                 onChange={handleChange}
-                className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50"
+                className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 text-[14px]"
                 style={{
                   backgroundColor: "var(--input-bg)",
                   borderColor: "var(--card-border)",
@@ -414,29 +612,33 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-lg border transition-colors hover:bg-gray-500/10"
-              style={{
-                borderColor: "var(--card-border)",
-                color: "var(--text-secondary)"
-              }}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
+          {/* Spacer for fixed footer */}
+          <div className="h-2" />
         </form>
+
+        {/* Fixed Footer - Action Buttons */}
+        <div className="flex-shrink-0 flex gap-3 p-4 border-t border-[var(--card-border)] bg-[var(--card-bg)]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-lg border transition-colors hover:bg-gray-500/10 text-[14px] font-medium"
+            style={{
+              borderColor: "var(--card-border)",
+              color: "var(--text-secondary)"
+            }}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            onClick={handleSubmit}
+            className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium transition-colors disabled:opacity-50"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { FaClock, FaTag, FaEdit, FaTrash } from "react-icons/fa";
+import { FaClock, FaTag, FaEdit, FaTrash, FaStickyNote, FaHourglass, FaPlay, FaCheck, FaPause } from "react-icons/fa";
 import { format } from "date-fns";
 import Card from "../ui/Card";
 import EditReminderModal from "./EditReminderModal";
+import { getTagClasses, getStatusConfig, formatDuration } from "@/lib/utils";
 
 export default function ReminderCard({ reminder, onDelete, onUpdate }) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -30,6 +31,23 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
     return colors[category] || colors.other;
   };
 
+  // Get tags or fallback to category
+  const tags = currentReminder.tags?.length > 0 
+    ? currentReminder.tags 
+    : [currentReminder.category || "personal"];
+
+  // Get status config
+  const status = currentReminder.status || "pending";
+  const statusConfig = getStatusConfig(status);
+  
+  // Status icon mapping
+  const StatusIcon = {
+    pending: FaClock,
+    in_progress: FaPlay,
+    completed: FaCheck,
+    snoozed: FaPause,
+  }[status] || FaClock;
+
   return (
     <>
       <Card>
@@ -46,19 +64,56 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
         </div>
 
         {currentReminder.description && (
-          <p className="mb-3" style={{ color: "var(--text-secondary)" }}>{currentReminder.description}</p>
+          <p className="mb-2" style={{ color: "var(--text-secondary)" }}>{currentReminder.description}</p>
         )}
 
-        <div className="flex items-center space-x-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+        {currentReminder.remark && (
+          <div className="mb-3 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+            <div className="flex items-start gap-1.5">
+              <FaStickyNote className="w-3 h-3 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">{currentReminder.remark}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+          {/* Status Badge */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig.color}`}>
+              <StatusIcon className="w-3 h-3" />
+              {statusConfig.label}
+            </span>
+            
+            {/* Duration Badge */}
+            {currentReminder.duration && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+                <FaHourglass className="w-2.5 h-2.5" />
+                {formatDuration(currentReminder.duration)}
+              </span>
+            )}
+          </div>
+          
           <div className="flex items-center space-x-1">
-            <FaClock />
+            <FaClock className="flex-shrink-0" />
             <span>{formatDateTime(currentReminder.dateTime)}</span>
           </div>
-          <div className="flex items-center space-x-1">
-            <FaTag />
-            <span className={`px-2 py-1 rounded font-medium ${getCategoryColor(currentReminder.category)}`}>
-              {currentReminder.category}
-            </span>
+          
+          {/* Tags Display */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <FaTag className="flex-shrink-0 w-3 h-3" />
+            {tags.slice(0, 4).map((tag, idx) => (
+              <span 
+                key={idx} 
+                className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getTagClasses(tag)}`}
+              >
+                {tag}
+              </span>
+            ))}
+            {tags.length > 4 && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/20 text-gray-500">
+                +{tags.length - 4}
+              </span>
+            )}
           </div>
         </div>
 
