@@ -88,15 +88,18 @@ export default function AgentActivityLog({
               fontWeight: "400",
             }}>
               {isActive && currentReasoning 
-                ? (language === "en" ? `Thought for ${formatTime(elapsedTime)}` : `思考了 ${formatTime(elapsedTime)}`)
+                ? (language === "en" ? `Thinking ${formatTime(elapsedTime)}` : `思考中 ${formatTime(elapsedTime)}`)
                 : (language === "en" ? `Thought for ${formatTime(elapsedTime)}` : `思考了 ${formatTime(elapsedTime)}`)}
             </span>
             <span style={{
-              fontSize: "10px",
+              fontSize: "11px",
               color: "var(--modal-text-muted)",
-              transform: thinkingExpanded ? "rotate(90deg)" : "rotate(0deg)",
-              transition: "transform 0.15s ease",
-            }}>▶</span>
+              marginLeft: "4px",
+            }}>
+              {thinkingExpanded 
+                ? (language === "en" ? "▼" : "▼") 
+                : (language === "en" ? "▶" : "▶")}
+            </span>
           </div>
 
           {/* Thinking Content */}
