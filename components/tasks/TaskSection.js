@@ -10,6 +10,7 @@ export default function TaskSection({
   tasks,
   onToggleComplete,
   onDelete,
+  onUpdate,
   collapsible = true,
   defaultCollapsed = false,
   emptyMessage = "No tasks",
@@ -66,6 +67,7 @@ export default function TaskSection({
                 task={task}
                 onToggleComplete={onToggleComplete}
                 onDelete={onDelete}
+                onUpdate={onUpdate}
                 showDate={showDate}
               />
             ))

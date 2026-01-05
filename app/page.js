@@ -1,10 +1,21 @@
 import Link from "next/link";
 import { FaBell, FaCalendarAlt, FaCheckCircle } from "react-icons/fa";
 import Button from "@/components/ui/Button";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
+import { redirect } from "next/navigation";
+import ClientRedirect from "@/components/auth/ClientRedirect";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions);
+
+  if (session) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="text-center">
+      <ClientRedirect />
       {/* Hero Section */}
       <div className="py-20">
         <FaBell className="text-blue-600 dark:text-blue-400 text-6xl mx-auto mb-6" />

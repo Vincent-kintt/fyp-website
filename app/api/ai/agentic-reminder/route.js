@@ -25,6 +25,7 @@ export async function POST(request) {
       language = "zh",
       reasoningLanguage = "zh",
       forceAgentic = true, // Always use agentic agent in agentic mode
+      userLocation = null, // User's location for context
     } = body;
 
     if (!text || text.trim() === "") {
@@ -56,6 +57,7 @@ export async function POST(request) {
             reasoningLanguage,
             userId: session.user.username, // Pass username for tool execution (matches reminders collection)
             useReact: forceAgentic, // Force agentic agent in agentic mode
+            userLocation, // Pass user location for context
           })) {
             sendEvent(event);
           }

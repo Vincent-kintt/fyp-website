@@ -55,6 +55,10 @@ export default function RemindersPage() {
     }
   };
 
+  const handleUpdate = (updatedReminder) => {
+    setReminders(reminders.map((r) => (r.id === updatedReminder.id ? { ...r, ...updatedReminder } : r)));
+  };
+
   const filteredReminders = reminders.filter(reminder => {
     const matchesSearch = reminder.title.toLowerCase().includes(filters.search.toLowerCase()) ||
                          reminder.description?.toLowerCase().includes(filters.search.toLowerCase());
@@ -85,7 +89,7 @@ export default function RemindersPage() {
       </div>
 
       <ReminderFilter filters={filters} onFilterChange={setFilters} />
-      <ReminderList reminders={filteredReminders} onDelete={handleDelete} />
+      <ReminderList reminders={filteredReminders} onDelete={handleDelete} onUpdate={handleUpdate} />
 
       {/* Floating Add Button */}
       <button

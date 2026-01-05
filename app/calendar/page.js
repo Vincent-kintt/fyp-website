@@ -21,15 +21,23 @@ import {
   isSameDay,
   isToday,
 } from "date-fns";
-import TaskItem from "@/components/tasks/TaskItem";
+import DayTimeline from "@/components/calendar/DayTimeline";
 
 export default function CalendarPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  
+  // Initialize with null to prevent hydration mismatch
+  const [currentMonth, setCurrentMonth] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [viewMode, setViewMode] = useState('month');
+
+  useEffect(() => {
+    setCurrentMonth(new Date());
+    setSelectedDate(new Date());
+  }, []);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -77,6 +85,7 @@ export default function CalendarPage() {
     try {
       const response = await fetch(`/api/reminders/${id}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
       });
       if (response.ok) {
         setTasks(tasks.filter((t) => t.id !== id));
@@ -88,6 +97,7 @@ export default function CalendarPage() {
 
   // Get tasks for a specific date
   const getTasksForDate = (date) => {
+    if (!date) return [];
     return tasks.filter((task) => isSameDay(new Date(task.dateTime), date));
   };
 
@@ -194,7 +204,7 @@ export default function CalendarPage() {
     return <div className="space-y-1">{rows}</div>;
   };
 
-  if (status === "loading" || loading) {
+  if (status === "loading" || loading || !currentMonth || !selectedDate) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -206,65 +216,101 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto px-4 pb-20">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
-          <FaCalendarAlt className="text-blue-500" />
-          Calendar
-        </h1>
-        <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
-          View your tasks by date
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
+            <FaCalendarAlt className="text-blue-500" />
+            Calendar
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Manage your schedule efficiently
+          </p>
+        </div>
+        
+        {/* View Toggle for Mobile */}
+        <div className="flex bg-[var(--card-bg)] p-1 rounded-lg border border-[var(--card-border)] lg:hidden self-start">
+          <button
+            onClick={() => setViewMode('month')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              viewMode === 'month' 
+                ? 'bg-blue-500 text-white' 
+                : 'text-[var(--text-muted)] hover:bg-[var(--background)]'
+            }`}
+          >
+            Month
+          </button>
+          <button
+            onClick={() => setViewMode('timeline')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              viewMode === 'timeline' 
+                ? 'bg-blue-500 text-white' 
+                : 'text-[var(--text-muted)] hover:bg-[var(--background)]'
+            }`}
+          >
+            Day View
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendar */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-180px)] min-h-[500px]">
+        {/* Month Calendar - Hidden on mobile if in timeline mode */}
         <div 
-          className="lg:col-span-2 rounded-xl p-4 shadow-sm"
-          style={{
-            backgroundColor: "var(--card-bg)",
-            borderColor: "var(--card-border)",
-            borderWidth: "1px",
-            borderStyle: "solid",
-          }}
+          className={`lg:col-span-4 flex flex-col ${viewMode === 'timeline' ? 'hidden lg:flex' : 'flex'}`}
         >
-          {renderHeader()}
-          {renderDays()}
-          {renderCells()}
+          <div 
+            className="rounded-xl p-4 shadow-sm border border-[var(--card-border)] bg-[var(--card-bg)] h-fit"
+          >
+            {renderHeader()}
+            {renderDays()}
+            {renderCells()}
+          </div>
+          
+          {/* Legend / Quick Stats */}
+          <div className="mt-4 p-4 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)]">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Stats for {format(selectedDate, 'MMM d')}</h3>
+            <div className="flex gap-4 text-xs">
+               <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                 <span style={{ color: "var(--text-secondary)" }}>{selectedDateTasks.filter(t => !t.completed).length} Pending</span>
+               </div>
+               <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                 <span style={{ color: "var(--text-secondary)" }}>{selectedDateTasks.filter(t => t.completed).length} Done</span>
+               </div>
+            </div>
+          </div>
         </div>
 
-        {/* Selected Date Tasks */}
+        {/* Timeline View - Hidden on mobile if in month mode */}
         <div 
-          className="rounded-xl p-4 shadow-sm"
-          style={{
-            backgroundColor: "var(--card-bg)",
-            borderColor: "var(--card-border)",
-            borderWidth: "1px",
-            borderStyle: "solid",
-          }}
+          className={`lg:col-span-8 flex flex-col h-full ${viewMode === 'month' ? 'hidden lg:flex' : 'flex'}`}
         >
-          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
-            {isToday(selectedDate)
-              ? "Today"
-              : format(selectedDate, "EEEE, MMM d")}
-          </h3>
-          <div className="space-y-2">
-            {selectedDateTasks.length > 0 ? (
-              selectedDateTasks.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  onToggleComplete={handleToggleComplete}
-                  onDelete={handleDelete}
-                  showDate={false}
-                />
-              ))
-            ) : (
-              <p className="text-sm py-4 text-center" style={{ color: "var(--text-muted)" }}>
-                No tasks for this day
-              </p>
-            )}
+          <div className="flex flex-col h-full rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm overflow-hidden">
+            {/* Minimalist Header */}
+            <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--card-border)]">
+              <div className="flex items-baseline gap-2">
+                <span className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+                  {isToday(selectedDate) ? "Today" : format(selectedDate, "EEE")}
+                </span>
+                <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  {format(selectedDate, "MMM d")}
+                </span>
+              </div>
+              {selectedDateTasks.length > 0 && (
+                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500">
+                  {selectedDateTasks.length}
+                </span>
+              )}
+            </div>
+
+            <DayTimeline 
+              date={selectedDate}
+              tasks={selectedDateTasks}
+              onToggleComplete={handleToggleComplete}
+              onDelete={handleDelete}
+            />
           </div>
         </div>
       </div>

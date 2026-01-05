@@ -120,9 +120,99 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
   const [agentActivities, setAgentActivities] = useState([]);
   const [currentReasoning, setCurrentReasoning] = useState("");
   const [completedReasoning, setCompletedReasoning] = useState(""); // Saved after processing completes
+  const [recentMutations, setRecentMutations] = useState([]); // Track recent successful mutations for UI feedback
+  const [userLocation, setUserLocation] = useState(null); // User's location for context
   const messagesEndRef = useRef(null);
+  const mutationToolsRef = useRef(new Set(["createReminder", "updateReminder", "deleteReminder", "batchCreate", "setQuickReminder", "templateCreate"]));
+  const hasPendingRefreshRef = useRef(false); // Track if we need to refresh parent on close
   
   const t = translations[settings.language] || translations.zh;
+
+  // Get user location on mount (with permission)
+  useEffect(() => {
+    const getLocation = async () => {
+      // Check if we have cached location (valid for 1 hour)
+      const cached = localStorage.getItem("user_location");
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 3600000) { // 1 hour
+          setUserLocation(data);
+          return;
+        }
+      }
+
+      // Try browser Geolocation API first
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            try {
+              // Reverse geocode to get city/region name
+              const { latitude, longitude } = position.coords;
+              const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=${settings.language === "zh" ? "zh-TW" : "en"}`
+              );
+              const data = await response.json();
+              const locationData = {
+                city: data.address?.city || data.address?.town || data.address?.village || data.address?.county,
+                region: data.address?.state || data.address?.province,
+                country: data.address?.country,
+                latitude,
+                longitude,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              };
+              setUserLocation(locationData);
+              localStorage.setItem("user_location", JSON.stringify({ data: locationData, timestamp: Date.now() }));
+            } catch (err) {
+              console.log("Reverse geocoding failed, using coordinates only");
+              const locationData = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              };
+              setUserLocation(locationData);
+            }
+          },
+          (error) => {
+            console.log("Geolocation denied or unavailable:", error.message);
+            // Fallback: Use timezone to infer general location
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            setUserLocation({ timezone, inferred: true });
+          },
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 3600000 }
+        );
+      } else {
+        // No geolocation support, use timezone
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        setUserLocation({ timezone, inferred: true });
+      }
+    };
+
+    getLocation();
+  }, [settings.language]);
+
+  // Auto-clear old mutation notifications after 3 seconds
+  useEffect(() => {
+    if (recentMutations.length > 0) {
+      const timer = setTimeout(() => {
+        const now = Date.now();
+        setRecentMutations(prev => prev.filter(m => now - m.timestamp < 3000));
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [recentMutations]);
+
+  // Get mutation message for display
+  const getMutationMessage = (mutation) => {
+    const messages = {
+      createReminder: settings.language === "zh" ? "✅ 已新增提醒" : "✅ Reminder created",
+      updateReminder: settings.language === "zh" ? "✅ 已更新提醒" : "✅ Reminder updated",
+      deleteReminder: settings.language === "zh" ? "✅ 已刪除提醒" : "✅ Reminder deleted",
+      batchCreate: settings.language === "zh" ? "✅ 已批量新增提醒" : "✅ Reminders created",
+      setQuickReminder: settings.language === "zh" ? "✅ 已設定快速提醒" : "✅ Quick reminder set",
+      templateCreate: settings.language === "zh" ? "✅ 已從範本建立提醒" : "✅ Created from template",
+    };
+    return messages[mutation.tool] || (settings.language === "zh" ? "✅ 操作成功" : "✅ Action completed");
+  };
 
   useEffect(() => {
     const savedSettings = localStorage.getItem("ai_reminder_settings");
@@ -138,6 +228,23 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
     }
   }, []);
 
+  // Store onSuccess in a ref so cleanup can access latest value
+  const onSuccessRef = useRef(onSuccess);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
+
+  // Handle component unmount - refresh if there were mutations
+  // This catches navigation, page refresh, etc.
+  useEffect(() => {
+    return () => {
+      if (hasPendingRefreshRef.current && onSuccessRef.current) {
+        onSuccessRef.current();
+        hasPendingRefreshRef.current = false;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       const windowWidth = window.innerWidth;
@@ -150,8 +257,13 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
+      // Refresh parent list when modal closes normally
+      if (hasPendingRefreshRef.current && onSuccess) {
+        onSuccess();
+        hasPendingRefreshRef.current = false;
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, onSuccess]);
 
   useEffect(() => {
     const handleEscape = (e) => {
@@ -248,6 +360,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
           reasoningEnabled: settings.reasoningEnabled,
           language: settings.language,
           reasoningLanguage: settings.reasoningLanguage,
+          userLocation, // Pass user location for context
         }),
       });
 
@@ -473,6 +586,21 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
                     }
                     return updated;
                   });
+                  
+                  // If this is a mutation tool that succeeded, mark for refresh on close
+                  if (event.success && event.tool && mutationToolsRef.current.has(event.tool)) {
+                    // Track mutation for visual feedback
+                    setRecentMutations(prev => [...prev, {
+                      tool: event.tool,
+                      result: event.result,
+                      timestamp: Date.now()
+                    }]);
+                    
+                    // Mark that we need to refresh parent when modal closes
+                    // This prevents losing agent context from immediate refresh
+                    hasPendingRefreshRef.current = true;
+                  }
+                  
                   setCurrentToolCall(null);
                   break;
                   
@@ -1412,7 +1540,53 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess }) {
           background: rgba(255, 255, 255, 0.1);
           font-weight: 600;
         }
+        
+        @keyframes slideInUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes fadeOut {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
+        }
+        
+        .mutation-toast {
+          animation: slideInUp 0.3s ease-out, fadeOut 0.3s ease-out 2.7s forwards;
+        }
       `}</style>
+      
+      {/* Mutation Success Toasts */}
+      {recentMutations.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-[10000] flex flex-col gap-2">
+          {recentMutations.map((mutation, idx) => (
+            <div
+              key={mutation.timestamp + idx}
+              className="mutation-toast px-4 py-3 rounded-xl shadow-lg"
+              style={{
+                background: "rgba(34, 197, 94, 0.15)",
+                backdropFilter: "blur(10px)",
+                border: "1px solid rgba(34, 197, 94, 0.3)",
+                color: "rgba(134, 239, 172, 1)",
+                fontSize: "13px",
+                fontWeight: "500",
+              }}
+            >
+              {getMutationMessage(mutation)}
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

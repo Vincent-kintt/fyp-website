@@ -74,6 +74,10 @@ export default function InboxPage() {
     }
   };
 
+  const handleUpdate = (updatedTask) => {
+    setTasks(tasks.map((t) => (t.id === updatedTask.id ? { ...t, ...updatedTask } : t)));
+  };
+
   const handleQuickAdd = async (taskData) => {
     try {
       const response = await fetch("/api/reminders", {
@@ -138,6 +142,7 @@ export default function InboxPage() {
               task={task}
               onToggleComplete={handleToggleComplete}
               onDelete={handleDelete}
+              onUpdate={handleUpdate}
             />
           ))
         ) : (
@@ -163,6 +168,7 @@ export default function InboxPage() {
                 task={task}
                 onToggleComplete={handleToggleComplete}
                 onDelete={handleDelete}
+                onUpdate={handleUpdate}
               />
             ))}
             {completedTasks.length > 5 && (

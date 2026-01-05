@@ -7,6 +7,8 @@ import { FaSun, FaCalendarDay, FaCalendarWeek, FaCheckCircle } from "react-icons
 import { isToday, isTomorrow, isThisWeek, startOfDay, endOfDay, addDays } from "date-fns";
 import TaskSection from "@/components/tasks/TaskSection";
 import QuickAdd from "@/components/tasks/QuickAdd";
+import NextTaskCard from "@/components/dashboard/NextTaskCard";
+import StatsOverview from "@/components/dashboard/StatsOverview";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -67,6 +69,10 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error deleting task:", error);
     }
+  };
+
+  const handleUpdate = (updatedTask) => {
+    setTasks(tasks.map((t) => (t.id === updatedTask.id ? { ...t, ...updatedTask } : t)));
   };
 
   const handleQuickAdd = async (taskData) => {
@@ -157,6 +163,7 @@ export default function DashboardPage() {
           tasks={overdueTasks}
           onToggleComplete={handleToggleComplete}
           onDelete={handleDelete}
+          onUpdate={handleUpdate}
           accentColor="orange"
           emptyMessage="No overdue tasks"
         />
@@ -169,6 +176,7 @@ export default function DashboardPage() {
         tasks={todayTasks}
         onToggleComplete={handleToggleComplete}
         onDelete={handleDelete}
+        onUpdate={handleUpdate}
         accentColor="blue"
         showDate={false}
         emptyMessage="No tasks for today. Add one above!"
@@ -181,6 +189,7 @@ export default function DashboardPage() {
         tasks={tomorrowTasks}
         onToggleComplete={handleToggleComplete}
         onDelete={handleDelete}
+        onUpdate={handleUpdate}
         accentColor="green"
         defaultCollapsed={todayTasks.length > 3}
         emptyMessage="No tasks for tomorrow"
@@ -194,6 +203,7 @@ export default function DashboardPage() {
           tasks={thisWeekTasks}
           onToggleComplete={handleToggleComplete}
           onDelete={handleDelete}
+          onUpdate={handleUpdate}
           accentColor="purple"
           defaultCollapsed={true}
         />
@@ -207,6 +217,7 @@ export default function DashboardPage() {
           tasks={completedToday}
           onToggleComplete={handleToggleComplete}
           onDelete={handleDelete}
+          onUpdate={handleUpdate}
           accentColor="gray"
           defaultCollapsed={true}
           showDate={false}
