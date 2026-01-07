@@ -1,9 +1,6 @@
 {
   "name": "fyp-reminder-app",
   "version": "0.1.0",
-  "engines": {
-    "node": ">=18.17.0"
-  },
   "private": true,
   "type": "module",
   "scripts": {
