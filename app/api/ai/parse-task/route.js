@@ -7,8 +7,26 @@ const LLM_API_URL = process.env.LLM_API_URL;
 const LLM_API_KEY = process.env.LLM_API_KEY;
 const PARSE_MODEL = "x-ai/grok-4.1-fast";
 
-// Custom chrono parser (keep standard casual for now, let LLM handle normalization)
-const standardChrono = chrono.casual;
+// Custom chrono parser with smart AM/PM inference
+// When time is ambiguous (no AM/PM), assume PM for hours 1-6 (people rarely schedule at 1-6 AM)
+const customChrono = chrono.casual.clone();
+customChrono.refiners.push({
+  refine: (context, results) => {
+    results.forEach((result) => {
+      // Only apply if meridiem (AM/PM) is not certain
+      if (!result.start.isCertain('meridiem')) {
+        const hour = result.start.get('hour');
+        // Hours 1-6 without AM/PM -> assume PM (13:00-18:00)
+        // This is because people rarely schedule tasks at 1-6 AM
+        if (hour >= 1 && hour <= 6) {
+          result.start.assign('meridiem', 1); // 1 = PM
+          result.start.assign('hour', hour + 12);
+        }
+      }
+    });
+    return results;
+  }
+});
 
 /**
  * POST /api/ai/parse-task
@@ -19,11 +37,12 @@ const standardChrono = chrono.casual;
 /**
  * Parse date/time using chrono-node (reliable NLP date parsing)
  */
-function parseDateTimeWithChrono(text, refDate) {
+function parseDateTimeWithChrono(text, refDate, forceToday = false) {
   if (!text) return null;
   
-  // Use standard casual parser
-  const results = standardChrono.parse(text, refDate, { forwardDate: true });
+  // Use custom parser with smart AM/PM inference
+  // Disable forwardDate if user explicitly says "today" to prevent pushing to tomorrow
+  const results = customChrono.parse(text, refDate, { forwardDate: !forceToday });
   
   if (results.length === 0) return null;
   
@@ -82,7 +101,11 @@ Extract structured data from the user's natural language input.
 
 **Date Handling Strategy:**
 - Identify any date/time references (fuzzy, typos, slang, or foreign language).
-- **Normalize** them into standard English time expressions (e.g., "tmr" -> "tomorrow", "下週二" -> "next Tuesday", "25號" -> "25th").
+- **Normalize** them into standard English time expressions that chrono-node can parse.
+- **CRITICAL**: When there's a time component, ALWAYS use "at X:XX am/pm" format.
+  - "today 4:30" -> "today at 4:30 pm" (assume PM for 1-6 without AM/PM)
+  - "tmr 9am" -> "tomorrow at 9:00 am"
+  - "下週二 3點" -> "next Tuesday at 3:00 pm"
 - If no date is present, return null for date_expression.
 
 **Extraction Rules:**
@@ -101,13 +124,17 @@ Extract structured data from the user's natural language input.
   "title": "Clean Title",
   "tags": ["tag1"],
   "priority": "medium",
-  "date_expression": "normalized date string or null"
+  "date_expression": "normalized date string or null",
+  "is_today": false
 }
 
+**is_today**: Set to true ONLY if the user explicitly says "today", "今天", "今日", "2day", etc. This prevents the system from pushing past times to tomorrow.
+
 **Examples:**
-- "submit report tmr morning" -> {"title": "Submit report", "tags": ["work"], "priority": "high", "date_expression": "tomorrow morning"}
-- "buy milk 2day" -> {"title": "Buy milk", "tags": ["shopping"], "priority": "medium", "date_expression": "today"}
-- "check email" -> {"title": "Check email", "tags": ["work"], "priority": "medium", "date_expression": null}`;
+- "submit report tmr morning" -> {"title": "Submit report", "tags": ["work"], "priority": "high", "date_expression": "tomorrow morning", "is_today": false}
+- "buy milk 2day" -> {"title": "Buy milk", "tags": ["shopping"], "priority": "medium", "date_expression": "today", "is_today": true}
+- "today i need to present in 4:30" -> {"title": "Present", "tags": ["work"], "priority": "medium", "date_expression": "today at 4:30 pm", "is_today": true}
+- "check email" -> {"title": "Check email", "tags": ["work"], "priority": "medium", "date_expression": null, "is_today": false}`;
 
     const response = await fetch(LLM_API_URL, {
       method: "POST",
@@ -123,7 +150,7 @@ Extract structured data from the user's natural language input.
           { role: "system", content: systemPrompt },
           { role: "user", content: text },
         ],
-        temperature: 0.1, // Lower temperature for more deterministic output
+        temperature: 0.3, // Lower temperature for more deterministic output
         max_tokens: 300,
       }),
     });
@@ -161,18 +188,19 @@ Extract structured data from the user's natural language input.
       llmParsed = { title: text.trim() };
     }
 
+    // Detect if user explicitly said "today"
+    const isToday = llmParsed.is_today === true || 
+      /\b(today|今天|今日|2day|tdy)\b/i.test(text);
+    
     // Parse the normalized date expression with Chrono
     let chronoResult = null;
     if (llmParsed.date_expression) {
-      chronoResult = parseDateTimeWithChrono(llmParsed.date_expression, now);
+      chronoResult = parseDateTimeWithChrono(llmParsed.date_expression, now, isToday);
     }
     
     // Fallback: If LLM missed the date but Chrono can find something in the original text
     if (!chronoResult) {
-       // Only try fallback if LLM didn't return a date_expression (meaning it didn't think there was a date)
-       // If LLM returned one but Chrono failed, it might be garbage, so we could try original text too, 
-       // but typically normalized is better. Let's just try original as a safety net.
-       const fallbackResult = parseDateTimeWithChrono(text, now);
+       const fallbackResult = parseDateTimeWithChrono(text, now, isToday);
        if (fallbackResult) {
          chronoResult = fallbackResult;
        }
