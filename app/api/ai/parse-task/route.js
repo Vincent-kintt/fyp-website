@@ -96,45 +96,39 @@ export async function POST(request) {
     // 1. LLM extracts intent and normalizes date string (e.g. "tmr" -> "tomorrow")
     // 2. Chrono parses the normalized date string reliably
     
-    const systemPrompt = `You are a smart task parser.
-Extract structured data from the user's natural language input.
+    // Format current time for context
+    const currentTimeStr = now.toLocaleString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long", 
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
 
-**Date Handling Strategy:**
-- Identify any date/time references (fuzzy, typos, slang, or foreign language).
-- **Normalize** them into standard English time expressions that chrono-node can parse.
-- **CRITICAL**: When there's a time component, ALWAYS use "at X:XX am/pm" format.
-  - "today 4:30" -> "today at 4:30 pm" (assume PM for 1-6 without AM/PM)
-  - "tmr 9am" -> "tomorrow at 9:00 am"
-  - "下週二 3點" -> "next Tuesday at 3:00 pm"
-- If no date is present, return null for date_expression.
+    const systemPrompt = `You are a smart task parser. Current time: ${currentTimeStr}
 
-**Extraction Rules:**
-1. **title** (required): The task description with date/time words REMOVED. Clean and capitalize.
-2. **tags** (optional): Inferred category tags (e.g., "buy milk" -> ["personal", "shopping"]).
-3. **priority** (optional): "high", "medium", or "low".
-4. **date_expression** (optional): The normalized English date string suitable for a parser.
-
-**Priority Logic:**
-- HIGH: Urgent words ("ASAP", "emergency", "dead", "important")
-- LOW: Relaxed words ("whenever", "maybe", "someday")
-- MEDIUM: Default
-
-**Return JSON ONLY:**
+Extract structured data from user input. Return JSON only:
 {
-  "title": "Clean Title",
-  "tags": ["tag1"],
-  "priority": "medium",
-  "date_expression": "normalized date string or null",
-  "is_today": false
+  "title": "Clean task title (remove date/time words)",
+  "tags": ["relevant", "tags"],
+  "priority": "low/medium/high",
+  "date_expression": "normalized English date/time for chrono-node parser"
 }
 
-**is_today**: Set to true ONLY if the user explicitly says "today", "今天", "今日", "2day", etc. This prevents the system from pushing past times to tomorrow.
+**Date/Time Rules:**
+- Normalize all dates to English (e.g., "tmr" -> "tomorrow", "下週二" -> "next Tuesday")
+- ALWAYS include AM/PM based on context. Use current time to infer:
+  - If it's now ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}, and user says "today 10:00", pick the next logical 10:00 (AM if before 10am, PM if after 10am)
+  - Ambiguous times like "4:30" without AM/PM → use PM for typical task hours (1-6)
+- Format: "today at 4:30 pm", "tomorrow at 9:00 am", "next Friday at 2:00 pm"
 
-**Examples:**
-- "submit report tmr morning" -> {"title": "Submit report", "tags": ["work"], "priority": "high", "date_expression": "tomorrow morning", "is_today": false}
-- "buy milk 2day" -> {"title": "Buy milk", "tags": ["shopping"], "priority": "medium", "date_expression": "today", "is_today": true}
-- "today i need to present in 4:30" -> {"title": "Present", "tags": ["work"], "priority": "medium", "date_expression": "today at 4:30 pm", "is_today": true}
-- "check email" -> {"title": "Check email", "tags": ["work"], "priority": "medium", "date_expression": null, "is_today": false}`;
+**Priority:** HIGH for urgent/ASAP/deadline, LOW for whenever/maybe, MEDIUM default.
+
+Examples:
+- "meeting tmr 2pm" -> {"title": "Meeting", "tags": ["work"], "priority": "medium", "date_expression": "tomorrow at 2:00 pm"}
+- "今天10點開會" -> {"title": "開會", "tags": ["work"], "priority": "medium", "date_expression": "today at 10:00 am/pm"} (pick based on current time)`;
 
     const response = await fetch(LLM_API_URL, {
       method: "POST",
@@ -150,7 +144,7 @@ Extract structured data from the user's natural language input.
           { role: "system", content: systemPrompt },
           { role: "user", content: text },
         ],
-        temperature: 0.3, // Lower temperature for more deterministic output
+        temperature: 0.2,
         max_tokens: 300,
       }),
     });

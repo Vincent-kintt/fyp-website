@@ -7,9 +7,9 @@ import { getTagClasses, formatDuration, DURATION_PRESETS } from "@/lib/utils";
 const DEBOUNCE_MS = 600;
 
 const PRIORITY_CONFIG = {
-  high: { label: "High", labelZh: "高", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300" },
-  medium: { label: "Medium", labelZh: "中", color: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300" },
-  low: { label: "Low", labelZh: "低", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" },
+  high: { label: "High", labelZh: "高", color: "bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30" },
+  medium: { label: "Medium", labelZh: "中", color: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/30" },
+  low: { label: "Low", labelZh: "低", color: "bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30" },
 };
 
 export default function QuickAdd({ 
@@ -330,7 +330,7 @@ export default function QuickAdd({
               {/* DateTime chip */}
               {(parsedData.dateTime || manualDate) && (
                 <span 
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 cursor-pointer hover:opacity-80 transition-opacity"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={removeDateTime}
                   title={t.removeDate}
                 >
@@ -355,7 +355,7 @@ export default function QuickAdd({
 
               {/* Duration chip */}
               {parsedData.duration && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
                   <FaClock className="w-3 h-3" />
                   {formatDuration(parsedData.duration)}
                 </span>
@@ -365,7 +365,7 @@ export default function QuickAdd({
               {parsedData.tags?.map((tag) => (
                 <span
                   key={tag}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${getTagClasses(tag)}`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity border ${getTagClasses(tag)}`}
                   onClick={() => removeTag(tag)}
                   title={t.removeTag}
                 >
