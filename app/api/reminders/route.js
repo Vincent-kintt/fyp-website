@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
-import { getServerSession } from "next-auth";
+import { auth } from "@/auth";
 import { ObjectId } from "mongodb";
 import { 
   normalizeTags, 
@@ -15,7 +15,7 @@ import {
 // GET /api/reminders - Get all reminders for logged-in user
 export async function GET(request) {
   try {
-    const session = await getServerSession();
+    const session = await auth();
 
     if (!session || !session.user) {
       return NextResponse.json(
@@ -101,7 +101,7 @@ export async function GET(request) {
 // POST /api/reminders - Create a new reminder for logged-in user
 export async function POST(request) {
   try {
-    const session = await getServerSession();
+    const session = await auth();
 
     if (!session || !session.user) {
       return NextResponse.json(

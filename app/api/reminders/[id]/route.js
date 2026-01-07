@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
-import { getServerSession } from "next-auth";
+import { auth } from "@/auth";
 import { ObjectId } from "mongodb";
 import { 
   normalizeTags, 
@@ -15,7 +15,7 @@ import {
 // GET /api/reminders/[id] - Get a single reminder (must belong to user)
 export async function GET(request, { params }) {
   try {
-    const session = await getServerSession();
+    const session = await auth();
 
     if (!session || !session.user) {
       return NextResponse.json(
@@ -87,7 +87,7 @@ export async function GET(request, { params }) {
 // PUT /api/reminders/[id] - Update a reminder (must belong to user)
 export async function PUT(request, { params }) {
   try {
-    const session = await getServerSession();
+    const session = await auth();
 
     if (!session || !session.user) {
       return NextResponse.json(
@@ -223,7 +223,7 @@ export async function PUT(request, { params }) {
 // DELETE /api/reminders/[id] - Delete a reminder (must belong to user)
 export async function DELETE(request, { params }) {
   try {
-    const session = await getServerSession();
+    const session = await auth();
 
     if (!session || !session.user) {
       return NextResponse.json(
@@ -298,7 +298,7 @@ export async function DELETE(request, { params }) {
 // PATCH /api/reminders/[id] - Partial update (e.g., toggle completed)
 export async function PATCH(request, { params }) {
   try {
-    const session = await getServerSession();
+    const session = await auth();
 
     if (!session || !session.user) {
       return NextResponse.json(

@@ -1,4 +1,4 @@
-import { getServerSession } from "next-auth";
+import { auth } from "@/auth";
 import { simpleOrchestrator } from "@/lib/agents/simpleOrchestrator.js";
 
 export const runtime = "nodejs";
@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request) {
   try {
-    const session = await getServerSession();
+    const session = await auth();
 
     if (!session || !session.user) {
       return new Response(

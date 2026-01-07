@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app/api/ai/**/*.js": {
+      "maxDuration": 60
+    },
+    "app/api/reminders/**/*.js": {
+      "maxDuration": 30
+    }
+  },
+  "crons": []
+}

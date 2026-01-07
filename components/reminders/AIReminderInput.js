@@ -100,7 +100,7 @@ export default function AIReminderInput({ onGenerate }) {
 
       <div className="mt-4 pt-4 border-t border-primary/30">
         <p className="text-xs text-text-muted">
-          💡 <strong>Examples:</strong> "Doctor appointment next Friday at 2pm" • "Pay bills on the 1st of every month" • "Daily standup at 9am"
+          💡 <strong>Examples:</strong> &ldquo;Doctor appointment next Friday at 2pm&rdquo; • &ldquo;Pay bills on the 1st of every month&rdquo; • &ldquo;Daily standup at 9am&rdquo;
         </p>
       </div>
     </div>

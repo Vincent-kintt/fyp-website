@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { FaBell, FaCalendarAlt, FaCheckCircle } from "react-icons/fa";
 import Button from "@/components/ui/Button";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
+import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import ClientRedirect from "@/components/auth/ClientRedirect";
 
 export default async function Home() {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
 
   if (session) {
     redirect("/dashboard");

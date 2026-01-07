@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { auth } from "@/auth";
 import { normalizeTags } from "@/lib/utils";
 import * as chrono from "chrono-node";
 
@@ -54,7 +54,7 @@ function parseDateTimeWithChrono(text, refDate) {
 
 export async function POST(request) {
   try {
-    const session = await getServerSession();
+    const session = await auth();
     if (!session?.user) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },

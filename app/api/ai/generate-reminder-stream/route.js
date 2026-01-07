@@ -1,4 +1,4 @@
-import { getServerSession } from "next-auth";
+import { auth } from "@/auth";
 
 const LLM_API_URL = process.env.LLM_API_URL;
 const LLM_API_KEY = process.env.LLM_API_KEY;
@@ -6,7 +6,7 @@ const DEFAULT_LLM_MODEL = process.env.LLM_MODEL || "x-ai/grok-4.1-fast";
 
 export async function POST(request) {
   try {
-    const session = await getServerSession();
+    const session = await auth();
 
     if (!session || !session.user) {
       return new Response(

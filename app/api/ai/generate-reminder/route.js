@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { auth } from "@/auth";
 import { generateReminderFromText } from "@/lib/llm";
 
 // POST /api/ai/generate-reminder - Generate reminder from natural language
 export async function POST(request) {
   try {
-    const session = await getServerSession();
+    const session = await auth();
 
     if (!session || !session.user) {
       return NextResponse.json(
