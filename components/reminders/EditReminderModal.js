@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { FaTimes, FaClock, FaTag, FaSync, FaFlag, FaPlus, FaTrash, FaStickyNote, FaHourglass, FaPlay, FaCheck, FaPause } from "react-icons/fa";
+import { toast } from "sonner";
 import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig } from "@/lib/utils";
 
 export default function EditReminderModal({ isOpen, onClose, reminder, onSave }) {
@@ -100,11 +101,11 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
         onSave({ ...reminder, ...formData });
         onClose();
       } else {
-        setError(data.error || "Failed to update reminder");
+        toast.error(data.error || "Failed to update reminder");
       }
     } catch (err) {
       console.error("Error updating reminder:", err);
-      setError("An error occurred. Please try again.");
+      toast.error("Failed to update reminder");
     } finally {
       setIsSubmitting(false);
     }

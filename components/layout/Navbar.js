@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { FaBell, FaUser, FaSignOutAlt, FaMoon, FaSun, FaHome, FaInbox, FaCalendarAlt, FaList } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import Button from "../ui/Button";
+import GlobalSearch from "../search/GlobalSearch";
 
 export default function Navbar() {
   const { data: session, status } = useSession();
@@ -85,6 +86,8 @@ export default function Navbar() {
                   <FaList className="w-4 h-4" />
                   <span className="hidden sm:inline">All</span>
                 </Link>
+
+                <GlobalSearch />
 
                 {/* User Info */}
                 <div className="flex items-center space-x-3 border-l border-border pl-6">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { FaPlus } from "react-icons/fa";
+import { toast } from "sonner";
 import ReminderList from "@/components/reminders/ReminderList";
 import ReminderFilter from "@/components/reminders/ReminderFilter";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
@@ -50,9 +51,13 @@ export default function RemindersPage() {
 
       if (response.ok) {
         setReminders(reminders.filter(reminder => reminder.id !== id));
+        toast.success("Reminder deleted");
+      } else {
+        toast.error("Failed to delete reminder");
       }
     } catch (error) {
       console.error("Error deleting reminder:", error);
+      toast.error("Failed to delete reminder");
     }
   };
 

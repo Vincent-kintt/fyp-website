@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FaClock, FaTag, FaEdit, FaTrash, FaStickyNote, FaHourglass, FaPlay, FaCheck, FaPause } from "react-icons/fa";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import Card from "../ui/Card";
 import EditReminderModal from "./EditReminderModal";
@@ -16,6 +17,7 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
     if (onUpdate) {
       onUpdate(updatedReminder);
     }
+    toast.success("Reminder updated");
   };
   const formatDateTime = (dateTime) => {
     return format(new Date(dateTime), "MMM dd, yyyy 'at' hh:mm a");

@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, forwardRef } from "react";
 import { FaClock, FaEdit, FaTrash, FaFlag, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
+import DragHandle from "@/components/ui/DragHandle";
 
-export default function TaskItem({ task, onToggleComplete, onDelete, onUpdate, showDate = true }) {
+const TaskItem = forwardRef(function TaskItem(
+  { task, onToggleComplete, onDelete, onUpdate, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle },
+  ref
+) {
   const [isCompleting, setIsCompleting] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState(task);
@@ -90,16 +94,23 @@ export default function TaskItem({ task, onToggleComplete, onDelete, onUpdate, s
   return (
     <>
     <div
+      ref={ref}
       className={`group flex items-start gap-3 p-4 rounded-xl transition-all duration-200 hover:opacity-90 ${
         currentTask.completed ? "opacity-60" : ""
-      } ${isCompleting ? "scale-[0.98]" : ""}`}
+      } ${isCompleting ? "scale-[0.98]" : ""} ${isDragging ? "opacity-50" : ""}`}
       style={{
         backgroundColor: "var(--card-bg)",
         borderColor: "var(--card-border)",
         borderWidth: "1px",
         borderStyle: "solid",
+        ...dragStyle,
       }}
     >
+      {/* Drag handle */}
+      {dragHandleListeners && (
+        <DragHandle listeners={dragHandleListeners} attributes={dragHandleAttributes} />
+      )}
+
       {/* Category indicator */}
       <div className={`w-1 h-full min-h-[40px] rounded-full ${getCategoryColor(currentTask.category)}`} />
 
@@ -255,4 +266,6 @@ export default function TaskItem({ task, onToggleComplete, onDelete, onUpdate, s
     />
     </>
   );
-}
+});
+
+export default TaskItem;

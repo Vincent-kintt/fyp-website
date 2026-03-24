@@ -66,6 +66,7 @@ export async function GET(request, { params }) {
       completedAt: reminder.completedAt || null,
       priority: reminder.priority || "medium",
       subtasks: reminder.subtasks || [],
+      sortOrder: reminder.sortOrder || 0,
       username: reminder.username,
       createdAt: reminder.createdAt,
       updatedAt: reminder.updatedAt,
@@ -202,6 +203,7 @@ export async function PUT(request, { params }) {
       completedAt: updatedReminder.completedAt || null,
       priority: updatedReminder.priority || "medium",
       subtasks: updatedReminder.subtasks || [],
+      sortOrder: updatedReminder.sortOrder || 0,
       username: updatedReminder.username,
       createdAt: updatedReminder.createdAt.toISOString(),
       updatedAt: updatedReminder.updatedAt.toISOString(),
@@ -386,6 +388,7 @@ export async function PATCH(request, { params }) {
     if (body.category) updateData.category = body.category;
     if (body.tags !== undefined) updateData.tags = normalizeTags(body.tags || []);
     if (body.priority) updateData.priority = body.priority;
+    if (body.sortOrder !== undefined) updateData.sortOrder = body.sortOrder;
     if (body.subtasks !== undefined) {
       updateData.subtasks = Array.isArray(body.subtasks) ? body.subtasks.map((st, idx) => ({
         id: st.id || `st-${Date.now()}-${idx}`,
@@ -430,6 +433,7 @@ export async function PATCH(request, { params }) {
       completedAt: updatedReminder.completedAt || null,
       priority: updatedReminder.priority || "medium",
       subtasks: updatedReminder.subtasks || [],
+      sortOrder: updatedReminder.sortOrder || 0,
       username: updatedReminder.username,
       createdAt: updatedReminder.createdAt,
       updatedAt: updatedReminder.updatedAt,

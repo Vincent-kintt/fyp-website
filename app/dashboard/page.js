@@ -1,16 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { FaSun, FaCalendarDay, FaCalendarWeek, FaCheckCircle } from "react-icons/fa";
+import { toast } from "sonner";
 import { isToday, isTomorrow, isThisWeek, startOfDay, endOfDay, addDays } from "date-fns";
+import { DndContext, closestCenter, DragOverlay, pointerWithin, rectIntersection } from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
+import TaskItem from "@/components/tasks/TaskItem";
 import TaskSection from "@/components/tasks/TaskSection";
 import QuickAdd from "@/components/tasks/QuickAdd";
 import NextTaskCard from "@/components/dashboard/NextTaskCard";
 import StatsOverview from "@/components/dashboard/StatsOverview";
 import FloatingActionButton from "@/components/ui/FloatingActionButton";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
+import {
+  useDndSensors, computeSortOrders, reorderReminders,
+  SECTION_IDS, getSectionTargetDate, computeNewDateTime, getSectionLabel,
+} from "@/lib/dnd";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -19,6 +27,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiInitialText, setAiInitialText] = useState("");
+  const [activeDragId, setActiveDragId] = useState(null);
+  const [overSectionId, setOverSectionId] = useState(null);
+  const sensors = useDndSensors();
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -56,9 +67,12 @@ export default function DashboardPage() {
       });
       if (response.ok) {
         setTasks(tasks.map((t) => (t.id === id ? { ...t, completed } : t)));
+      } else {
+        toast.error("Failed to update task");
       }
     } catch (error) {
       console.error("Error updating task:", error);
+      toast.error("Failed to update task");
     }
   };
 
@@ -69,9 +83,13 @@ export default function DashboardPage() {
       });
       if (response.ok) {
         setTasks(tasks.filter((t) => t.id !== id));
+        toast.success("Task deleted");
+      } else {
+        toast.error("Failed to delete task");
       }
     } catch (error) {
       console.error("Error deleting task:", error);
+      toast.error("Failed to delete task");
     }
   };
 
@@ -88,9 +106,13 @@ export default function DashboardPage() {
       });
       if (response.ok) {
         fetchTasks();
+        toast.success("Task added");
+      } else {
+        toast.error("Failed to add task");
       }
     } catch (error) {
       console.error("Error adding task:", error);
+      toast.error("Failed to add task");
     }
   };
 
@@ -99,8 +121,9 @@ export default function DashboardPage() {
     setIsAIModalOpen(true);
   };
 
+  // Build task-to-section mapping for drag logic
   const now = new Date();
-  
+
   // Sort tasks by dateTime
   const sortedTasks = [...tasks].sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
 
@@ -136,6 +159,116 @@ export default function DashboardPage() {
     const taskDate = new Date(t.dateTime);
     return taskDate < startOfDay(now) && !t.completed;
   });
+
+  // Map taskId -> sectionId for drag logic
+  const taskToSection = useMemo(() => {
+    const map = new Map();
+    overdueTasks.forEach((t) => map.set(t.id, SECTION_IDS.OVERDUE));
+    todayTasks.forEach((t) => map.set(t.id, SECTION_IDS.TODAY));
+    tomorrowTasks.forEach((t) => map.set(t.id, SECTION_IDS.TOMORROW));
+    thisWeekTasks.forEach((t) => map.set(t.id, SECTION_IDS.THIS_WEEK));
+    completedToday.forEach((t) => map.set(t.id, SECTION_IDS.COMPLETED));
+    return map;
+  }, [overdueTasks, todayTasks, tomorrowTasks, thisWeekTasks, completedToday]);
+
+  const getSectionTasks = useCallback(
+    (sectionId) => {
+      switch (sectionId) {
+        case SECTION_IDS.OVERDUE: return overdueTasks;
+        case SECTION_IDS.TODAY: return todayTasks;
+        case SECTION_IDS.TOMORROW: return tomorrowTasks;
+        case SECTION_IDS.THIS_WEEK: return thisWeekTasks;
+        case SECTION_IDS.COMPLETED: return completedToday;
+        default: return [];
+      }
+    },
+    [overdueTasks, todayTasks, tomorrowTasks, thisWeekTasks, completedToday]
+  );
+
+  const handleDragStart = useCallback((event) => {
+    setActiveDragId(event.active.id);
+  }, []);
+
+  const handleDragOver = useCallback(
+    (event) => {
+      const { over } = event;
+      if (!over) {
+        setOverSectionId(null);
+        return;
+      }
+      // over.id can be a task ID or a section ID
+      const section = taskToSection.get(over.id) || over.id;
+      setOverSectionId(section);
+    },
+    [taskToSection]
+  );
+
+  const handleDragEnd = useCallback(
+    async (event) => {
+      const { active, over } = event;
+      setActiveDragId(null);
+      setOverSectionId(null);
+
+      if (!over || active.id === over.id) return;
+
+      const sourceSection = taskToSection.get(active.id);
+      const targetSection = taskToSection.get(over.id) || over.id;
+
+      if (!sourceSection) return;
+
+      const previousTasks = tasks;
+
+      if (sourceSection === targetSection) {
+        // Within-section reorder
+        const sectionTasks = getSectionTasks(sourceSection);
+        const oldIndex = sectionTasks.findIndex((t) => t.id === active.id);
+        const newIndex = sectionTasks.findIndex((t) => t.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const reordered = arrayMove(sectionTasks, oldIndex, newIndex);
+        const reorderedIds = new Set(reordered.map((t) => t.id));
+        const otherTasks = tasks.filter((t) => !reorderedIds.has(t.id));
+        setTasks([...otherTasks, ...reordered]);
+
+        try {
+          const sortUpdates = computeSortOrders(reordered);
+          await reorderReminders(sortUpdates);
+        } catch {
+          setTasks(previousTasks);
+          toast.error("Failed to reorder");
+        }
+      } else {
+        // Cross-section drag — update dateTime
+        const targetDate = getSectionTargetDate(targetSection);
+        if (!targetDate) return; // Invalid target (overdue, completed)
+
+        const draggedTask = tasks.find((t) => t.id === active.id);
+        if (!draggedTask) return;
+
+        const newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
+        const updatedTask = { ...draggedTask, dateTime: newDateTime };
+
+        setTasks(tasks.map((t) => (t.id === active.id ? updatedTask : t)));
+
+        try {
+          await reorderReminders([{ id: active.id, sortOrder: draggedTask.sortOrder || 0, dateTime: newDateTime }]);
+          toast.success(`Moved to ${getSectionLabel(targetSection)}`);
+        } catch {
+          setTasks(previousTasks);
+          toast.error("Failed to move task");
+        }
+      }
+    },
+    [tasks, taskToSection, getSectionTasks]
+  );
+
+  const handleDragCancel = useCallback(() => {
+    setActiveDragId(null);
+    setOverSectionId(null);
+  }, []);
+
+  const activeDragTask = activeDragId ? tasks.find((t) => t.id === activeDragId) : null;
+  const activeDragSourceSection = activeDragId ? taskToSection.get(activeDragId) : null;
 
   if (status === "loading" || loading) {
     return (
@@ -185,80 +318,116 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Overdue Tasks */}
-      {overdueTasks.length > 0 && (
+      {/* Drag-and-Drop Context for all sections */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        {/* Overdue Tasks */}
+        {overdueTasks.length > 0 && (
+          <TaskSection
+            title="Overdue"
+            icon={<FaCalendarDay />}
+            tasks={overdueTasks}
+            onToggleComplete={handleToggleComplete}
+            onDelete={handleDelete}
+            onUpdate={handleUpdate}
+            accentColor="orange"
+            emptyMessage="No overdue tasks"
+            sortable
+            sectionId={SECTION_IDS.OVERDUE}
+            droppable
+            isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.OVERDUE && activeDragSourceSection !== SECTION_IDS.OVERDUE}
+          />
+        )}
+
+        {/* Today's Tasks */}
         <TaskSection
-          title="Overdue"
-          icon={<FaCalendarDay />}
-          tasks={overdueTasks}
+          title="Today"
+          icon={<FaSun />}
+          tasks={todayTasks}
           onToggleComplete={handleToggleComplete}
           onDelete={handleDelete}
           onUpdate={handleUpdate}
-          accentColor="orange"
-          emptyMessage="No overdue tasks"
-        />
-      )}
-
-      {/* Today's Tasks */}
-      <TaskSection
-        title="Today"
-        icon={<FaSun />}
-        tasks={todayTasks}
-        onToggleComplete={handleToggleComplete}
-        onDelete={handleDelete}
-        onUpdate={handleUpdate}
-        accentColor="blue"
-        showDate={false}
-        emptyMessage="No tasks for today."
-        emptyAction={{
-          text: "Plan my day with AI",
-          subtext: "Let AI organize your schedule",
-          icon: "✨",
-          onClick: () => setIsAIModalOpen(true)
-        }}
-      />
-
-      {/* Tomorrow's Tasks */}
-      <TaskSection
-        title="Tomorrow"
-        icon={<FaCalendarDay />}
-        tasks={tomorrowTasks}
-        onToggleComplete={handleToggleComplete}
-        onDelete={handleDelete}
-        onUpdate={handleUpdate}
-        accentColor="green"
-        defaultCollapsed={todayTasks.length > 3}
-        emptyMessage="No tasks for tomorrow"
-      />
-
-      {/* This Week */}
-      {thisWeekTasks.length > 0 && (
-        <TaskSection
-          title="This Week"
-          icon={<FaCalendarWeek />}
-          tasks={thisWeekTasks}
-          onToggleComplete={handleToggleComplete}
-          onDelete={handleDelete}
-          onUpdate={handleUpdate}
-          accentColor="purple"
-          defaultCollapsed={true}
-        />
-      )}
-
-      {/* Completed Today */}
-      {completedToday.length > 0 && (
-        <TaskSection
-          title="Completed Today"
-          icon={<FaCheckCircle />}
-          tasks={completedToday}
-          onToggleComplete={handleToggleComplete}
-          onDelete={handleDelete}
-          onUpdate={handleUpdate}
-          accentColor="gray"
-          defaultCollapsed={true}
+          accentColor="blue"
           showDate={false}
+          emptyMessage="No tasks for today."
+          emptyAction={{
+            text: "Plan my day with AI",
+            subtext: "Let AI organize your schedule",
+            onClick: () => setIsAIModalOpen(true)
+          }}
+          sortable
+          sectionId={SECTION_IDS.TODAY}
+          droppable
+          isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.TODAY && activeDragSourceSection !== SECTION_IDS.TODAY}
         />
-      )}
+
+        {/* Tomorrow's Tasks */}
+        <TaskSection
+          title="Tomorrow"
+          icon={<FaCalendarDay />}
+          tasks={tomorrowTasks}
+          onToggleComplete={handleToggleComplete}
+          onDelete={handleDelete}
+          onUpdate={handleUpdate}
+          accentColor="green"
+          defaultCollapsed={todayTasks.length > 3}
+          emptyMessage="No tasks for tomorrow"
+          sortable
+          sectionId={SECTION_IDS.TOMORROW}
+          droppable
+          isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.TOMORROW && activeDragSourceSection !== SECTION_IDS.TOMORROW}
+        />
+
+        {/* This Week */}
+        {thisWeekTasks.length > 0 && (
+          <TaskSection
+            title="This Week"
+            icon={<FaCalendarWeek />}
+            tasks={thisWeekTasks}
+            onToggleComplete={handleToggleComplete}
+            onDelete={handleDelete}
+            onUpdate={handleUpdate}
+            accentColor="purple"
+            defaultCollapsed={true}
+            sortable
+            sectionId={SECTION_IDS.THIS_WEEK}
+            droppable
+            isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.THIS_WEEK && activeDragSourceSection !== SECTION_IDS.THIS_WEEK}
+          />
+        )}
+
+        {/* Completed Today — not sortable/droppable */}
+        {completedToday.length > 0 && (
+          <TaskSection
+            title="Completed Today"
+            icon={<FaCheckCircle />}
+            tasks={completedToday}
+            onToggleComplete={handleToggleComplete}
+            onDelete={handleDelete}
+            onUpdate={handleUpdate}
+            accentColor="gray"
+            defaultCollapsed={true}
+            showDate={false}
+          />
+        )}
+
+        <DragOverlay>
+          {activeDragTask ? (
+            <TaskItem
+              task={activeDragTask}
+              onToggleComplete={() => {}}
+              onDelete={() => {}}
+              onUpdate={() => {}}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       <FloatingActionButton onClick={() => setIsAIModalOpen(true)} />
       

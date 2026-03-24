@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { FaClock, FaTag, FaEdit, FaArrowLeft } from "react-icons/fa";
+import { FaClock, FaTag, FaEdit, FaArrowLeft, FaTrash, FaHourglass, FaFlag, FaStickyNote, FaSync, FaPlay, FaCheck, FaPause, FaCheckCircle } from "react-icons/fa";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import EditReminderModal from "@/components/reminders/EditReminderModal";
+import { getStatusConfig, getTagClasses, formatDuration } from "@/lib/utils";
 
 export default function ReminderDetailPage() {
   const params = useParams();
@@ -13,6 +16,7 @@ export default function ReminderDetailPage() {
   const [reminder, setReminder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchReminder = async () => {
@@ -25,8 +29,8 @@ export default function ReminderDetailPage() {
         } else {
           setError("Reminder not found");
         }
-      } catch (error) {
-        console.error("Error fetching reminder:", error);
+      } catch (err) {
+        console.error("Error fetching reminder:", err);
         setError("Failed to load reminder");
       } finally {
         setLoading(false);
@@ -47,34 +51,46 @@ export default function ReminderDetailPage() {
       });
 
       if (response.ok) {
+        toast.success("Reminder deleted");
         router.push("/reminders");
         router.refresh();
+      } else {
+        toast.error("Failed to delete reminder");
       }
-    } catch (error) {
-      console.error("Error deleting reminder:", error);
+    } catch (err) {
+      console.error("Error deleting reminder:", err);
+      toast.error("Failed to delete reminder");
     }
+  };
+
+  const handleSave = (updatedReminder) => {
+    setReminder(updatedReminder);
+    toast.success("Reminder updated");
   };
 
   const formatDateTime = (dateTime) => {
     return format(new Date(dateTime), "MMMM dd, yyyy 'at' hh:mm a");
   };
 
-  const getCategoryColor = (category) => {
-    const colors = {
-      work: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200",
-      personal: "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
-      health: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
-      other: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-    };
-    return colors[category] || colors.other;
+  const StatusIcon = {
+    pending: FaClock,
+    in_progress: FaPlay,
+    completed: FaCheck,
+    snoozed: FaPause,
+  };
+
+  const priorityConfig = {
+    high: { label: "High", color: "bg-red-500/10 text-red-500 border-red-500/30" },
+    medium: { label: "Medium", color: "bg-yellow-500/10 text-yellow-500 border-yellow-500/30" },
+    low: { label: "Low", color: "bg-green-500/10 text-green-500 border-green-500/30" },
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading reminder...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p style={{ color: "var(--text-secondary)" }}>Loading reminder...</p>
         </div>
       </div>
     );
@@ -83,12 +99,19 @@ export default function ReminderDetailPage() {
   if (error || !reminder) {
     return (
       <div className="max-w-3xl mx-auto">
-        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded">
+        <div className="bg-danger-light border border-danger/30 text-danger px-4 py-3 rounded-lg">
           {error || "Reminder not found"}
         </div>
       </div>
     );
   }
+
+  const status = reminder.status || "pending";
+  const statusConfig = getStatusConfig(status);
+  const StatusIconComponent = StatusIcon[status] || FaClock;
+  const tags = reminder.tags?.length > 0 ? reminder.tags : [reminder.category || "personal"];
+  const priority = reminder.priority || "medium";
+  const pConfig = priorityConfig[priority] || priorityConfig.medium;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -102,52 +125,142 @@ export default function ReminderDetailPage() {
       </Button>
 
       <Card>
+        {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{reminder.title}</h1>
-          <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
-            <div className="flex items-center space-x-1">
-              <FaClock />
-              <span>{formatDateTime(reminder.dateTime)}</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <FaTag />
-              <span className={`px-2 py-1 rounded font-medium ${getCategoryColor(reminder.category)}`}>
-                {reminder.category}
+          <h1 className="text-2xl sm:text-3xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>
+            {reminder.title}
+          </h1>
+
+          {/* Badges row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Status */}
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${statusConfig.color}`}>
+              <StatusIconComponent className="w-3 h-3" />
+              {statusConfig.label}
+            </span>
+
+            {/* Priority */}
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${pConfig.color}`}>
+              <FaFlag className="w-3 h-3" />
+              {pConfig.label}
+            </span>
+
+            {/* Duration */}
+            {reminder.duration && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border" style={{ borderColor: "var(--border)", color: "var(--text-secondary)", backgroundColor: "var(--background-secondary)" }}>
+                <FaHourglass className="w-3 h-3" />
+                {formatDuration(reminder.duration)}
               </span>
-            </div>
+            )}
+
+            {/* Recurring */}
+            {reminder.recurring && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-info-light text-info border border-info/30">
+                <FaSync className="w-3 h-3" />
+                {reminder.recurringType}
+              </span>
+            )}
           </div>
         </div>
 
+        {/* Date & Time */}
+        <div className="mb-5 flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+          <FaClock className="w-4 h-4 flex-shrink-0" />
+          <span>{formatDateTime(reminder.dateTime)}</span>
+        </div>
+
+        {/* Tags */}
+        <div className="mb-5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <FaTag className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getTagClasses(tag)}`}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Description */}
         {reminder.description && (
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Description</h2>
-            <p className="text-gray-600 dark:text-gray-300">{reminder.description}</p>
+          <div className="mb-5">
+            <h2 className="text-sm font-semibold mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+              Description
+            </h2>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              {reminder.description}
+            </p>
           </div>
         )}
 
-        {reminder.recurring && (
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Recurrence</h2>
-            <span className="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-3 py-1 rounded font-medium">
-              Repeats {reminder.recurringType}
-            </span>
+        {/* Remark */}
+        {reminder.remark && (
+          <div className="mb-5">
+            <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+              <div className="flex items-start gap-2">
+                <FaStickyNote className="w-3.5 h-3.5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-yellow-700 dark:text-yellow-300">{reminder.remark}</p>
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="flex space-x-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        {/* Subtasks */}
+        {reminder.subtasks?.length > 0 && (
+          <div className="mb-5">
+            <h2 className="text-sm font-semibold mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+              Subtasks ({reminder.subtasks.filter(s => s.completed).length}/{reminder.subtasks.length})
+            </h2>
+            <div className="space-y-1.5">
+              {reminder.subtasks.map((subtask) => (
+                <div
+                  key={subtask.id}
+                  className="flex items-center gap-2 py-2 px-3 rounded-lg"
+                  style={{ backgroundColor: "var(--background-secondary)" }}
+                >
+                  {subtask.completed ? (
+                    <FaCheckCircle className="w-4 h-4 text-success flex-shrink-0" />
+                  ) : (
+                    <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ borderColor: "var(--border)" }} />
+                  )}
+                  <span
+                    className={`text-sm ${subtask.completed ? "line-through" : ""}`}
+                    style={{ color: subtask.completed ? "var(--text-muted)" : "var(--text-primary)" }}
+                  >
+                    {subtask.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex space-x-3 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
           <Button
             variant="primary"
-            onClick={() => router.push(`/reminders/${reminder.id}/edit`)}
+            onClick={() => setIsEditModalOpen(true)}
             className="flex items-center space-x-2"
           >
             <FaEdit />
-            <span>Edit Reminder</span>
+            <span>Edit</span>
           </Button>
-          <Button variant="danger" onClick={handleDelete}>
-            Delete Reminder
+          <Button variant="danger" onClick={handleDelete} className="flex items-center space-x-2">
+            <FaTrash />
+            <span>Delete</span>
           </Button>
         </div>
       </Card>
+
+      <EditReminderModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        reminder={reminder}
+        onSave={handleSave}
+      />
     </div>
   );
 }

@@ -80,6 +80,7 @@ export async function GET(request) {
       completedAt: reminder.completedAt || null,
       priority: reminder.priority || "medium",
       subtasks: reminder.subtasks || [],
+      sortOrder: reminder.sortOrder || 0,
       username: reminder.username,
       createdAt: reminder.createdAt,
       updatedAt: reminder.updatedAt,
@@ -157,6 +158,7 @@ export async function POST(request) {
         title: st.title,
         completed: st.completed || false,
       })) : [],
+      sortOrder: body.sortOrder || 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -169,6 +171,7 @@ export async function POST(request) {
       ...newReminder,
       status: "pending",
       completed: false,
+      sortOrder: 0,
       tags: processedTags,
       dateTime: newReminder.dateTime.toISOString(),
       createdAt: newReminder.createdAt.toISOString(),
