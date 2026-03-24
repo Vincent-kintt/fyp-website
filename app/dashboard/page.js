@@ -124,41 +124,56 @@ export default function DashboardPage() {
   // Build task-to-section mapping for drag logic
   const now = new Date();
 
-  // Sort tasks by dateTime
+  // Sort by dateTime for initial grouping, then re-sort sections by sortOrder
   const sortedTasks = [...tasks].sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
 
-  const todayTasks = sortedTasks.filter((t) => {
-    const taskDate = new Date(t.dateTime);
-    return isToday(taskDate) && !t.completed;
-  });
+  const sortByOrder = (arr) =>
+    arr.sort((a, b) => {
+      const oa = a.sortOrder || 0, ob = b.sortOrder || 0;
+      if (oa !== ob) return oa - ob;
+      return new Date(a.dateTime) - new Date(b.dateTime);
+    });
+
+  const todayTasks = sortByOrder(
+    sortedTasks.filter((t) => {
+      const taskDate = new Date(t.dateTime);
+      return isToday(taskDate) && !t.completed;
+    })
+  );
 
   // Find next upcoming task
   const nextTask = todayTasks.find(t => new Date(t.dateTime) > now) || todayTasks[0];
 
-  const tomorrowTasks = sortedTasks.filter((t) => {
-    const taskDate = new Date(t.dateTime);
-    return isTomorrow(taskDate) && !t.completed;
-  });
+  const tomorrowTasks = sortByOrder(
+    sortedTasks.filter((t) => {
+      const taskDate = new Date(t.dateTime);
+      return isTomorrow(taskDate) && !t.completed;
+    })
+  );
 
-  const thisWeekTasks = sortedTasks.filter((t) => {
-    const taskDate = new Date(t.dateTime);
-    return (
-      isThisWeek(taskDate, { weekStartsOn: 1 }) &&
-      !isToday(taskDate) &&
-      !isTomorrow(taskDate) &&
-      !t.completed
-    );
-  });
+  const thisWeekTasks = sortByOrder(
+    sortedTasks.filter((t) => {
+      const taskDate = new Date(t.dateTime);
+      return (
+        isThisWeek(taskDate, { weekStartsOn: 1 }) &&
+        !isToday(taskDate) &&
+        !isTomorrow(taskDate) &&
+        !t.completed
+      );
+    })
+  );
 
   const completedToday = sortedTasks.filter((t) => {
     const taskDate = new Date(t.dateTime);
     return isToday(taskDate) && t.completed;
   });
 
-  const overdueTasks = sortedTasks.filter((t) => {
-    const taskDate = new Date(t.dateTime);
-    return taskDate < startOfDay(now) && !t.completed;
-  });
+  const overdueTasks = sortByOrder(
+    sortedTasks.filter((t) => {
+      const taskDate = new Date(t.dateTime);
+      return taskDate < startOfDay(now) && !t.completed;
+    })
+  );
 
   // Map taskId -> sectionId for drag logic
   const taskToSection = useMemo(() => {
@@ -212,9 +227,11 @@ export default function DashboardPage() {
       if (!over || active.id === over.id) return;
 
       const sourceSection = taskToSection.get(active.id);
-      const targetSection = taskToSection.get(over.id) || over.id;
+      const rawTarget = taskToSection.get(over.id) || over.id;
+      const validSections = new Set(Object.values(SECTION_IDS));
+      const targetSection = validSections.has(rawTarget) ? rawTarget : null;
 
-      if (!sourceSection) return;
+      if (!sourceSection || !targetSection) return;
 
       const previousTasks = tasks;
 

@@ -5,7 +5,7 @@ export default function DragHandle({ listeners, attributes }) {
     <button
       {...listeners}
       {...attributes}
-      className="touch-none cursor-grab active:cursor-grabbing p-1 -ml-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex-shrink-0"
+      className="touch-none cursor-grab active:cursor-grabbing p-2 -ml-2 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex-shrink-0"
       style={{ color: "var(--text-muted)" }}
       aria-label="Drag to reorder"
     >
