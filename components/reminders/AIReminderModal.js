@@ -2,13 +2,93 @@
 
 import { useState, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
-import { FaSpinner, FaTimes, FaTrash, FaCheck, FaEdit, FaRobot } from "react-icons/fa";
+import { FaSpinner, FaTimes, FaTrash, FaCheck, FaRobot } from "react-icons/fa";
 import AgentStepIndicator from "./AgentStepIndicator";
 import AgentThinkingIndicator from "./AgentThinkingIndicator";
 import AgentActivityLog from "./AgentActivityLog";
+import ToolResultCard from "./ToolResultCard";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Button from "../ui/Button";
+
+// Suggested follow-up actions based on last tool used
+function getSuggestedActions(agentMessages, language) {
+  if (!agentMessages.length) return [];
+  const lastMsg = agentMessages[agentMessages.length - 1];
+  if (!lastMsg?.timeline || lastMsg.isStreaming) return [];
+
+  // Find the last tool call in the timeline
+  const toolBlocks = lastMsg.timeline.filter(b => b.type === "tool" && b.status === "success");
+  if (!toolBlocks.length) return [];
+  const lastTool = toolBlocks[toolBlocks.length - 1].tool;
+
+  const zh = language === "zh";
+  const actions = {
+    createReminder: [
+      { label: zh ? "查看今天" : "List today's", prompt: zh ? "列出今天的提醒" : "List today's reminders" },
+      { label: zh ? "再建一個" : "Create another", prompt: zh ? "再建立一個提醒" : "Create another reminder" },
+      { label: zh ? "檢查衝突" : "Find conflicts", prompt: zh ? "檢查時間衝突" : "Check for time conflicts" },
+    ],
+    listReminders: [
+      { label: zh ? "摘要" : "Summarize", prompt: zh ? "總結這些提醒" : "Summarize these reminders" },
+      { label: zh ? "檢查衝突" : "Find conflicts", prompt: zh ? "檢查時間衝突" : "Check for time conflicts" },
+      { label: zh ? "分析模式" : "Analyze patterns", prompt: zh ? "分析我的提醒模式" : "Analyze my reminder patterns" },
+    ],
+    deleteReminder: [
+      { label: zh ? "查看剩餘" : "List remaining", prompt: zh ? "列出所有提醒" : "List all reminders" },
+      { label: zh ? "建立新的" : "Create new", prompt: zh ? "建立一個新提醒" : "Create a new reminder" },
+    ],
+    analyzePatterns: [
+      { label: zh ? "本週摘要" : "This week", prompt: zh ? "總結本週的任務" : "Summarize this week's tasks" },
+      { label: zh ? "列出全部" : "List all", prompt: zh ? "列出所有提醒" : "List all reminders" },
+    ],
+    updateReminder: [
+      { label: zh ? "查看全部" : "List all", prompt: zh ? "列出所有提醒" : "List all reminders" },
+      { label: zh ? "檢查衝突" : "Find conflicts", prompt: zh ? "檢查時間衝突" : "Check for time conflicts" },
+    ],
+  };
+  return actions[lastTool] || [
+    { label: zh ? "列出提醒" : "List reminders", prompt: zh ? "列出所有提醒" : "List all reminders" },
+    { label: zh ? "建立提醒" : "Create reminder", prompt: zh ? "建立一個提醒" : "Create a reminder" },
+    { label: zh ? "分析模式" : "Analyze", prompt: zh ? "分析我的提醒模式" : "Analyze my patterns" },
+  ];
+}
+
+// Generate a brief synthetic summary when the model doesn't produce a final content response
+function generateToolSummary(tool, result, language) {
+  const zh = language === "zh";
+  if (!result) return null;
+  switch (tool) {
+    case "createReminder":
+      return result.reminder?.title
+        ? (zh ? `已為你建立提醒「${result.reminder.title}」。` : `Created reminder: **${result.reminder.title}**.`)
+        : null;
+    case "updateReminder":
+      return result.reminder?.title
+        ? (zh ? `已更新提醒「${result.reminder.title}」。` : `Updated reminder: **${result.reminder.title}**.`)
+        : null;
+    case "deleteReminder":
+      return zh ? "已刪除提醒。" : "Reminder deleted.";
+    case "snoozeReminder":
+      return result.snoozedMinutes
+        ? (zh ? `已延後提醒 ${result.snoozedMinutes} 分鐘。` : `Snoozed for ${result.snoozedMinutes} minutes.`)
+        : null;
+    case "batchCreate":
+      return result.count
+        ? (zh ? `已批量建立 ${result.count} 個提醒。` : `Created ${result.count} reminders.`)
+        : null;
+    case "setQuickReminder":
+      return result.reminder?.title
+        ? (zh ? `快速提醒已設定：「${result.reminder.title}」。` : `Quick reminder set: **${result.reminder.title}**.`)
+        : null;
+    case "templateCreate":
+      return result.reminder?.title
+        ? (zh ? `已從模板建立「${result.reminder.title}」。` : `Created from template: **${result.reminder.title}**.`)
+        : null;
+    default:
+      return null;
+  }
+}
 
 const translations = {
   zh: {
@@ -103,6 +183,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
   const [settings, setSettings] = useState({
     model: "x-ai/grok-4.1-fast",
     reasoningEffort: "medium",
@@ -110,8 +191,6 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
     language: "zh",
     reasoningLanguage: "zh"
   });
-  const [previewReminder, setPreviewReminder] = useState(null);
-  const [isEditingPreview, setIsEditingPreview] = useState(false);
   const [agentSteps, setAgentSteps] = useState([]);
   const [agentMessages, setAgentMessages] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
@@ -256,9 +335,11 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
     if (isOpen) {
       const windowWidth = window.innerWidth;
       const windowHeight = window.innerHeight;
+      const mobile = windowWidth < 768;
+      setIsMobile(mobile);
       setPosition({
-        x: (windowWidth - 900) / 2,
-        y: windowHeight * 0.1,
+        x: mobile ? 0 : (windowWidth - 900) / 2,
+        y: mobile ? 0 : windowHeight * 0.1,
       });
       setError("");
       document.body.style.overflow = "hidden";
@@ -453,19 +534,23 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                   break;
 
                 case "reasoning_hide":
-                  // Hide/remove the last reasoning block for this iteration
-                  // (reasoning without action is internal processing, not useful to user)
+                  // Collapse (not remove) reasoning when the model didn't produce content
+                  // User can still expand to see the reasoning if they want
                   setAgentMessages(prev => {
                     const updated = [...prev];
                     const lastMsgIdx = updated.length - 1;
                     if (lastMsgIdx >= 0 && updated[lastMsgIdx].type === "agent") {
                       const timeline = [...(updated[lastMsgIdx].timeline || [])];
-                      // Find and remove the reasoning block for this iteration
                       const reasoningIdx = timeline.findIndex(
                         b => b.type === "reasoning" && b.iteration === event.iteration
                       );
                       if (reasoningIdx >= 0) {
-                        timeline.splice(reasoningIdx, 1);
+                        // If reasoning has actual content, collapse it; if empty, remove it
+                        if (timeline[reasoningIdx].content?.trim()) {
+                          timeline[reasoningIdx] = { ...timeline[reasoningIdx], completed: true, expanded: false };
+                        } else {
+                          timeline.splice(reasoningIdx, 1);
+                        }
                       }
                       updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
                     }
@@ -585,7 +670,8 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                         input: event.params,
                         status: "running",
                         description: event.description,
-                        iteration: event.iteration
+                        iteration: event.iteration,
+                        startTime: Date.now()
                       });
                       
                       updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
@@ -606,10 +692,13 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                       const toolBlockIdx = timeline.map(b => b.type).lastIndexOf("tool");
                       
                       if (toolBlockIdx >= 0) {
+                         const elapsed = timeline[toolBlockIdx].startTime ? Date.now() - timeline[toolBlockIdx].startTime : null;
                          timeline[toolBlockIdx] = {
                            ...timeline[toolBlockIdx],
                            status: event.success ? "success" : "error",
-                           result: event.result
+                           result: event.result,
+                           duration: elapsed,
+                           ...(event.success ? {} : { error: event.result?.error })
                          };
                       }
                       updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
@@ -635,7 +724,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                   break;
                   
                 case "tool_error":
-                   // Update tool block to error
+                   // Update tool block to error with error message
                    setAgentMessages(prev => {
                     const updated = [...prev];
                     const lastMsgIdx = updated.length - 1;
@@ -643,7 +732,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                       const timeline = [...(updated[lastMsgIdx].timeline || [])];
                       const toolBlockIdx = timeline.map(b => b.type).lastIndexOf("tool");
                       if (toolBlockIdx >= 0) {
-                         timeline[toolBlockIdx] = { ...timeline[toolBlockIdx], status: "error" };
+                         timeline[toolBlockIdx] = { ...timeline[toolBlockIdx], status: "error", error: event.error || event.message };
                       }
                       updated[lastMsgIdx] = { ...updated[lastMsgIdx], timeline };
                     }
@@ -663,9 +752,31 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                        if (lastBlockIdx >= 0 && timeline[lastBlockIdx].type === "reasoning") {
                           timeline[lastBlockIdx] = { ...timeline[lastBlockIdx], completed: true, expanded: false };
                        }
-                       
-                      updated[lastMsgIdx] = { 
-                        ...updated[lastMsgIdx], 
+
+                       // If timeline has no content block after the last tool call,
+                       // inject a synthetic summary so the user sees a final response
+                       const hasContentAfterLastTool = (() => {
+                         const lastToolIdx = timeline.map(b => b.type).lastIndexOf("tool");
+                         if (lastToolIdx < 0) return true;
+                         return timeline.slice(lastToolIdx + 1).some(b => b.type === "content");
+                       })();
+                       if (!hasContentAfterLastTool) {
+                         const lastToolBlock = [...timeline].reverse().find(b => b.type === "tool" && b.status === "success");
+                         if (lastToolBlock) {
+                           const summaryText = generateToolSummary(lastToolBlock.tool, lastToolBlock.result, settings.language);
+                           if (summaryText) {
+                             timeline.push({
+                               type: "content",
+                               content: summaryText,
+                               iteration: lastToolBlock.iteration,
+                               synthetic: true,
+                             });
+                           }
+                         }
+                       }
+
+                      updated[lastMsgIdx] = {
+                        ...updated[lastMsgIdx],
                         isStreaming: false,
                         timeline
                       };
@@ -689,12 +800,6 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                   break;
 
                 case "pipeline_complete":
-                  // Handle reminder from new simple orchestrator
-                  if (event.reminder) {
-                    setPreviewReminder(event.reminder);
-                  } else if (event.finalResult?.reminder) {
-                    setPreviewReminder(event.finalResult.reminder);
-                  }
                   if (event.finalResult?.suggestions) {
                     setSuggestions(event.finalResult.suggestions);
                   }
@@ -722,40 +827,11 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
     }
   };
 
-  const handleCreateReminder = async () => {
-    if (!previewReminder) return;
-
-    try {
-      const createResponse = await fetch("/api/reminders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(previewReminder),
-      });
-
-      const createData = await createResponse.json();
-
-      if (createData.success) {
-        onClose();
-        if (onSuccess) {
-          onSuccess();
-        }
-      } else {
-        setError(createData.error || "建立提醒失敗");
-      }
-    } catch (error) {
-      console.error("Error creating reminder:", error);
-      setError("發生錯誤，請重試");
-    }
-  };
-
   const handleClearChat = () => {
     if (window.confirm(t.confirmClear)) {
       setAgentMessages([]);
       setAgentSteps([]);
       setSuggestions([]);
-      setPreviewReminder(null);
       setError("");
     }
   };
@@ -801,27 +877,24 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
   return (
     <>
       <div
-        className="fixed z-[9999] w-[900px] max-h-[85vh] shadow-2xl"
+        className={isMobile ? "fixed inset-0 z-[9999]" : "fixed z-[9999] w-[900px] max-h-[85vh] shadow-2xl"}
         style={{
           position: "fixed",
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          width: "900px",
-          maxHeight: "85vh",
-          borderRadius: "20px",
+          ...(isMobile ? {} : { left: `${position.x}px`, top: `${position.y}px` }),
+          borderRadius: isMobile ? "0" : "20px",
           background: "var(--modal-bg)",
           backdropFilter: "blur(20px) saturate(180%)",
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          border: "1px solid var(--modal-border)",
-          boxShadow: "var(--modal-shadow)",
+          border: isMobile ? "none" : "1px solid var(--modal-border)",
+          boxShadow: isMobile ? "none" : "var(--modal-shadow)",
           transition: isDragging ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           transform: isOpen ? "scale(1) translateY(0)" : "scale(0.95) translateY(-10px)",
           opacity: isOpen ? 1 : 0,
         }}
-        onMouseDown={handleMouseDown}
+        onMouseDown={isMobile ? undefined : handleMouseDown}
       >
-        <div className="modal-header flex items-center justify-between cursor-move select-none" style={{ padding: "10px 12px", borderRadius: "20px 20px 0 0", background: "var(--modal-header-bg)", backdropFilter: "blur(10px)", borderBottom: "1px solid var(--modal-header-border)" }}>
-          <div className="flex items-center gap-2.5 flex-1">
+        <div className={`modal-header flex items-center justify-between ${isMobile ? "" : "cursor-move"} select-none`} style={{ padding: "10px 12px", borderRadius: isMobile ? "0" : "20px 20px 0 0", background: "var(--modal-header-bg)", backdropFilter: "blur(10px)", borderBottom: "1px solid var(--modal-header-border)" }}>
+          <div className="flex items-center gap-2 flex-1 flex-wrap">
             <select
               value={settings.model}
               onChange={handleModelChange}
@@ -953,9 +1026,9 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
           </button>
         </div>
 
-        <div style={{ display: "flex", height: "calc(85vh - 60px)", gap: "16px", padding: "16px" }}>
-          {/* 左側對話區 */}
-          <div style={{ flex: "1 1 60%", display: "flex", flexDirection: "column", background: "var(--glass-bg)", borderRadius: "12px", border: "1px solid var(--glass-border)" }}>
+        <div style={{ display: "flex", height: isMobile ? "calc(100vh - 52px)" : "calc(85vh - 60px)", padding: isMobile ? "8px" : "16px" }}>
+          {/* Chat Area */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--glass-bg)", borderRadius: isMobile ? "8px" : "12px", border: "1px solid var(--glass-border)" }}>
             {/* 對話標題和清空按鈕 */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid var(--glass-border)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1060,13 +1133,13 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                                 return (
                                   <div key={`tool-${bIdx}`} className="tool-block" style={{ width: "100%" }}>
                                     {/* Tool Execution Status Bar */}
-                                    <div style={{ 
-                                      display: "flex", 
-                                      alignItems: "center", 
-                                      gap: "10px", 
-                                      padding: "10px 14px", 
-                                      background: "rgba(255, 255, 255, 0.03)", 
-                                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                                    <div style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "10px",
+                                      padding: "10px 14px",
+                                      background: "var(--glass-bg)",
+                                      border: "1px solid var(--glass-border)",
                                       borderRadius: "8px",
                                       marginBottom: "8px"
                                     }}>
@@ -1078,11 +1151,11 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                                         height: "20px"
                                       }}>
                                         {block.status === "running" ? (
-                                          <FaSpinner className="animate-spin" style={{ color: "rgba(139, 92, 246, 0.9)", fontSize: "14px" }} />
+                                          <FaSpinner className="animate-spin" style={{ color: "var(--modal-accent)", fontSize: "14px" }} />
                                         ) : block.status === "success" ? (
-                                          <FaCheck style={{ color: "rgba(34, 197, 94, 0.9)", fontSize: "14px" }} />
+                                          <FaCheck style={{ color: "var(--success)", fontSize: "14px" }} />
                                         ) : (
-                                          <FaTimes style={{ color: "rgba(239, 68, 68, 0.9)", fontSize: "14px" }} />
+                                          <FaTimes style={{ color: "var(--danger)", fontSize: "14px" }} />
                                         )}
                                       </div>
                                       
@@ -1091,196 +1164,26 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                                           {block.description || block.tool}
                                         </span>
                                         <span style={{ fontSize: "11px", color: "var(--modal-text-muted)" }}>
-                                          {block.status === "running" 
-                                            ? (settings.language === "en" ? "Executing..." : "執行中...") 
+                                          {block.status === "running"
+                                            ? (settings.language === "en" ? "Executing..." : "執行中...")
                                             : block.status === "success"
-                                              ? (settings.language === "en" ? "Completed" : "已完成")
-                                              : (settings.language === "en" ? "Failed" : "失敗")}
+                                              ? (settings.language === "en" ? "Completed" : "已完成") + (block.duration ? ` - ${(block.duration / 1000).toFixed(1)}s` : "")
+                                              : (settings.language === "en" ? "Failed" : "失敗") + (block.duration ? ` - ${(block.duration / 1000).toFixed(1)}s` : "")}
                                         </span>
                                       </div>
                                     </div>
                                     
                                     {/* Tool Result Details */}
-                                    {block.status === "success" && block.result && (
+                                    {(block.status === "success" || block.status === "error") && (
                                       <div style={{ marginLeft: "4px" }}>
-                                        {block.tool === "listReminders" && block.result.reminders ? (
-                                          <div style={{
-                                            background: "var(--card-bg, rgba(255, 255, 255, 0.02))",
-                                            border: "1px solid var(--card-border, rgba(255, 255, 255, 0.08))",
-                                            borderRadius: "12px",
-                                            padding: "16px",
-                                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                                          }}>
-                                            {/* Header */}
-                                            <div style={{ 
-                                              display: "flex", 
-                                              alignItems: "center", 
-                                              justifyContent: "space-between",
-                                              marginBottom: block.result.reminders.length > 0 ? "12px" : "0",
-                                              paddingBottom: block.result.reminders.length > 0 ? "12px" : "0",
-                                              borderBottom: block.result.reminders.length > 0 ? "1px solid rgba(255, 255, 255, 0.06)" : "none"
-                                            }}>
-                                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                                <span style={{ fontSize: "16px" }}>📋</span>
-                                                <span style={{ 
-                                                  fontSize: "14px", 
-                                                  fontWeight: "600", 
-                                                  color: "var(--modal-text)" 
-                                                }}>
-                                                  {settings.language === "en" ? "Reminders" : "提醒列表"}
-                                                </span>
-                                              </div>
-                                              <span style={{ 
-                                                fontSize: "12px", 
-                                                fontWeight: "500",
-                                                color: "var(--modal-text-muted)",
-                                                background: "rgba(99, 102, 241, 0.1)",
-                                                padding: "4px 10px",
-                                                borderRadius: "9999px",
-                                              }}>
-                                                {block.result.count} {settings.language === "en" ? "found" : "個"}
-                                              </span>
-                                            </div>
-                                            
-                                            {/* Empty State */}
-                                            {block.result.reminders.length === 0 && (
-                                              <div style={{ 
-                                                textAlign: "center", 
-                                                padding: "24px 16px", 
-                                                color: "var(--modal-text-muted)" 
-                                              }}>
-                                                <div style={{ fontSize: "24px", marginBottom: "8px", opacity: 0.5 }}>📭</div>
-                                                <div style={{ fontSize: "13px" }}>
-                                                  {settings.language === "en" ? "No reminders found" : "沒有找到提醒"}
-                                                </div>
-                                              </div>
-                                            )}
-                                            
-                                            {/* Reminder List */}
-                                            {block.result.reminders.length > 0 && (
-                                              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                                {block.result.reminders.slice(0, 4).map((reminder, rIdx) => {
-                                                  // Format date safely
-                                                  const dateObj = reminder.dateTime ? new Date(reminder.dateTime) : null;
-                                                  const isValidDate = dateObj && !isNaN(dateObj.getTime()) && dateObj.getFullYear() > 1970;
-                                                  const formattedDate = isValidDate 
-                                                    ? dateObj.toLocaleDateString(settings.language === "en" ? "en-US" : "zh-TW", { 
-                                                        month: "short", 
-                                                        day: "numeric",
-                                                        hour: "2-digit",
-                                                        minute: "2-digit"
-                                                      })
-                                                    : (settings.language === "en" ? "No date" : "未設定");
-                                                  
-                                                  // Status badge config
-                                                  const statusConfig = {
-                                                    pending: { label: settings.language === "en" ? "Pending" : "待辦", color: "#6B7280", bg: "rgba(107, 114, 128, 0.1)" },
-                                                    in_progress: { label: settings.language === "en" ? "In Progress" : "進行中", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)" },
-                                                    completed: { label: settings.language === "en" ? "Done" : "完成", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" },
-                                                    snoozed: { label: settings.language === "en" ? "Snoozed" : "已延後", color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)" },
-                                                  };
-                                                  const status = statusConfig[reminder.status] || statusConfig.pending;
-                                                  
-                                                  // Priority indicator
-                                                  const priorityDot = {
-                                                    high: "#EF4444",
-                                                    medium: "#F59E0B", 
-                                                    low: "#10B981"
-                                                  }[reminder.priority] || "#6B7280";
-                                                  
-                                                  return (
-                                                    <div key={rIdx} style={{ 
-                                                      padding: "12px 14px", 
-                                                      background: "rgba(255, 255, 255, 0.03)", 
-                                                      borderRadius: "8px", 
-                                                      border: "1px solid rgba(255, 255, 255, 0.04)",
-                                                      display: "flex", 
-                                                      justifyContent: "space-between", 
-                                                      alignItems: "center",
-                                                      gap: "12px",
-                                                      transition: "background 0.15s ease",
-                                                    }}>
-                                                      {/* Left: Priority dot + Title */}
-                                                      <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "10px" }}>
-                                                        <div style={{ 
-                                                          width: "8px", 
-                                                          height: "8px", 
-                                                          borderRadius: "50%", 
-                                                          background: priorityDot,
-                                                          flexShrink: 0
-                                                        }} />
-                                                        <div style={{ minWidth: 0, flex: 1 }}>
-                                                          <div style={{ 
-                                                            fontWeight: "500", 
-                                                            color: "var(--modal-text)", 
-                                                            fontSize: "13px",
-                                                            whiteSpace: "nowrap",
-                                                            overflow: "hidden",
-                                                            textOverflow: "ellipsis",
-                                                            maxWidth: "180px"
-                                                          }}>
-                                                            {reminder.title || (settings.language === "en" ? "Untitled" : "未命名")}
-                                                          </div>
-                                                          <div style={{ 
-                                                            fontSize: "11px", 
-                                                            color: "var(--modal-text-muted)", 
-                                                            marginTop: "3px",
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            gap: "6px"
-                                                          }}>
-                                                            <span>🕐</span>
-                                                            <span>{formattedDate}</span>
-                                                          </div>
-                                                        </div>
-                                                      </div>
-                                                      
-                                                      {/* Right: Status Badge */}
-                                                      <div style={{ 
-                                                        fontSize: "10px", 
-                                                        fontWeight: "500",
-                                                        color: status.color,
-                                                        background: status.bg,
-                                                        padding: "3px 8px",
-                                                        borderRadius: "9999px",
-                                                        whiteSpace: "nowrap",
-                                                        flexShrink: 0
-                                                      }}>
-                                                        {status.label}
-                                                      </div>
-                                                    </div>
-                                                  );
-                                                })}
-                                                
-                                                {/* Overflow indicator */}
-                                                {block.result.reminders.length > 4 && (
-                                                  <div style={{ 
-                                                    fontSize: "12px", 
-                                                    color: "var(--modal-text-muted)", 
-                                                    textAlign: "center",
-                                                    padding: "8px",
-                                                    background: "rgba(255, 255, 255, 0.02)",
-                                                    borderRadius: "6px",
-                                                    border: "1px dashed rgba(255, 255, 255, 0.08)"
-                                                  }}>
-                                                    +{block.result.reminders.length - 4} {settings.language === "en" ? "more reminders" : "個更多提醒"}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            )}
-                                          </div>
-                                        ) : block.tool === "deleteReminder" ? (
-                                           <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "8px", fontSize: "12px" }}>
-                                              <span style={{ color: "rgba(239, 68, 68, 0.8)" }}>🗑</span>
-                                              <span>{settings.language === "en" ? `Deleted: ${block.input?.title || 'Reminder'}` : `已刪除: ${block.input?.title || '提醒'}`}</span>
-                                            </div>
-                                        ) : block.tool === "createReminder" && block.result.reminder ? (
-                                            <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "rgba(34, 197, 94, 0.05)", border: "1px solid rgba(34, 197, 94, 0.2)", borderRadius: "8px", fontSize: "12px" }}>
-                                              <span style={{ color: "rgba(34, 197, 94, 0.8)" }}>✓</span>
-                                              <span>{settings.language === "en" ? "Created: " : "已建立: "}</span>
-                                              <span style={{ fontWeight: "500" }}>{block.result.reminder.title}</span>
-                                            </div>
-                                        ) : null}
+                                        <ToolResultCard
+                                          tool={block.tool}
+                                          result={block.result}
+                                          input={block.input}
+                                          success={block.status === "success"}
+                                          error={block.error}
+                                          language={settings.language}
+                                        />
                                       </div>
                                     )}
                                   </div>
@@ -1297,7 +1200,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
                                 if (!cleanContent) return null;
                                 
                                 return (
-                                  <div key={`content-${bIdx}`} className="markdown-content" style={{ padding: "12px 16px", background: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px 12px 12px 2px", fontSize: "13px", color: "var(--modal-text)" }}>
+                                  <div key={`content-${bIdx}`} className="markdown-content" style={{ padding: "12px 16px", background: "var(--agent-bubble-bg)", border: "1px solid var(--agent-bubble-border)", borderRadius: "12px 12px 12px 2px", fontSize: "13px", color: "var(--modal-text)" }}>
                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent}</ReactMarkdown>
                                   </div>
                                 );
@@ -1332,10 +1235,33 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
             {/* 輸入區 */}
             <div style={{ padding: "12px 16px", borderTop: "1px solid var(--glass-border)" }}>
               {error && (
-                <p style={{ fontSize: "12px", color: "#ef4444", background: "var(--tool-error-bg)", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--tool-error-border)", marginBottom: "8px" }}>
-                  {error}
-                </p>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px", color: "#ef4444", background: "var(--tool-error-bg)", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--tool-error-border)", marginBottom: "8px" }}>
+                  <span>{error}</span>
+                  <button onClick={() => setError(null)} style={{ cursor: "pointer", padding: "2px 6px", background: "none", border: "none", color: "#ef4444", fontSize: "14px", lineHeight: 1 }}>×</button>
+                </div>
               )}
+              {/* Suggested Actions */}
+              {!isGenerating && agentMessages.length > 0 && (() => {
+                const suggestions = getSuggestedActions(agentMessages, settings.language);
+                if (!suggestions.length) return null;
+                return (
+                  <div style={{ display: "flex", gap: "6px", marginBottom: "8px", overflowX: "auto", paddingBottom: "2px" }}>
+                    {suggestions.map((s, i) => (
+                      <button key={i} onClick={() => setText(s.prompt)}
+                        style={{
+                          padding: "5px 12px", borderRadius: "9999px", fontSize: "11px", fontWeight: "500",
+                          background: "var(--glass-bg)", color: "var(--modal-accent)", border: "1px solid var(--glass-border)",
+                          cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s",
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.background = "var(--glass-bg-hover)"; e.currentTarget.style.borderColor = "var(--modal-accent-border)"; }}
+                        onMouseOut={(e) => { e.currentTarget.style.background = "var(--glass-bg)"; e.currentTarget.style.borderColor = "var(--glass-border)"; }}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
               <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
                 <textarea
                   value={text}
@@ -1402,202 +1328,6 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
             </div>
           </div>
 
-          {/* 右側預覽區 */}
-          <div style={{ flex: "1 1 40%", display: "flex", flexDirection: "column", background: "var(--glass-bg)", borderRadius: "12px", border: "1px solid var(--glass-border)" }}>
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--glass-border)" }}>
-              <h3 style={{ fontSize: "15px", fontWeight: "600", color: "var(--modal-text-muted)" }}>
-                {t.previewTitle}
-              </h3>
-            </div>
-
-            <div style={{ flex: 1, padding: "16px", overflowY: "auto" }}>
-              {previewReminder ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <div style={{ padding: "16px", background: "rgba(6, 182, 212, 0.08)", border: "1px solid rgba(6, 182, 212, 0.3)", borderRadius: "12px" }}>
-                    <div style={{ marginBottom: "12px" }}>
-                      <label style={{ fontSize: "11px", color: "var(--modal-text-muted)", display: "block", marginBottom: "4px" }}>{t.titleLabel}</label>
-                      {isEditingPreview ? (
-                        <input
-                          type="text"
-                          value={previewReminder.title}
-                          onChange={(e) => setPreviewReminder({ ...previewReminder, title: e.target.value })}
-                          style={{
-                            width: "100%",
-                            padding: "8px 10px",
-                            background: "rgba(255, 255, 255, 0.08)",
-                            border: "1px solid rgba(255, 255, 255, 0.2)",
-                            borderRadius: "8px",
-                            color: "var(--modal-text-muted)",
-                            fontSize: "14px",
-                            fontWeight: "600",
-                            outline: "none"
-                          }}
-                        />
-                      ) : (
-                        <p style={{ fontSize: "15px", fontWeight: "600", color: "var(--modal-text-muted)" }}>{previewReminder.title}</p>
-                      )}
-                    </div>
-
-                    {previewReminder.description && (
-                      <div style={{ marginBottom: "12px" }}>
-                        <label style={{ fontSize: "11px", color: "var(--modal-text-muted)", display: "block", marginBottom: "4px" }}>{t.descLabel}</label>
-                        {isEditingPreview ? (
-                          <textarea
-                            value={previewReminder.description}
-                            onChange={(e) => setPreviewReminder({ ...previewReminder, description: e.target.value })}
-                            rows="2"
-                            style={{
-                              width: "100%",
-                              padding: "8px 10px",
-                              background: "rgba(255, 255, 255, 0.08)",
-                              border: "1px solid rgba(255, 255, 255, 0.2)",
-                              borderRadius: "8px",
-                              color: "var(--modal-text-muted)",
-                              fontSize: "13px",
-                              outline: "none",
-                              resize: "none",
-                              fontFamily: "inherit"
-                            }}
-                          />
-                        ) : (
-                          <p style={{ fontSize: "13px", color: "var(--modal-text-muted)" }}>{previewReminder.description}</p>
-                        )}
-                      </div>
-                    )}
-
-                    <div style={{ marginBottom: "12px" }}>
-                      <label style={{ fontSize: "11px", color: "var(--modal-text-muted)", display: "block", marginBottom: "4px" }}>{t.dateTimeLabel}</label>
-                      {isEditingPreview ? (
-                        <input
-                          type="datetime-local"
-                          value={previewReminder.dateTime}
-                          onChange={(e) => setPreviewReminder({ ...previewReminder, dateTime: e.target.value })}
-                          style={{
-                            width: "100%",
-                            padding: "8px 10px",
-                            background: "rgba(255, 255, 255, 0.08)",
-                            border: "1px solid rgba(255, 255, 255, 0.2)",
-                            borderRadius: "8px",
-                            color: "var(--modal-text-muted)",
-                            fontSize: "13px",
-                            outline: "none",
-                            colorScheme: "dark"
-                          }}
-                        />
-                      ) : (
-                        <p style={{ fontSize: "13px", color: "var(--modal-text-muted)" }}>{new Date(previewReminder.dateTime).toLocaleString('zh-TW')}</p>
-                      )}
-                    </div>
-
-                    <div style={{ marginBottom: "12px" }}>
-                      <label style={{ fontSize: "11px", color: "var(--modal-text-muted)", display: "block", marginBottom: "4px" }}>{t.categoryLabel}</label>
-                      {isEditingPreview ? (
-                        <select
-                          value={previewReminder.category}
-                          onChange={(e) => setPreviewReminder({ ...previewReminder, category: e.target.value })}
-                          style={{
-                            width: "100%",
-                            padding: "8px 10px",
-                            background: "rgba(255, 255, 255, 0.08)",
-                            border: "1px solid rgba(255, 255, 255, 0.2)",
-                            borderRadius: "8px",
-                            color: "var(--modal-text-muted)",
-                            fontSize: "13px",
-                            outline: "none",
-                            cursor: "pointer",
-                            colorScheme: "dark"
-                          }}
-                        >
-                          <option value="personal">{t.personal}</option>
-                          <option value="work">{t.work}</option>
-                          <option value="health">{t.health}</option>
-                          <option value="other">{t.other}</option>
-                        </select>
-                      ) : (
-                        <p style={{ fontSize: "13px", color: "var(--modal-text-muted)" }}>
-                          {t[previewReminder.category] || previewReminder.category}
-                        </p>
-                      )}
-                    </div>
-
-                    {previewReminder.recurring && (
-                      <div>
-                        <label style={{ fontSize: "11px", color: "var(--modal-text-muted)", display: "block", marginBottom: "4px" }}>{t.recurringLabel}</label>
-                        <p style={{ fontSize: "13px", color: "var(--modal-text-muted)" }}>
-                          {t[previewReminder.recurringType] || previewReminder.recurringType}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      onClick={() => setIsEditingPreview(!isEditingPreview)}
-                      style={{
-                        flex: 1,
-                        padding: "10px 14px",
-                        background: "rgba(255, 255, 255, 0.08)",
-                        border: "1px solid rgba(255, 255, 255, 0.2)",
-                        borderRadius: "10px",
-                        color: "var(--modal-text-muted)",
-                        fontSize: "13px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "6px",
-                        transition: "all 0.2s"
-                      }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.12)";
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
-                      }}
-                    >
-                      <FaEdit />
-                      {isEditingPreview ? t.finishEdit : t.edit}
-                    </button>
-                    <button
-                      onClick={handleCreateReminder}
-                      style={{
-                        flex: 1,
-                        padding: "10px 14px",
-                        background: "linear-gradient(135deg, rgba(34, 197, 94, 0.8) 0%, rgba(16, 185, 129, 0.8) 100%)",
-                        border: "1px solid rgba(255, 255, 255, 0.2)",
-                        borderRadius: "10px",
-                        color: "#fff",
-                        fontSize: "13px",
-                        fontWeight: "500",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "6px",
-                        transition: "all 0.2s"
-                      }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.transform = "scale(1.05)";
-                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(34, 197, 94, 0.4)";
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.transform = "scale(1)";
-                        e.currentTarget.style.boxShadow = "none";
-                      }}
-                    >
-                      <FaCheck />
-                      {t.confirm}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", color: "var(--modal-text-secondary)" }}>
-                  <div style={{ fontSize: "48px", opacity: 0.3 }}>📋</div>
-                  <p style={{ fontSize: "13px", textAlign: "center", whiteSpace: "pre-line" }}>{t.emptyPreview}</p>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 

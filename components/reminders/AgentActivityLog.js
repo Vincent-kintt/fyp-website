@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from "react";
 
 /**
  * Agent Activity Log - Cascade-style transparent agentic process
- * Modern, minimal design with expandable sections
+ * Modern, minimal design with expandable sections + shimmer animation
  */
-export default function AgentActivityLog({ 
+export default function AgentActivityLog({
   activities = [],
   currentPhase,
   currentToolCall,
@@ -14,40 +14,55 @@ export default function AgentActivityLog({
   completedReasoning = "",
   thinkingStartTime = null,
   isActive = false,
-  language = "zh" 
+  language = "zh"
 }) {
   const scrollRef = useRef(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [thinkingExpanded, setThinkingExpanded] = useState(true);
   const [elapsedTime, setElapsedTime] = useState(0);
   const prevIsActiveRef = useRef(isActive);
+  const collapseTimerRef = useRef(null);
+  const startTimeRef = useRef(null);
 
-  // Track thinking time
+  // Track thinking time with performance.now() for sub-second precision
   useEffect(() => {
-    let interval;
+    let raf;
     if (isActive && currentReasoning) {
-      interval = setInterval(() => {
-        setElapsedTime(prev => prev + 1);
-      }, 1000);
-    } else if (!isActive) {
-      // Keep final time when done
+      if (!startTimeRef.current) startTimeRef.current = performance.now();
+      const tick = () => {
+        setElapsedTime(Math.round((performance.now() - startTimeRef.current) / 1000));
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    } else if (!isActive && startTimeRef.current) {
+      // Keep final time
+      setElapsedTime(Math.round((performance.now() - startTimeRef.current) / 1000));
     }
-    return () => clearInterval(interval);
+    return () => raf && cancelAnimationFrame(raf);
   }, [isActive, currentReasoning]);
 
   // Reset time on new request
   useEffect(() => {
     if (isActive && !currentReasoning) {
       setElapsedTime(0);
+      startTimeRef.current = null;
     }
   }, [isActive, currentReasoning]);
 
-  // Auto-collapse when reasoning completes (isActive changes from true to false)
+  // Auto-collapse with 300ms delay to avoid race condition with final streaming chunk
   useEffect(() => {
+    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+
     if (prevIsActiveRef.current === true && isActive === false) {
-      setThinkingExpanded(false);
+      collapseTimerRef.current = setTimeout(() => {
+        setThinkingExpanded(false);
+      }, 300);
     }
     prevIsActiveRef.current = isActive;
+
+    return () => {
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    };
   }, [isActive]);
 
   // Auto-scroll when active
@@ -61,17 +76,18 @@ export default function AgentActivityLog({
 
   const successCount = activities.filter(a => a.type === "tool_success").length;
   const formatTime = (seconds) => seconds < 60 ? `${seconds}s` : `${Math.floor(seconds/60)}m ${seconds%60}s`;
-  
+
   const reasoning = currentReasoning || completedReasoning;
   const hasReasoning = reasoning.length > 0;
   const hasActivities = activities.length > 0;
-  
+  const isStreaming = isActive && currentReasoning;
+
   return (
     <div style={{ marginTop: "8px" }}>
       {/* Thinking Section - Cascade Style */}
       {(hasReasoning || (isActive && currentPhase)) && (
         <div style={{ marginBottom: hasActivities ? "8px" : "0" }}>
-          {/* Thinking Header - "Thought for Xs >" */}
+          {/* Thinking Header */}
           <div
             onClick={() => setThinkingExpanded(!thinkingExpanded)}
             style={{
@@ -87,7 +103,7 @@ export default function AgentActivityLog({
               color: "var(--modal-accent)",
               fontWeight: "400",
             }}>
-              {isActive && currentReasoning 
+              {isStreaming
                 ? (language === "en" ? `Thinking ${formatTime(elapsedTime)}` : `思考中 ${formatTime(elapsedTime)}`)
                 : (language === "en" ? `Thought for ${formatTime(elapsedTime)}` : `思考了 ${formatTime(elapsedTime)}`)}
             </span>
@@ -96,31 +112,30 @@ export default function AgentActivityLog({
               color: "var(--modal-text-muted)",
               marginLeft: "4px",
             }}>
-              {thinkingExpanded 
-                ? (language === "en" ? "▼" : "▼") 
-                : (language === "en" ? "▶" : "▶")}
+              {thinkingExpanded ? "▼" : "▶"}
             </span>
           </div>
 
           {/* Thinking Content */}
           {thinkingExpanded && (
-            <div 
+            <div
               ref={scrollRef}
+              className={isStreaming ? "reasoning-streaming" : ""}
               style={{
                 marginTop: "6px",
                 paddingLeft: "12px",
                 borderLeft: "1px solid var(--glass-border)",
                 maxHeight: "250px",
                 overflowY: "auto",
+                position: "relative",
               }}
             >
+              {/* Skeleton loading state - no text yet but active */}
               {isActive && !reasoning && currentPhase && (
-                <div style={{
-                  fontSize: "13px",
-                  color: "var(--modal-text-muted)",
-                  fontStyle: "italic",
-                }}>
-                  {currentPhase.description}...
+                <div className="reasoning-skeleton" style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "4px 0" }}>
+                  <div style={{ width: "85%" }} />
+                  <div style={{ width: "65%" }} />
+                  <div style={{ width: "75%" }} />
                 </div>
               )}
               {reasoning && (
@@ -132,11 +147,8 @@ export default function AgentActivityLog({
                   wordBreak: "break-word",
                 }}>
                   {reasoning}
-                  {isActive && currentReasoning && (
-                    <span style={{ 
-                      opacity: 0.5,
-                      animation: "blink 1s infinite",
-                    }}>|</span>
+                  {isStreaming && (
+                    <span className="reasoning-cursor">|</span>
                   )}
                 </div>
               )}
@@ -148,7 +160,6 @@ export default function AgentActivityLog({
       {/* Activities Section - Compact List */}
       {hasActivities && (
         <div>
-          {/* Activities Header */}
           <div
             onClick={() => setIsExpanded(!isExpanded)}
             style={{
@@ -169,16 +180,15 @@ export default function AgentActivityLog({
               fontSize: "13px",
               color: "var(--modal-text-muted)",
             }}>
-              {successCount > 0 
+              {successCount > 0
                 ? (language === "en" ? `${successCount} task${successCount > 1 ? 's' : ''} done` : `${successCount} 個任務完成`)
                 : (language === "en" ? `${activities.length} step${activities.length > 1 ? 's' : ''}` : `${activities.length} 個步驟`)}
             </span>
             {successCount > 0 && (
-              <span style={{ color: "rgba(34, 197, 94, 0.7)", fontSize: "12px" }}>✓</span>
+              <span style={{ color: "var(--success)", fontSize: "12px" }}>✓</span>
             )}
           </div>
 
-          {/* Activities List */}
           {isExpanded && (
             <div style={{
               marginTop: "4px",
@@ -186,7 +196,7 @@ export default function AgentActivityLog({
               borderLeft: "1px solid var(--glass-border)",
             }}>
               {activities.map((activity, idx) => (
-                <div 
+                <div
                   key={idx}
                   style={{
                     display: "flex",
@@ -194,13 +204,13 @@ export default function AgentActivityLog({
                     gap: "8px",
                     padding: "3px 0",
                     fontSize: "12px",
-                    color: activity.type === "tool_success" ? "rgba(34, 197, 94, 0.8)" : 
-                           activity.type === "tool_error" ? "rgba(239, 68, 68, 0.8)" :
-                           "rgba(255, 255, 255, 0.55)",
+                    color: activity.type === "tool_success" ? "var(--success)" :
+                           activity.type === "tool_error" ? "var(--danger)" :
+                           "var(--modal-text-muted)",
                   }}
                 >
                   <span style={{ fontSize: "11px" }}>
-                    {activity.type === "tool_success" ? "✓" : 
+                    {activity.type === "tool_success" ? "✓" :
                      activity.type === "tool_error" ? "✗" : "→"}
                   </span>
                   <span>{activity.message}</span>
@@ -233,6 +243,10 @@ export default function AgentActivityLog({
       )}
 
       <style jsx>{`
+        .reasoning-cursor {
+          opacity: 0.5;
+          animation: blink 1s infinite;
+        }
         @keyframes blink {
           0%, 50% { opacity: 1; }
           51%, 100% { opacity: 0; }

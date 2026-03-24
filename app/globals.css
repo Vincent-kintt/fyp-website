@@ -288,6 +288,43 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Reasoning shimmer animation */
+@keyframes reasoning-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.reasoning-streaming {
+  position: relative;
+}
+
+.reasoning-streaming::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1.5em;
+  background: linear-gradient(90deg, transparent 0%, var(--glass-bg-hover) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: reasoning-shimmer 2s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: 0 0 6px 6px;
+}
+
+/* Reasoning skeleton loading */
+.reasoning-skeleton > div {
+  height: 10px;
+  border-radius: 4px;
+  background: var(--glass-bg);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
 /* Markdown content styling for better readability */
 .markdown-content strong,
 .markdown-content b,
