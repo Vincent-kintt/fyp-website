@@ -55,7 +55,7 @@ export async function POST(request) {
             reasoningEnabled,
             language,
             reasoningLanguage,
-            userId: session.user.username, // Pass username for tool execution (matches reminders collection)
+            userId: session.user.id, // Pass userId (ObjectId) for tool execution
             useReact: forceAgentic, // Force agentic agent in agentic mode
             userLocation, // Pass user location for context
           })) {

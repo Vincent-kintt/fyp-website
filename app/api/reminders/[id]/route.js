@@ -37,7 +37,7 @@ export async function GET(request, { params }) {
     const remindersCollection = await getCollection("reminders");
     const reminder = await remindersCollection.findOne({
       _id: new ObjectId(id),
-      username: session.user.username, // Ensure reminder belongs to user
+      userId: session.user.id, // Ensure reminder belongs to user
     });
 
     if (!reminder) {
@@ -169,7 +169,7 @@ export async function PUT(request, { params }) {
     const result = await remindersCollection.updateOne(
       {
         _id: new ObjectId(id),
-        username: session.user.username, // Ensure reminder belongs to user
+        userId: session.user.id, // Ensure reminder belongs to user
       },
       { $set: updateData }
     );
@@ -247,7 +247,7 @@ export async function DELETE(request, { params }) {
     // Get reminder before deleting for response
     const reminder = await remindersCollection.findOne({
       _id: new ObjectId(id),
-      username: session.user.username, // Ensure reminder belongs to user
+      userId: session.user.id, // Ensure reminder belongs to user
     });
 
     if (!reminder) {
@@ -259,7 +259,7 @@ export async function DELETE(request, { params }) {
 
     const result = await remindersCollection.deleteOne({
       _id: new ObjectId(id),
-      username: session.user.username, // Ensure reminder belongs to user
+      userId: session.user.id, // Ensure reminder belongs to user
     });
 
     if (result.deletedCount === 0) {
@@ -335,7 +335,7 @@ export async function PATCH(request, { params }) {
       // Fetch current reminder to validate status transition
       const currentReminder = await remindersCollection.findOne({
         _id: new ObjectId(id),
-        username: session.user.username,
+        userId: session.user.id,
       });
       
       if (currentReminder) {
@@ -397,7 +397,7 @@ export async function PATCH(request, { params }) {
     const result = await remindersCollection.updateOne(
       {
         _id: new ObjectId(id),
-        username: session.user.username,
+        userId: session.user.id,
       },
       { $set: updateData }
     );

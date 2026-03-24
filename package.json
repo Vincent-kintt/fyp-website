@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "init-users": "node scripts/initUsers.js"
+    "init-users": "node --env-file=.env.local scripts/initUsers.js",
+    "migrate-userids": "node --env-file=.env.local scripts/migrateUserIds.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

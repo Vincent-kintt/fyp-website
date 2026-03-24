@@ -33,7 +33,7 @@ export async function GET(request) {
 
     // Build query filter - only get reminders for this user
     const filter = {
-      username: session.user.username,
+      userId: session.user.id,
     };
 
     // Filter by category (backward compatible)

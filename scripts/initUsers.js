@@ -1,8 +1,14 @@
 import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 
-const MONGODB_URI = "mongodb+srv://kin:REDACTED@kin.ywb5smp.mongodb.net/";
-const MONGODB_DB = "reminder-app";
+const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_DB = process.env.MONGODB_DB || "reminder-app";
+
+if (!MONGODB_URI) {
+  console.error("Error: MONGODB_URI is not set.");
+  console.error("Run with: node --env-file=.env.local scripts/initUsers.js");
+  process.exit(1);
+}
 
 async function initUsers() {
   const client = new MongoClient(MONGODB_URI);

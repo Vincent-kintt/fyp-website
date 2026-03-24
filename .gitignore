@@ -47,5 +47,9 @@ next-env.d.ts
 *.swo
 *~
 
+# Claude AI
+.claude/
+CLAUDE.md
+
 overview.md
 
