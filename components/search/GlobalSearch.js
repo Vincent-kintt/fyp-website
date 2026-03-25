@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Command } from "cmdk";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaClock, FaPlay, FaCheck, FaPause, FaPlus, FaRobot } from "react-icons/fa";
 import { format } from "date-fns";
@@ -133,6 +134,10 @@ export default function GlobalSearch() {
         label="Search reminders"
         loop
       >
+        {/* Accessible title (visually hidden for screen readers) */}
+        <DialogPrimitive.Title style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', borderWidth: 0 }}>
+          搜尋提醒事項
+        </DialogPrimitive.Title>
         {/* Overlay */}
         <div className="cmdk-overlay" onClick={() => setOpen(false)} />
 
