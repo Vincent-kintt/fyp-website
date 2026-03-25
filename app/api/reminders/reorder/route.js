@@ -52,6 +52,7 @@ export async function PATCH(request) {
       // Optional dateTime update (for cross-section drag in Phase 3)
       if (item.dateTime) {
         updateFields.dateTime = new Date(item.dateTime);
+        updateFields.notificationSent = false;
       }
 
       return {

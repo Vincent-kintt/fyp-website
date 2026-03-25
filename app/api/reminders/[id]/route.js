@@ -176,6 +176,7 @@ export async function PUT(request, { params }) {
       recurring: recurring || false,
       recurringType: recurring ? recurringType : null,
       priority: priority || "medium",
+      notificationSent: false,
       subtasks: Array.isArray(subtasks) ? subtasks.map((st, idx) => ({
         id: st.id || `st-${Date.now()}-${idx}`,
         title: st.title,
@@ -426,7 +427,10 @@ export async function PATCH(request, { params }) {
     if (body.title) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;
     if (body.remark !== undefined) updateData.remark = body.remark;
-    if (body.dateTime) updateData.dateTime = new Date(body.dateTime);
+    if (body.dateTime) {
+      updateData.dateTime = new Date(body.dateTime);
+      updateData.notificationSent = false;
+    }
     if (body.category) updateData.category = body.category;
     if (body.tags !== undefined) updateData.tags = normalizeTags(body.tags || []);
     if (body.priority) updateData.priority = body.priority;

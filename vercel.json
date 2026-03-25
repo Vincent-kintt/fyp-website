@@ -6,11 +6,22 @@
     },
     "app/api/reminders/**/*.js": {
       "maxDuration": 30
+    },
+    "app/api/cron/**/*.js": {
+      "maxDuration": 10
     }
   },
   "crons": [
     {
       "path": "/api/cron/unsnooze",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/notify",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-subscriptions",
       "schedule": "0 0 * * *"
     }
   ]

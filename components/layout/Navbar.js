@@ -7,6 +7,7 @@ import { FaBell, FaUser, FaSignOutAlt, FaMoon, FaSun, FaHome, FaInbox, FaCalenda
 import { useEffect, useState } from "react";
 import Button from "../ui/Button";
 import GlobalSearch from "../search/GlobalSearch";
+import NotificationBell from "./NotificationBell";
 
 export default function Navbar() {
   const { data: session, status } = useSession();
@@ -88,6 +89,8 @@ export default function Navbar() {
                 </Link>
 
                 <GlobalSearch />
+
+                <NotificationBell />
 
                 {/* User Info */}
                 <div className="flex items-center space-x-3 border-l border-border pl-6">

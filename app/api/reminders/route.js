@@ -169,6 +169,7 @@ export async function POST(request) {
         completed: st.completed || false,
       })) : [],
       sortOrder: body.sortOrder || 0,
+      notificationSent: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
