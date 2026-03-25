@@ -387,8 +387,6 @@ describe("deleteReminder", () => {
   it("reports failure for non-existent reminder", async () => {
     const fakeId = new ObjectId().toString();
     const result = await deleteReminder({ reminderId: fakeId }, TEST_USER_ID);
-    // BUG: currently always returns success. After fix, should report failure.
-    // This test documents the expected behavior after fix.
     expect(result.success).toBe(false);
   });
 });
@@ -513,7 +511,6 @@ describe("batchCreate", () => {
     }));
 
     const result = await batchCreate({ reminders: tooMany }, TEST_USER_ID);
-    // After fix, should reject batches > 50
     expect(result.success).toBe(false);
     expect(result.error).toContain("50");
   });
