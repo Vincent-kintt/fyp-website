@@ -359,6 +359,22 @@ export async function PATCH(request, { params }) {
         if (body.status === "completed" && currentStatus !== "completed") {
           updateData.completedAt = new Date();
         }
+
+        // Handle snooze: require snoozedUntil when snoozing
+        if (body.status === "snoozed") {
+          if (!body.snoozedUntil) {
+            return NextResponse.json(
+              { success: false, error: "snoozedUntil is required when snoozing" },
+              { status: 400 }
+            );
+          }
+          updateData.snoozedUntil = new Date(body.snoozedUntil);
+        }
+
+        // Clear snoozedUntil when leaving snoozed state
+        if (currentStatus === "snoozed" && body.status !== "snoozed") {
+          updateData.snoozedUntil = null;
+        }
       }
     } else if (typeof body.completed === "boolean") {
       // Backward compatibility: handle completed boolean

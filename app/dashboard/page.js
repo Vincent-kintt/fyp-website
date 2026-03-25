@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { FaSun, FaCalendarDay, FaCalendarWeek, FaCheckCircle } from "react-icons/fa";
+import { FaSun, FaCalendarDay, FaCalendarWeek, FaCheckCircle, FaMoon } from "react-icons/fa";
 import { toast } from "sonner";
 import { isToday, isTomorrow, isThisWeek, startOfDay, endOfDay, addDays } from "date-fns";
 import { DndContext, closestCenter, DragOverlay, pointerWithin, rectIntersection } from "@dnd-kit/core";
@@ -37,13 +37,33 @@ export default function DashboardPage() {
     }
   }, [status, router]);
 
+  // Listen for open-ai-modal event from GlobalSearch quick actions
+  useEffect(() => {
+    const handler = () => setIsAIModalOpen(true);
+    window.addEventListener("open-ai-modal", handler);
+    return () => window.removeEventListener("open-ai-modal", handler);
+  }, []);
+
   const fetchTasks = async () => {
     try {
       setLoading(true);
       const response = await fetch("/api/reminders");
       const data = await response.json();
       if (data.success) {
-        setTasks(data.data);
+        const now = new Date();
+        const processed = data.data.map((r) => {
+          if (r.status === "snoozed" && r.snoozedUntil && new Date(r.snoozedUntil) <= now) {
+            // Fire-and-forget PATCH to update DB
+            fetch(`/api/reminders/${r.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "pending" }),
+            }).catch(console.error);
+            return { ...r, status: "pending", snoozedUntil: null };
+          }
+          return r;
+        });
+        setTasks(processed);
       }
     } catch (error) {
       console.error("Error fetching tasks:", error);
@@ -97,6 +117,43 @@ export default function DashboardPage() {
     setTasks(tasks.map((t) => (t.id === updatedTask.id ? { ...t, ...updatedTask } : t)));
   };
 
+  const handleSnooze = async (id, snoozedUntil) => {
+    try {
+      if (snoozedUntil === null) {
+        // Cancel snooze
+        const response = await fetch(`/api/reminders/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "pending" }),
+        });
+        if (response.ok) {
+          setTasks(tasks.map((t) =>
+            t.id === id ? { ...t, status: "pending", snoozedUntil: null, completed: false } : t
+          ));
+          toast.success("已取消延後");
+        }
+      } else {
+        const response = await fetch(`/api/reminders/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "snoozed", snoozedUntil }),
+        });
+        if (response.ok) {
+          setTasks(tasks.map((t) =>
+            t.id === id ? { ...t, status: "snoozed", snoozedUntil, completed: false } : t
+          ));
+          toast.success("已延後提醒");
+        } else {
+          const errData = await response.json();
+          toast.error(errData.error || "延後失敗");
+        }
+      }
+    } catch (error) {
+      console.error("Error snoozing task:", error);
+      toast.error("延後失敗");
+    }
+  };
+
   const handleQuickAdd = async (taskData) => {
     try {
       const response = await fetch("/api/reminders", {
@@ -137,7 +194,7 @@ export default function DashboardPage() {
   const todayTasks = sortByOrder(
     sortedTasks.filter((t) => {
       const taskDate = new Date(t.dateTime);
-      return isToday(taskDate) && !t.completed;
+      return isToday(taskDate) && !t.completed && t.status !== "snoozed";
     })
   );
 
@@ -147,7 +204,7 @@ export default function DashboardPage() {
   const tomorrowTasks = sortByOrder(
     sortedTasks.filter((t) => {
       const taskDate = new Date(t.dateTime);
-      return isTomorrow(taskDate) && !t.completed;
+      return isTomorrow(taskDate) && !t.completed && t.status !== "snoozed";
     })
   );
 
@@ -158,7 +215,8 @@ export default function DashboardPage() {
         isThisWeek(taskDate, { weekStartsOn: 1 }) &&
         !isToday(taskDate) &&
         !isTomorrow(taskDate) &&
-        !t.completed
+        !t.completed &&
+        t.status !== "snoozed"
       );
     })
   );
@@ -171,9 +229,11 @@ export default function DashboardPage() {
   const overdueTasks = sortByOrder(
     sortedTasks.filter((t) => {
       const taskDate = new Date(t.dateTime);
-      return taskDate < startOfDay(now) && !t.completed;
+      return taskDate < startOfDay(now) && !t.completed && t.status !== "snoozed";
     })
   );
+
+  const snoozedTasks = sortedTasks.filter((t) => t.status === "snoozed" && !t.completed);
 
   // Map taskId -> sectionId for drag logic
   const taskToSection = useMemo(() => {
@@ -182,9 +242,10 @@ export default function DashboardPage() {
     todayTasks.forEach((t) => map.set(t.id, SECTION_IDS.TODAY));
     tomorrowTasks.forEach((t) => map.set(t.id, SECTION_IDS.TOMORROW));
     thisWeekTasks.forEach((t) => map.set(t.id, SECTION_IDS.THIS_WEEK));
+    snoozedTasks.forEach((t) => map.set(t.id, SECTION_IDS.SNOOZED));
     completedToday.forEach((t) => map.set(t.id, SECTION_IDS.COMPLETED));
     return map;
-  }, [overdueTasks, todayTasks, tomorrowTasks, thisWeekTasks, completedToday]);
+  }, [overdueTasks, todayTasks, tomorrowTasks, thisWeekTasks, snoozedTasks, completedToday]);
 
   const getSectionTasks = useCallback(
     (sectionId) => {
@@ -193,11 +254,12 @@ export default function DashboardPage() {
         case SECTION_IDS.TODAY: return todayTasks;
         case SECTION_IDS.TOMORROW: return tomorrowTasks;
         case SECTION_IDS.THIS_WEEK: return thisWeekTasks;
+        case SECTION_IDS.SNOOZED: return snoozedTasks;
         case SECTION_IDS.COMPLETED: return completedToday;
         default: return [];
       }
     },
-    [overdueTasks, todayTasks, tomorrowTasks, thisWeekTasks, completedToday]
+    [overdueTasks, todayTasks, tomorrowTasks, thisWeekTasks, snoozedTasks, completedToday]
   );
 
   const handleDragStart = useCallback((event) => {
@@ -353,6 +415,7 @@ export default function DashboardPage() {
             onToggleComplete={handleToggleComplete}
             onDelete={handleDelete}
             onUpdate={handleUpdate}
+            onSnooze={handleSnooze}
             accentColor="orange"
             emptyMessage="No overdue tasks"
             sortable
@@ -370,6 +433,7 @@ export default function DashboardPage() {
           onToggleComplete={handleToggleComplete}
           onDelete={handleDelete}
           onUpdate={handleUpdate}
+          onSnooze={handleSnooze}
           accentColor="blue"
           showDate={false}
           emptyMessage="No tasks for today."
@@ -392,6 +456,7 @@ export default function DashboardPage() {
           onToggleComplete={handleToggleComplete}
           onDelete={handleDelete}
           onUpdate={handleUpdate}
+          onSnooze={handleSnooze}
           accentColor="green"
           defaultCollapsed={todayTasks.length > 3}
           emptyMessage="No tasks for tomorrow"
@@ -410,12 +475,28 @@ export default function DashboardPage() {
             onToggleComplete={handleToggleComplete}
             onDelete={handleDelete}
             onUpdate={handleUpdate}
+            onSnooze={handleSnooze}
             accentColor="purple"
             defaultCollapsed={true}
             sortable
             sectionId={SECTION_IDS.THIS_WEEK}
             droppable
             isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.THIS_WEEK && activeDragSourceSection !== SECTION_IDS.THIS_WEEK}
+          />
+        )}
+
+        {/* Snoozed Tasks — not sortable/droppable */}
+        {snoozedTasks.length > 0 && (
+          <TaskSection
+            title="已延後"
+            icon={<FaMoon />}
+            tasks={snoozedTasks}
+            onToggleComplete={handleToggleComplete}
+            onDelete={handleDelete}
+            onUpdate={handleUpdate}
+            onSnooze={handleSnooze}
+            accentColor="purple"
+            defaultCollapsed={true}
           />
         )}
 
@@ -428,6 +509,7 @@ export default function DashboardPage() {
             onToggleComplete={handleToggleComplete}
             onDelete={handleDelete}
             onUpdate={handleUpdate}
+            onSnooze={handleSnooze}
             accentColor="gray"
             defaultCollapsed={true}
             showDate={false}

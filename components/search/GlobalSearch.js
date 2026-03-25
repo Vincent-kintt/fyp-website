@@ -1,22 +1,57 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
-import { FaSearch, FaClock, FaPlay, FaCheck, FaPause, FaTag } from "react-icons/fa";
+import { FaSearch, FaClock, FaPlay, FaCheck, FaPause, FaPlus, FaRobot } from "react-icons/fa";
 import { format } from "date-fns";
 import { getTagClasses } from "@/lib/utils";
+
+const CACHE_TTL = 30_000; // 30 seconds
+
+function HighlightText({ text, search }) {
+  if (!search || !text) return text;
+  try {
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`(${escaped})`, "gi");
+    const parts = text.split(regex);
+    return parts.map((part, i) =>
+      regex.test(part) ? (
+        <mark key={i} className="bg-yellow-300/40 dark:bg-yellow-500/30 text-inherit rounded-sm px-0.5">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  } catch {
+    return text;
+  }
+}
 
 export default function GlobalSearch() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const cacheRef = useRef({ data: null, timestamp: 0 });
 
-  // Ctrl+K / Cmd+K shortcut
+  const StatusIcon = {
+    pending: FaClock,
+    in_progress: FaPlay,
+    completed: FaCheck,
+    snoozed: FaPause,
+  };
+
+  // Ctrl+K / Cmd+K shortcut — skip inside inputs
   useEffect(() => {
     const down = (e) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        const tag = document.activeElement?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) {
+          return;
+        }
         e.preventDefault();
         setOpen((prev) => !prev);
       }
@@ -25,9 +60,18 @@ export default function GlobalSearch() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  // Fetch reminders on open
+  // Fetch reminders on open with cache
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setSearchValue("");
+      return;
+    }
+
+    const now = Date.now();
+    if (cacheRef.current.data && now - cacheRef.current.timestamp < CACHE_TTL) {
+      setReminders(cacheRef.current.data);
+      return;
+    }
 
     const fetchReminders = async () => {
       setLoading(true);
@@ -36,6 +80,7 @@ export default function GlobalSearch() {
         const data = await response.json();
         if (data.success) {
           setReminders(data.data);
+          cacheRef.current = { data: data.data, timestamp: Date.now() };
         }
       } catch (err) {
         console.error("Error fetching reminders:", err);
@@ -55,13 +100,6 @@ export default function GlobalSearch() {
     [router]
   );
 
-  const StatusIcon = {
-    pending: FaClock,
-    in_progress: FaPlay,
-    completed: FaCheck,
-    snoozed: FaPause,
-  };
-
   const formatDate = (dateTime) => {
     try {
       return format(new Date(dateTime), "MMM dd, hh:mm a");
@@ -70,8 +108,10 @@ export default function GlobalSearch() {
     }
   };
 
-  const upcoming = reminders.filter((r) => !r.completed);
-  const completed = reminders.filter((r) => r.completed);
+  // Status-based grouping
+  const upcoming = reminders.filter((r) => r.status !== "completed" && r.status !== "snoozed");
+  const snoozed = reminders.filter((r) => r.status === "snoozed");
+  const completed = reminders.filter((r) => r.status === "completed");
 
   return (
     <>
@@ -79,7 +119,8 @@ export default function GlobalSearch() {
       <button
         onClick={() => setOpen(true)}
         className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
-        aria-label="Search reminders"
+        aria-label="Search reminders (Ctrl+K)"
+        aria-keyshortcuts="Meta+K"
       >
         <FaSearch className="w-4 h-4" />
         <span className="hidden sm:inline">Search</span>
@@ -100,8 +141,9 @@ export default function GlobalSearch() {
           <div className="cmdk-input-wrapper">
             <FaSearch className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
             <Command.Input
-              placeholder="Search reminders..."
+              placeholder="搜尋提醒事項..."
               className="cmdk-input"
+              onValueChange={setSearchValue}
             />
             <kbd className="cmdk-kbd">ESC</kbd>
           </div>
@@ -118,12 +160,39 @@ export default function GlobalSearch() {
 
             <Command.Empty>
               <div className="py-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-                No reminders found.
+                找不到符合的提醒事項
               </div>
             </Command.Empty>
 
+            {/* Quick Actions — always visible */}
+            <Command.Group heading="快速操作">
+              <Command.Item
+                value="create new reminder 建立新提醒"
+                onSelect={() => {
+                  setOpen(false);
+                  window.dispatchEvent(new CustomEvent("open-ai-modal"));
+                }}
+                className="cmdk-item"
+              >
+                <FaPlus className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                <span className="text-sm" style={{ color: "var(--text-primary)" }}>建立新提醒</span>
+              </Command.Item>
+              <Command.Item
+                value="open AI assistant AI 助手"
+                onSelect={() => {
+                  setOpen(false);
+                  window.dispatchEvent(new CustomEvent("open-ai-modal"));
+                }}
+                className="cmdk-item"
+              >
+                <FaRobot className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+                <span className="text-sm" style={{ color: "var(--text-primary)" }}>AI 助手</span>
+              </Command.Item>
+            </Command.Group>
+
+            {/* Upcoming */}
             {upcoming.length > 0 && (
-              <Command.Group heading="Upcoming">
+              <Command.Group heading="進行中">
                 {upcoming.slice(0, 6).map((r) => {
                   const Icon = StatusIcon[r.status] || FaClock;
                   return (
@@ -137,7 +206,7 @@ export default function GlobalSearch() {
                       <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
                       <div className="flex-1 min-w-0">
                         <div className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                          {r.title}
+                          <HighlightText text={r.title} search={searchValue} />
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -159,8 +228,36 @@ export default function GlobalSearch() {
               </Command.Group>
             )}
 
+            {/* Snoozed */}
+            {snoozed.length > 0 && (
+              <Command.Group heading="已延後">
+                {snoozed.slice(0, 3).map((r) => (
+                  <Command.Item
+                    key={r.id}
+                    value={`${r.title} ${r.description || ""} ${(r.tags || []).join(" ")}`}
+                    keywords={r.tags}
+                    onSelect={() => handleSelect(r.id)}
+                    className="cmdk-item"
+                  >
+                    <FaPause className="w-3.5 h-3.5 flex-shrink-0 text-purple-500" />
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                        <HighlightText text={r.title} search={searchValue} />
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-purple-500">
+                          延後至 {formatDate(r.snoozedUntil)}
+                        </span>
+                      </div>
+                    </div>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {/* Completed */}
             {completed.length > 0 && (
-              <Command.Group heading="Completed">
+              <Command.Group heading="已完成">
                 {completed.slice(0, 4).map((r) => (
                   <Command.Item
                     key={r.id}
@@ -172,7 +269,7 @@ export default function GlobalSearch() {
                     <FaCheck className="w-3.5 h-3.5 flex-shrink-0 text-success" />
                     <div className="flex-1 min-w-0">
                       <div className="truncate text-sm" style={{ color: "var(--text-muted)" }}>
-                        {r.title}
+                        <HighlightText text={r.title} search={searchValue} />
                       </div>
                     </div>
                   </Command.Item>

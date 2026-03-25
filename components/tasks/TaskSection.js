@@ -14,6 +14,7 @@ export default function TaskSection({
   onToggleComplete,
   onDelete,
   onUpdate,
+  onSnooze,
   collapsible = true,
   defaultCollapsed = false,
   emptyMessage = "No tasks",
@@ -76,6 +77,7 @@ export default function TaskSection({
           onToggleComplete={onToggleComplete}
           onDelete={onDelete}
           onUpdate={onUpdate}
+          onSnooze={onSnooze}
           showDate={showDate}
           emptyAction={emptyAction}
           emptyMessage={emptyMessage}
@@ -87,7 +89,7 @@ export default function TaskSection({
 
 function TaskListContent({
   tasks, sortable, sectionId, droppable, isExternalDragOver,
-  onToggleComplete, onDelete, onUpdate, showDate, emptyAction, emptyMessage,
+  onToggleComplete, onDelete, onUpdate, onSnooze, showDate, emptyAction, emptyMessage,
 }) {
   const { setNodeRef } = useDroppable({ id: sectionId || "default", disabled: !droppable });
 
@@ -109,6 +111,7 @@ function TaskListContent({
             onToggleComplete={onToggleComplete}
             onDelete={onDelete}
             onUpdate={onUpdate}
+            onSnooze={onSnooze}
             showDate={showDate}
           />
         ))

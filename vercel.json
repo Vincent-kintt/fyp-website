@@ -8,5 +8,10 @@
       "maxDuration": 30
     }
   },
-  "crons": []
+  "crons": [
+    {
+      "path": "/api/cron/unsnooze",
+      "schedule": "0 0 * * *"
+    }
+  ]
 }

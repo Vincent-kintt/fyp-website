@@ -1,19 +1,21 @@
 "use client";
 
 import { useState, forwardRef } from "react";
-import { FaClock, FaEdit, FaTrash, FaFlag, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaClock, FaEdit, FaTrash, FaFlag, FaChevronDown, FaChevronUp, FaMoon } from "react-icons/fa";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
 import DragHandle from "@/components/ui/DragHandle";
+import SnoozePopover from "./SnoozePopover";
 
 const TaskItem = forwardRef(function TaskItem(
-  { task, onToggleComplete, onDelete, onUpdate, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle },
+  { task, onToggleComplete, onDelete, onUpdate, onSnooze, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle },
   ref
 ) {
   const [isCompleting, setIsCompleting] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState(task);
   const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
+  const [isSnoozeOpen, setIsSnoozeOpen] = useState(false);
 
   const handleToggle = async () => {
     setIsCompleting(true);
@@ -196,10 +198,48 @@ const TaskItem = forwardRef(function TaskItem(
             </span>
           )}
         </div>
+
+        {/* Snoozed indicator */}
+        {currentTask.status === "snoozed" && currentTask.snoozedUntil && (
+          <div className="flex items-center gap-1 mt-1 text-xs text-purple-500">
+            <FaMoon className="w-3 h-3" />
+            <span>延後至 {format(new Date(currentTask.snoozedUntil), "M/d HH:mm")}</span>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Snooze: show cancel for snoozed tasks, snooze button for others */}
+        {onSnooze && currentTask.status !== "completed" && (
+          currentTask.status === "snoozed" ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSnooze(currentTask.id, null); }}
+              className="px-1.5 py-0.5 text-[10px] text-purple-500 hover:text-purple-700 hover:bg-purple-500/10 rounded transition-colors"
+              title="取消延後"
+            >
+              取消延後
+            </button>
+          ) : (
+            <div className="relative">
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsSnoozeOpen(!isSnoozeOpen); }}
+                className="p-1.5 hover:text-purple-500 transition-colors"
+                style={{ color: "var(--text-muted)" }}
+                title="延後提醒"
+              >
+                <FaMoon className="w-3.5 h-3.5" />
+              </button>
+              {isSnoozeOpen && (
+                <SnoozePopover
+                  taskId={currentTask.id}
+                  onSnooze={onSnooze}
+                  onClose={() => setIsSnoozeOpen(false)}
+                />
+              )}
+            </div>
+          )
+        )}
         <button
           onClick={() => setIsEditModalOpen(true)}
           className="p-1.5 hover:text-blue-600 transition-colors"
