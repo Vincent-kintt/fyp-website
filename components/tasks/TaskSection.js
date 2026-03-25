@@ -6,6 +6,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { useDroppable } from "@dnd-kit/core";
 import TaskItem from "./TaskItem";
 import SortableTaskItem from "./SortableTaskItem";
+import { getSectionDropColor } from "@/lib/dnd";
 
 export default function TaskSection({
   title,
@@ -27,6 +28,10 @@ export default function TaskSection({
   isExternalDragOver = false,
 }) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const { setNodeRef } = useDroppable({
+    id: sectionId || "default",
+    disabled: !droppable,
+  });
 
   const accentColors = {
     blue: "text-primary",
@@ -40,7 +45,13 @@ export default function TaskSection({
   const totalCount = tasks.length;
 
   return (
-    <div className="mb-6">
+    <div
+      ref={droppable ? setNodeRef : undefined}
+      className={`mb-6 rounded-lg transition-colors ${
+        isExternalDragOver ? getSectionDropColor(sectionId) : ""
+      }`}
+      style={{ minHeight: droppable ? "48px" : undefined }}
+    >
       {/* Header */}
       <button
         onClick={() => collapsible && setIsCollapsed(!isCollapsed)}
@@ -71,9 +82,6 @@ export default function TaskSection({
         <TaskListContent
           tasks={tasks}
           sortable={sortable}
-          sectionId={sectionId}
-          droppable={droppable}
-          isExternalDragOver={isExternalDragOver}
           onToggleComplete={onToggleComplete}
           onDelete={onDelete}
           onUpdate={onUpdate}
@@ -88,21 +96,13 @@ export default function TaskSection({
 }
 
 function TaskListContent({
-  tasks, sortable, sectionId, droppable, isExternalDragOver,
+  tasks, sortable,
   onToggleComplete, onDelete, onUpdate, onSnooze, showDate, emptyAction, emptyMessage,
 }) {
-  const { setNodeRef } = useDroppable({ id: sectionId || "default", disabled: !droppable });
-
   const ItemComponent = sortable ? SortableTaskItem : TaskItem;
 
   const content = (
-    <div
-      ref={droppable ? setNodeRef : undefined}
-      className={`space-y-2 rounded-lg transition-colors ${
-        isExternalDragOver ? "ring-2 ring-primary/40 bg-primary/5" : ""
-      }`}
-      style={{ minHeight: droppable ? "48px" : undefined }}
-    >
+    <div className="space-y-2">
       {tasks.length > 0 ? (
         tasks.map((task) => (
           <ItemComponent

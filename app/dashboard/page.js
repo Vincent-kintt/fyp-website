@@ -16,9 +16,11 @@ import StatsOverview from "@/components/dashboard/StatsOverview";
 import FloatingActionButton from "@/components/ui/FloatingActionButton";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
 import {
-  useDndSensors, computeSortOrders, reorderReminders,
-  SECTION_IDS, getSectionTargetDate, computeNewDateTime, getSectionLabel,
+  useDndSensors, computeSortOrders, reorderReminders, patchReminderStatus,
+  SECTION_IDS, getSectionTargetDate, getSectionTargetStatus, isStatusChangeNeeded,
+  computeNewDateTime, getSectionLabel, getDefaultSnoozeUntil,
 } from "@/lib/dnd";
+import { isValidStatusTransition } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -86,7 +88,16 @@ export default function DashboardPage() {
         body: JSON.stringify({ completed }),
       });
       if (response.ok) {
-        setTasks(tasks.map((t) => (t.id === id ? { ...t, completed } : t)));
+        setTasks(tasks.map((t) => {
+          if (t.id !== id) return t;
+          return {
+            ...t,
+            completed,
+            status: completed ? "completed" : "pending",
+            completedAt: completed ? new Date().toISOString() : t.completedAt,
+            snoozedUntil: completed ? null : t.snoozedUntil,
+          };
+        }));
       } else {
         toast.error("Failed to update task");
       }
@@ -317,24 +328,79 @@ export default function DashboardPage() {
           toast.error("Failed to reorder");
         }
       } else {
-        // Cross-section drag — update dateTime
-        const targetDate = getSectionTargetDate(targetSection);
-        if (!targetDate) return; // Invalid target (overdue, completed)
-
+        // Cross-section drag — handle status + date changes
         const draggedTask = tasks.find((t) => t.id === active.id);
         if (!draggedTask) return;
 
-        const newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
-        const updatedTask = { ...draggedTask, dateTime: newDateTime };
+        const needsStatus = isStatusChangeNeeded(sourceSection, targetSection);
+        const targetStatus = getSectionTargetStatus(targetSection);
+        const targetDate = getSectionTargetDate(targetSection);
 
-        setTasks(tasks.map((t) => (t.id === active.id ? updatedTask : t)));
+        // Validate status transition before any optimistic update
+        if (needsStatus) {
+          const currentStatus = draggedTask.status || "pending";
+          if (!isValidStatusTransition(currentStatus, targetStatus.status)) {
+            toast.error("無法執行此操作");
+            return;
+          }
+        }
+
+        // Build optimistic update
+        const optimistic = { ...draggedTask };
+
+        if (needsStatus) {
+          optimistic.status = targetStatus.status;
+          if (targetStatus.completed !== undefined) {
+            optimistic.completed = targetStatus.completed;
+          }
+          if (targetStatus.status === "completed") {
+            optimistic.completedAt = new Date().toISOString();
+            optimistic.snoozedUntil = null;
+          }
+          if (targetStatus.status === "snoozed") {
+            optimistic.snoozedUntil = getDefaultSnoozeUntil();
+            optimistic.completed = false;
+          }
+          if (targetStatus.status === "pending") {
+            optimistic.snoozedUntil = null;
+            optimistic.completed = false;
+          }
+        }
+
+        if (targetDate) {
+          optimistic.dateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
+        }
+
+        setTasks(tasks.map((t) => (t.id === active.id ? optimistic : t)));
 
         try {
-          await reorderReminders([{ id: active.id, sortOrder: draggedTask.sortOrder || 0, dateTime: newDateTime }]);
-          toast.success(`Moved to ${getSectionLabel(targetSection)}`);
+          if (needsStatus) {
+            // Use PATCH for status changes (handles all fields in one call)
+            const patchBody = { status: targetStatus.status };
+            if (targetStatus.status === "completed") {
+              patchBody.completed = true;
+            } else if (targetStatus.status === "pending") {
+              patchBody.completed = false;
+            }
+            if (targetStatus.status === "snoozed") {
+              patchBody.snoozedUntil = optimistic.snoozedUntil;
+            }
+            if (targetDate) {
+              patchBody.dateTime = optimistic.dateTime;
+            }
+            await patchReminderStatus(active.id, patchBody);
+          } else {
+            // Date-only move — use reorder API
+            await reorderReminders([{
+              id: active.id,
+              sortOrder: draggedTask.sortOrder || 0,
+              dateTime: optimistic.dateTime,
+            }]);
+          }
+          toast.success(`已移至${getSectionLabel(targetSection)}`);
         } catch {
           setTasks(previousTasks);
-          toast.error("Failed to move task");
+          toast.error("移動失敗");
         }
       }
     },
@@ -407,7 +473,7 @@ export default function DashboardPage() {
         onDragCancel={handleDragCancel}
       >
         {/* Overdue Tasks */}
-        {overdueTasks.length > 0 && (
+        {(overdueTasks.length > 0 || activeDragId) && (
           <TaskSection
             title="Overdue"
             icon={<FaCalendarDay />}
@@ -467,7 +533,7 @@ export default function DashboardPage() {
         />
 
         {/* This Week */}
-        {thisWeekTasks.length > 0 && (
+        {(thisWeekTasks.length > 0 || activeDragId) && (
           <TaskSection
             title="This Week"
             icon={<FaCalendarWeek />}
@@ -485,8 +551,8 @@ export default function DashboardPage() {
           />
         )}
 
-        {/* Snoozed Tasks — not sortable/droppable */}
-        {snoozedTasks.length > 0 && (
+        {/* Snoozed Tasks */}
+        {(snoozedTasks.length > 0 || activeDragId) && (
           <TaskSection
             title="已延後"
             icon={<FaMoon />}
@@ -496,12 +562,16 @@ export default function DashboardPage() {
             onUpdate={handleUpdate}
             onSnooze={handleSnooze}
             accentColor="purple"
-            defaultCollapsed={true}
+            defaultCollapsed={!activeDragId && true}
+            sortable
+            sectionId={SECTION_IDS.SNOOZED}
+            droppable
+            isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.SNOOZED && activeDragSourceSection !== SECTION_IDS.SNOOZED}
           />
         )}
 
-        {/* Completed Today — not sortable/droppable */}
-        {completedToday.length > 0 && (
+        {/* Completed Today */}
+        {(completedToday.length > 0 || activeDragId) && (
           <TaskSection
             title="Completed Today"
             icon={<FaCheckCircle />}
@@ -511,8 +581,12 @@ export default function DashboardPage() {
             onUpdate={handleUpdate}
             onSnooze={handleSnooze}
             accentColor="gray"
-            defaultCollapsed={true}
+            defaultCollapsed={!activeDragId && true}
             showDate={false}
+            sortable
+            sectionId={SECTION_IDS.COMPLETED}
+            droppable
+            isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.COMPLETED && activeDragSourceSection !== SECTION_IDS.COMPLETED}
           />
         )}
 
