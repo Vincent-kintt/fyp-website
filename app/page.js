@@ -58,7 +58,7 @@ export default async function Home() {
               Easy Organization
             </h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Categorize your reminders by work, personal, health, or custom categories for better organization.
+              Organize your reminders with flexible tags like work, personal, health, or create your own for better organization.
             </p>
           </div>
 

@@ -7,5 +7,8 @@ export const config = {
   matcher: [
     "/reminders/:path*",
     "/api/reminders/:path*",
+    "/dashboard",
+    "/inbox",
+    "/calendar",
   ],
 };

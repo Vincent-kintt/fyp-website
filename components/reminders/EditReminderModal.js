@@ -9,6 +9,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    remark: "",
     dateTime: "",
     duration: null,
     status: "pending",
@@ -27,18 +28,10 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
 
   useEffect(() => {
     if (reminder && isOpen) {
-      const rawDesc = reminder.description || "";
-      const rawRemark = reminder.remark || "";
-      let mergedDescription = rawDesc;
-      if (rawRemark && !rawDesc.includes(rawRemark)) {
-        mergedDescription = rawDesc
-          ? `${rawDesc}\n\n---\n${rawRemark}`
-          : rawRemark;
-      }
-
       setFormData({
         title: reminder.title || "",
-        description: mergedDescription,
+        description: reminder.description || "",
+        remark: reminder.remark || "",
         dateTime: reminder.dateTime
           ? new Date(reminder.dateTime).toISOString().slice(0, 16)
           : "",
@@ -101,13 +94,13 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
       const response = await fetch(`/api/reminders/${reminder.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, remark: "" }),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        onSave({ ...reminder, ...formData, remark: "" });
+        onSave({ ...reminder, ...formData });
         onClose();
       } else {
         toast.error(data.error || "Failed to update reminder");
@@ -278,7 +271,21 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
               value={formData.description}
               onChange={handleChange}
               placeholder="Add notes..."
-              rows="3"
+              rows="2"
+              className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 resize-none text-[14px]"
+              style={{
+                backgroundColor: "var(--input-bg)",
+                borderColor: "var(--card-border)",
+                color: "var(--text-primary)"
+              }}
+            />
+            <textarea
+              id="edit-remark"
+              name="remark"
+              value={formData.remark}
+              onChange={handleChange}
+              placeholder="Remark (optional)..."
+              rows="2"
               className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 resize-none text-[14px]"
               style={{
                 backgroundColor: "var(--input-bg)",

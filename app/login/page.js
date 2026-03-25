@@ -40,7 +40,7 @@ export default function LoginPage() {
         setError(result.error);
         setIsLoading(false);
       } else if (result?.ok) {
-        router.push("/reminders");
+        router.push("/dashboard");
         router.refresh();
       }
     } catch (error) {

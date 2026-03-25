@@ -27,9 +27,12 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnProtectedRoute = 
+      const isOnProtectedRoute =
         nextUrl.pathname.startsWith("/reminders") ||
-        nextUrl.pathname.startsWith("/api/reminders");
+        nextUrl.pathname.startsWith("/api/reminders") ||
+        nextUrl.pathname.startsWith("/dashboard") ||
+        nextUrl.pathname.startsWith("/inbox") ||
+        nextUrl.pathname.startsWith("/calendar");
       
       if (isOnProtectedRoute) {
         if (isLoggedIn) return true;
