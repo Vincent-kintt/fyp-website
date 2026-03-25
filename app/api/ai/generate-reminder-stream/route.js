@@ -1,5 +1,8 @@
 import { auth } from "@/auth";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const LLM_API_URL = process.env.LLM_API_URL;
 const LLM_API_KEY = process.env.LLM_API_KEY;
 const DEFAULT_LLM_MODEL = process.env.LLM_MODEL || "x-ai/grok-4.1-fast";

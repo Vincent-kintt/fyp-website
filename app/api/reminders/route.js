@@ -47,7 +47,16 @@ export async function GET(request) {
 
     // Filter by specific tag
     if (tag) {
-      filter.tags = tag;
+      // If category filter is already set with $or, combine with $and to avoid conflict
+      if (filter.$or) {
+        filter.$and = [
+          { $or: filter.$or },
+          { tags: tag },
+        ];
+        delete filter.$or;
+      } else {
+        filter.tags = tag;
+      }
     }
 
     // Filter by type (recurring or one-time)
@@ -153,6 +162,7 @@ export async function POST(request) {
       recurringType: recurring ? recurringType : null,
       priority: priority || "medium",
       status: "pending", // New status lifecycle field
+      completed: false, // Backward compatibility: always store completed field
       subtasks: Array.isArray(subtasks) ? subtasks.map((st, idx) => ({
         id: st.id || `st-${Date.now()}-${idx}`,
         title: st.title,
@@ -169,10 +179,6 @@ export async function POST(request) {
     const createdReminder = {
       id: result.insertedId.toString(),
       ...newReminder,
-      status: "pending",
-      completed: false,
-      sortOrder: 0,
-      tags: processedTags,
       dateTime: newReminder.dateTime.toISOString(),
       createdAt: newReminder.createdAt.toISOString(),
       updatedAt: newReminder.updatedAt.toISOString(),

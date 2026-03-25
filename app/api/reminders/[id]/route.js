@@ -142,6 +142,29 @@ export async function PUT(request, { params }) {
 
     const remindersCollection = await getCollection("reminders");
 
+    // Validate status transition if status is being changed
+    if (status !== undefined) {
+      const currentReminder = await remindersCollection.findOne({
+        _id: new ObjectId(id),
+        userId: session.user.id,
+      });
+
+      if (!currentReminder) {
+        return NextResponse.json(
+          { success: false, error: "Reminder not found" },
+          { status: 404 }
+        );
+      }
+
+      const currentStatus = currentReminder.status || "pending";
+      if (!isValidStatusTransition(currentStatus, status)) {
+        return NextResponse.json(
+          { success: false, error: `Invalid status transition from '${currentStatus}' to '${status}'` },
+          { status: 400 }
+        );
+      }
+    }
+
     const updateData = {
       title,
       description: description || "",
@@ -182,8 +205,11 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Fetch updated reminder
-    const updatedReminder = await remindersCollection.findOne({ _id: new ObjectId(id) });
+    // Fetch updated reminder (include userId filter for security)
+    const updatedReminder = await remindersCollection.findOne({
+      _id: new ObjectId(id),
+      userId: session.user.id,
+    });
 
     const formattedReminder = {
       id: updatedReminder._id.toString(),
@@ -428,8 +454,11 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    // Fetch updated reminder
-    const updatedReminder = await remindersCollection.findOne({ _id: new ObjectId(id) });
+    // Fetch updated reminder (include userId filter for security)
+    const updatedReminder = await remindersCollection.findOne({
+      _id: new ObjectId(id),
+      userId: session.user.id,
+    });
 
     const formattedReminder = {
       id: updatedReminder._id.toString(),
