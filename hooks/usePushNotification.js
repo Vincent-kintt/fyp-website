@@ -102,6 +102,11 @@ export function usePushNotification() {
       swRegistrationRef.current = registration;
 
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidKey) {
+        console.error("[usePushNotification] NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set");
+        setIsLoading(false);
+        return false;
+      }
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
