@@ -15,6 +15,7 @@ import NextTaskCard from "@/components/dashboard/NextTaskCard";
 import StatsOverview from "@/components/dashboard/StatsOverview";
 import FloatingActionButton from "@/components/ui/FloatingActionButton";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
+import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 import {
   useDndSensors, computeSortOrders, reorderReminders, patchReminderStatus,
   SECTION_IDS, getSectionTargetDate, getSectionTargetStatus, isStatusChangeNeeded,
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const [overSectionId, setOverSectionId] = useState(null);
   const [completingIds, setCompletingIds] = useState(new Set());
   const [expandedByDrag, setExpandedByDrag] = useState(null);
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
   const completingTimers = useRef(new Map());
   const expandTimer = useRef(null);
   const sensors = useDndSensors();
@@ -164,6 +166,9 @@ export default function DashboardPage() {
     const deletedTask = tasks.find((t) => t.id === id);
     if (!deletedTask) return;
 
+    // Close panel if the deleted task is currently selected
+    if (id === selectedTaskId) setSelectedTaskId(null);
+
     // Optimistic remove from UI
     setTasks(prev => prev.filter((t) => t.id !== id));
 
@@ -201,6 +206,10 @@ export default function DashboardPage() {
   const handleUpdate = (updatedTask) => {
     setTasks(tasks.map((t) => (t.id === updatedTask.id ? { ...t, ...updatedTask } : t)));
   };
+
+  const handleEditTask = useCallback((taskId) => {
+    setSelectedTaskId(taskId);
+  }, []);
 
   const handleSnooze = async (id, snoozedUntil) => {
     const previousTasks = tasks;
@@ -624,6 +633,7 @@ export default function DashboardPage() {
             onDelete={handleDelete}
             onUpdate={handleUpdate}
             onSnooze={handleSnooze}
+            onEdit={handleEditTask}
             accentColor="orange"
             emptyMessage="No overdue tasks"
             sortable
@@ -644,6 +654,7 @@ export default function DashboardPage() {
           onDelete={handleDelete}
           onUpdate={handleUpdate}
           onSnooze={handleSnooze}
+          onEdit={handleEditTask}
           accentColor="blue"
           showDate={false}
           emptyMessage="No tasks for today."
@@ -669,6 +680,7 @@ export default function DashboardPage() {
           onDelete={handleDelete}
           onUpdate={handleUpdate}
           onSnooze={handleSnooze}
+          onEdit={handleEditTask}
           accentColor="green"
           defaultCollapsed={todayTasks.length > 3}
           emptyMessage="No tasks for tomorrow"
@@ -690,6 +702,7 @@ export default function DashboardPage() {
             onDelete={handleDelete}
             onUpdate={handleUpdate}
             onSnooze={handleSnooze}
+            onEdit={handleEditTask}
             accentColor="purple"
             defaultCollapsed={true}
             sortable
@@ -711,6 +724,7 @@ export default function DashboardPage() {
             onDelete={handleDelete}
             onUpdate={handleUpdate}
             onSnooze={handleSnooze}
+            onEdit={handleEditTask}
             accentColor="purple"
             defaultCollapsed={!activeDragId && true}
             sortable
@@ -731,6 +745,7 @@ export default function DashboardPage() {
           onDelete={handleDelete}
           onUpdate={handleUpdate}
           onSnooze={handleSnooze}
+          onEdit={handleEditTask}
           accentColor="gray"
           defaultCollapsed={false}
           showDate={false}
@@ -749,13 +764,21 @@ export default function DashboardPage() {
               onToggleComplete={() => {}}
               onDelete={() => {}}
               onUpdate={() => {}}
+              onEdit={() => {}}
             />
           ) : null}
         </DragOverlay>
       </DndContext>
 
+      <TaskDetailPanel
+        taskId={selectedTaskId}
+        tasks={tasks}
+        onClose={() => setSelectedTaskId(null)}
+        onSave={handleUpdate}
+      />
+
       <FloatingActionButton onClick={() => setIsAIModalOpen(true)} />
-      
+
       <AIReminderModal
         isOpen={isAIModalOpen}
         onClose={() => {

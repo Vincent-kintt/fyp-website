@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, forwardRef } from "react";
+import { useState, useEffect, useRef, forwardRef } from "react";
 import { FaClock, FaEdit, FaTrash, FaFlag, FaChevronDown, FaChevronUp, FaMoon } from "react-icons/fa";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
@@ -8,7 +8,7 @@ import DragHandle from "@/components/ui/DragHandle";
 import SnoozePopover from "./SnoozePopover";
 
 const TaskItem = forwardRef(function TaskItem(
-  { task, onToggleComplete, onDelete, onUpdate, onSnooze, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle, animationClass },
+  { task, onToggleComplete, onDelete, onUpdate, onEdit, onSnooze, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle, animationClass },
   ref
 ) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -16,6 +16,11 @@ const TaskItem = forwardRef(function TaskItem(
   const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
   const [isSnoozeOpen, setIsSnoozeOpen] = useState(false);
   const snoozeButtonRef = useRef(null);
+
+  // Sync local state when parent updates the task (e.g. from side panel save)
+  useEffect(() => {
+    setCurrentTask(task);
+  }, [task]);
 
   const handleToggle = () => {
     const newCompleted = !currentTask.completed;
@@ -242,7 +247,7 @@ const TaskItem = forwardRef(function TaskItem(
           )
         )}
         <button
-          onClick={() => setIsEditModalOpen(true)}
+          onClick={() => onEdit ? onEdit(currentTask.id) : setIsEditModalOpen(true)}
           className="p-1.5 hover:text-blue-600 transition-colors"
           style={{ color: "var(--text-muted)" }}
         >
@@ -298,13 +303,15 @@ const TaskItem = forwardRef(function TaskItem(
       )}
     </div>
 
-    {/* Edit Modal */}
-    <EditReminderModal
-      isOpen={isEditModalOpen}
-      onClose={() => setIsEditModalOpen(false)}
-      reminder={currentTask}
-      onSave={handleSave}
-    />
+    {/* Edit Modal — only when side panel is not handling edits */}
+    {!onEdit && (
+      <EditReminderModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        reminder={currentTask}
+        onSave={handleSave}
+      />
+    )}
     </>
   );
 });

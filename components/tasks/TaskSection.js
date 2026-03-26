@@ -16,6 +16,7 @@ export default function TaskSection({
   onDelete,
   onUpdate,
   onSnooze,
+  onEdit,
   collapsible = true,
   defaultCollapsed = false,
   emptyMessage = "No tasks",
@@ -95,6 +96,7 @@ export default function TaskSection({
           onDelete={onDelete}
           onUpdate={onUpdate}
           onSnooze={onSnooze}
+          onEdit={onEdit}
           showDate={showDate}
           emptyAction={emptyAction}
           emptyMessage={emptyMessage}
@@ -107,7 +109,7 @@ export default function TaskSection({
 
 function TaskListContent({
   tasks, sortable,
-  onToggleComplete, onDelete, onUpdate, onSnooze, showDate, emptyAction, emptyMessage,
+  onToggleComplete, onDelete, onUpdate, onSnooze, onEdit, showDate, emptyAction, emptyMessage,
   completingIds,
 }) {
   const ItemComponent = sortable ? SortableTaskItem : TaskItem;
@@ -123,6 +125,7 @@ function TaskListContent({
             onDelete={onDelete}
             onUpdate={onUpdate}
             onSnooze={onSnooze}
+            onEdit={onEdit}
             showDate={showDate}
             isCompleting={completingIds?.has(task.id)}
             animationDelay={Math.min(index * 40, 200)}

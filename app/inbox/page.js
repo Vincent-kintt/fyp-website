@@ -11,6 +11,7 @@ import TaskItem from "@/components/tasks/TaskItem";
 import SortableTaskItem from "@/components/tasks/SortableTaskItem";
 import QuickAdd from "@/components/tasks/QuickAdd";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
+import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 import { useDndSensors, computeSortOrders, reorderReminders } from "@/lib/dnd";
 
 export default function InboxPage() {
@@ -21,6 +22,7 @@ export default function InboxPage() {
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiInitialText, setAiInitialText] = useState("");
   const [activeDragId, setActiveDragId] = useState(null);
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
   const sensors = useDndSensors();
 
   useEffect(() => {
@@ -82,7 +84,12 @@ export default function InboxPage() {
     }
   };
 
+  const handleEditTask = useCallback((taskId) => {
+    setSelectedTaskId(taskId);
+  }, []);
+
   const handleDelete = async (id) => {
+    if (id === selectedTaskId) setSelectedTaskId(null);
     try {
       const response = await fetch(`/api/reminders/${id}`, {
         method: "DELETE",
@@ -234,6 +241,7 @@ export default function InboxPage() {
                   onToggleComplete={handleToggleComplete}
                   onDelete={handleDelete}
                   onUpdate={handleUpdate}
+                  onEdit={handleEditTask}
                 />
               ))
             ) : (
@@ -253,6 +261,7 @@ export default function InboxPage() {
               onToggleComplete={() => {}}
               onDelete={() => {}}
               onUpdate={() => {}}
+              onEdit={() => {}}
             />
           ) : null}
         </DragOverlay>
@@ -272,6 +281,7 @@ export default function InboxPage() {
                 onToggleComplete={handleToggleComplete}
                 onDelete={handleDelete}
                 onUpdate={handleUpdate}
+                onEdit={handleEditTask}
               />
             ))}
             {completedTasks.length > 5 && (
@@ -282,6 +292,13 @@ export default function InboxPage() {
           </div>
         </div>
       )}
+
+      <TaskDetailPanel
+        taskId={selectedTaskId}
+        tasks={tasks}
+        onClose={() => setSelectedTaskId(null)}
+        onSave={handleUpdate}
+      />
 
       {/* AI Modal */}
       <AIReminderModal

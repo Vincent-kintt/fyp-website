@@ -360,6 +360,29 @@ body {
   animation: scaleOut var(--duration-fast) var(--ease-accelerate) both;
 }
 
+/* ── Side Panel ── */
+@keyframes slideFromRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes slideToRight {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+.panel-enter {
+  animation: slideFromRight var(--duration-slow) var(--ease-decelerate) both;
+}
+.panel-exit {
+  animation: slideToRight var(--duration-normal) var(--ease-accelerate) both;
+}
+@keyframes panelContentFade {
+  from { opacity: 0.6; }
+  to   { opacity: 1; }
+}
+.panel-content-enter {
+  animation: panelContentFade 150ms var(--ease-standard) both;
+}
+
 /* Skeleton shimmer */
 @keyframes shimmer {
   0%   { background-position: 200% 0; }
