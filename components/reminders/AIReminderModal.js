@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { FaSpinner, FaTimes, FaTrash, FaCheck, FaRobot } from "react-icons/fa";
 import AgentStepIndicator from "./AgentStepIndicator";
@@ -180,6 +180,8 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
   const [text, setText] = useState(initialText);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [isClosing, setIsClosing] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -206,6 +208,23 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
   const hasPendingRefreshRef = useRef(false); // Track if we need to refresh parent on close
   
   const t = translations[settings.language] || translations.zh;
+
+  // Mount/unmount with closing animation
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      setIsClosing(false);
+    }
+  }, [isOpen]);
+
+  const handleAnimatedClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setShouldRender(false);
+      setIsClosing(false);
+      onClose();
+    }, 150);
+  }, [onClose]);
 
   // Get user location on mount (with permission)
   useEffect(() => {
@@ -355,13 +374,13 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
 
   useEffect(() => {
     const handleEscape = (e) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
+      if (e.key === "Escape" && shouldRender) {
+        handleAnimatedClose();
       }
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [isOpen, onClose]);
+  }, [shouldRender, handleAnimatedClose]);
 
   const handleMouseDown = (e) => {
     if (e.target.closest(".modal-header") && !e.target.closest("select, button")) {
@@ -872,12 +891,12 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
   const isDeepSeekModel = settings.model.includes("deepseek");
   const supportsReasoningToggle = isGrokModel || isDeepSeekModel;
 
-  if (!isOpen) return null;
+  if (!shouldRender) return null;
 
   return (
     <>
       <div
-        className={isMobile ? "fixed inset-0 z-[9999]" : "fixed z-[9999] w-[900px] max-h-[85vh] shadow-2xl"}
+        className={`${isMobile ? "fixed inset-0 z-[9999]" : "fixed z-[9999] w-[900px] max-h-[85vh] shadow-2xl"} ${isClosing ? "modal-panel-exit" : "modal-panel-enter"}`}
         style={{
           position: "fixed",
           ...(isMobile ? {} : { left: `${position.x}px`, top: `${position.y}px` }),
@@ -887,9 +906,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
           border: isMobile ? "none" : "1px solid var(--modal-border)",
           boxShadow: isMobile ? "none" : "var(--modal-shadow)",
-          transition: isDragging ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          transform: isOpen ? "scale(1) translateY(0)" : "scale(0.95) translateY(-10px)",
-          opacity: isOpen ? 1 : 0,
+          transition: isDragging ? "none" : "none",
         }}
         onMouseDown={isMobile ? undefined : handleMouseDown}
       >
@@ -990,7 +1007,7 @@ export default function AIReminderModal({ isOpen, onClose, onSuccess, initialTex
           </div>
 
           <button
-            onClick={onClose}
+            onClick={handleAnimatedClose}
             style={{
               width: "28px",
               height: "28px",

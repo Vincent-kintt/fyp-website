@@ -1,19 +1,39 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { FaClock } from "react-icons/fa";
-import { useClickOutside } from "@/hooks/useClickOutside";
 import { getSnoozePresets } from "@/lib/utils";
 
-export default function SnoozePopover({ taskId, onSnooze, onClose }) {
+export default function SnoozePopover({ taskId, onSnooze, onClose, anchorRef }) {
   const [showCustom, setShowCustom] = useState(false);
   const [customDate, setCustomDate] = useState("");
   const [customTime, setCustomTime] = useState("09:00");
-  const [flipUp, setFlipUp] = useState(false);
-  const popoverRef = useClickOutside(useCallback(() => onClose(), [onClose]));
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const popoverRef = useRef(null);
   const innerRef = useRef(null);
 
   const presets = getSnoozePresets();
+
+  // Compute position from anchor button
+  useEffect(() => {
+    if (!anchorRef?.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    const popoverWidth = 256; // w-64
+    let left = rect.right - popoverWidth;
+    if (left < 8) left = 8;
+    setCoords({ top: rect.bottom + 8, left });
+  }, [anchorRef]);
+
+  // Auto-flip if overflowing viewport bottom
+  useEffect(() => {
+    if (!innerRef.current || !anchorRef?.current) return;
+    const popRect = innerRef.current.getBoundingClientRect();
+    if (popRect.bottom > window.innerHeight - 16) {
+      const anchorRect = anchorRef.current.getBoundingClientRect();
+      setCoords(prev => ({ ...prev, top: anchorRect.top - popRect.height - 8 }));
+    }
+  }, [showCustom, anchorRef]);
 
   // Set default custom date to tomorrow
   useEffect(() => {
@@ -34,15 +54,27 @@ export default function SnoozePopover({ taskId, onSnooze, onClose }) {
     return () => document.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
-  // Auto-flip if overflowing viewport bottom
+  // Click outside to close (excluding anchor button)
   useEffect(() => {
-    if (innerRef.current) {
-      const rect = innerRef.current.getBoundingClientRect();
-      if (rect.bottom > window.innerHeight - 16) {
-        setFlipUp(true);
-      }
-    }
-  }, [showCustom]);
+    const listener = (e) => {
+      if (popoverRef.current?.contains(e.target)) return;
+      if (anchorRef?.current?.contains(e.target)) return;
+      onClose();
+    };
+    document.addEventListener("mousedown", listener);
+    document.addEventListener("touchstart", listener);
+    return () => {
+      document.removeEventListener("mousedown", listener);
+      document.removeEventListener("touchstart", listener);
+    };
+  }, [onClose, anchorRef]);
+
+  // Close on scroll (popover loses spatial relationship with anchor)
+  useEffect(() => {
+    const handleScroll = () => onClose();
+    window.addEventListener("scroll", handleScroll, { capture: true });
+    return () => window.removeEventListener("scroll", handleScroll, { capture: true });
+  }, [onClose]);
 
   const handlePresetClick = (preset) => {
     onSnooze(taskId, preset.value.toISOString());
@@ -52,23 +84,23 @@ export default function SnoozePopover({ taskId, onSnooze, onClose }) {
   const handleCustomSubmit = () => {
     if (!customDate || !customTime) return;
     const target = new Date(`${customDate}T${customTime}:00`);
-    if (target <= new Date()) return; // don't allow past times
+    if (target <= new Date()) return;
     onSnooze(taskId, target.toISOString());
     onClose();
   };
 
-  // Min date for custom picker = today
   const today = new Date();
   const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-  return (
+  return createPortal(
     <div
       ref={popoverRef}
-      className={`absolute right-0 z-40 ${flipUp ? "bottom-full mb-2" : "top-full mt-2"}`}
+      className="z-[60]"
+      style={{ position: "fixed", top: coords.top, left: coords.left }}
     >
       <div
         ref={innerRef}
-        className="w-64 rounded-xl border shadow-xl overflow-hidden"
+        className="w-64 rounded-xl border shadow-xl overflow-hidden modal-panel-enter"
         style={{
           background: "var(--card-bg)",
           borderColor: "var(--card-border)",
@@ -148,6 +180,7 @@ export default function SnoozePopover({ taskId, onSnooze, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

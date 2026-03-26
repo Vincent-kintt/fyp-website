@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { FaSun, FaCalendarDay, FaCalendarWeek, FaCheckCircle, FaMoon } from "react-icons/fa";
@@ -31,6 +31,10 @@ export default function DashboardPage() {
   const [aiInitialText, setAiInitialText] = useState("");
   const [activeDragId, setActiveDragId] = useState(null);
   const [overSectionId, setOverSectionId] = useState(null);
+  const [completingIds, setCompletingIds] = useState(new Set());
+  const [expandedByDrag, setExpandedByDrag] = useState(null);
+  const completingTimers = useRef(new Map());
+  const expandTimer = useRef(null);
   const sensors = useDndSensors();
 
   useEffect(() => {
@@ -80,48 +84,118 @@ export default function DashboardPage() {
     }
   }, [session]);
 
+  const clearCompletingId = useCallback((id) => {
+    clearTimeout(completingTimers.current.get(id));
+    completingTimers.current.delete(id);
+    setCompletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+  }, []);
+
   const handleToggleComplete = async (id, completed) => {
+    const previousTasks = tasks;
+    // Optimistic update — UI responds instantly (strikethrough + checkbox fill)
+    setTasks(prev => prev.map((t) => {
+      if (t.id !== id) return t;
+      return {
+        ...t,
+        completed,
+        status: completed ? "completed" : "pending",
+        completedAt: completed ? new Date().toISOString() : t.completedAt,
+        snoozedUntil: completed ? null : t.snoozedUntil,
+      };
+    }));
+
+    if (completed) {
+      // Keep task in original section during animation (1.5s hold)
+      setCompletingIds(prev => new Set(prev).add(id));
+
+      const timer = setTimeout(() => {
+        completingTimers.current.delete(id);
+        setCompletingIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+      }, 1500);
+      completingTimers.current.set(id, timer);
+
+      // Undo toast (Todoist-style)
+      toast.success("已完成", {
+        action: {
+          label: "撤銷",
+          onClick: () => {
+            clearCompletingId(id);
+            setTasks(prev => prev.map((t) => {
+              if (t.id !== id) return t;
+              return { ...t, completed: false, status: "pending" };
+            }));
+            fetch(`/api/reminders/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ completed: false }),
+            }).catch(console.error);
+          }
+        },
+        duration: 3000,
+      });
+    } else {
+      // Un-completing: clear any pending animation, dismiss stale toast
+      clearCompletingId(id);
+      toast.dismiss();
+    }
+
     try {
       const response = await fetch(`/api/reminders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed }),
       });
-      if (response.ok) {
-        setTasks(tasks.map((t) => {
-          if (t.id !== id) return t;
-          return {
-            ...t,
-            completed,
-            status: completed ? "completed" : "pending",
-            completedAt: completed ? new Date().toISOString() : t.completedAt,
-            snoozedUntil: completed ? null : t.snoozedUntil,
-          };
-        }));
-      } else {
+      if (!response.ok) {
+        clearCompletingId(id);
+        setTasks(previousTasks);
         toast.error("Failed to update task");
       }
     } catch (error) {
       console.error("Error updating task:", error);
+      clearCompletingId(id);
+      setTasks(previousTasks);
       toast.error("Failed to update task");
     }
   };
 
-  const handleDelete = async (id) => {
-    try {
-      const response = await fetch(`/api/reminders/${id}`, {
-        method: "DELETE",
-      });
-      if (response.ok) {
-        setTasks(tasks.filter((t) => t.id !== id));
-        toast.success("Task deleted");
-      } else {
-        toast.error("Failed to delete task");
+  const deleteTimers = useRef(new Map());
+
+  const handleDelete = (id) => {
+    const deletedTask = tasks.find((t) => t.id === id);
+    if (!deletedTask) return;
+
+    // Optimistic remove from UI
+    setTasks(prev => prev.filter((t) => t.id !== id));
+
+    // Delayed API call — only delete after undo window expires (5s, Todoist pattern)
+    const timer = setTimeout(async () => {
+      deleteTimers.current.delete(id);
+      try {
+        const response = await fetch(`/api/reminders/${id}`, { method: "DELETE" });
+        if (!response.ok) {
+          setTasks(prev => [...prev, deletedTask]);
+          toast.error("刪除失敗");
+        }
+      } catch (error) {
+        console.error("Error deleting task:", error);
+        setTasks(prev => [...prev, deletedTask]);
+        toast.error("刪除失敗");
       }
-    } catch (error) {
-      console.error("Error deleting task:", error);
-      toast.error("Failed to delete task");
-    }
+    }, 5000);
+    deleteTimers.current.set(id, timer);
+
+    toast("已刪除", {
+      description: deletedTask.title,
+      action: {
+        label: "復原",
+        onClick: () => {
+          clearTimeout(deleteTimers.current.get(id));
+          deleteTimers.current.delete(id);
+          setTasks(prev => [...prev, deletedTask]);
+        }
+      },
+      duration: 5000,
+    });
   };
 
   const handleUpdate = (updatedTask) => {
@@ -129,39 +203,52 @@ export default function DashboardPage() {
   };
 
   const handleSnooze = async (id, snoozedUntil) => {
-    try {
-      if (snoozedUntil === null) {
-        // Cancel snooze
+    const previousTasks = tasks;
+    if (snoozedUntil === null) {
+      // Optimistic cancel snooze
+      setTasks(tasks.map((t) =>
+        t.id === id ? { ...t, status: "pending", snoozedUntil: null, completed: false } : t
+      ));
+      try {
         const response = await fetch(`/api/reminders/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: "pending" }),
         });
         if (response.ok) {
-          setTasks(tasks.map((t) =>
-            t.id === id ? { ...t, status: "pending", snoozedUntil: null, completed: false } : t
-          ));
           toast.success("已取消延後");
+        } else {
+          setTasks(previousTasks);
+          toast.error("取消延後失敗");
         }
-      } else {
+      } catch (error) {
+        console.error("Error canceling snooze:", error);
+        setTasks(previousTasks);
+        toast.error("取消延後失敗");
+      }
+    } else {
+      // Optimistic snooze
+      setTasks(tasks.map((t) =>
+        t.id === id ? { ...t, status: "snoozed", snoozedUntil, completed: false } : t
+      ));
+      try {
         const response = await fetch(`/api/reminders/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: "snoozed", snoozedUntil }),
         });
         if (response.ok) {
-          setTasks(tasks.map((t) =>
-            t.id === id ? { ...t, status: "snoozed", snoozedUntil, completed: false } : t
-          ));
           toast.success("已延後提醒");
         } else {
+          setTasks(previousTasks);
           const errData = await response.json();
           toast.error(errData.error || "延後失敗");
         }
+      } catch (error) {
+        console.error("Error snoozing task:", error);
+        setTasks(previousTasks);
+        toast.error("延後失敗");
       }
-    } catch (error) {
-      console.error("Error snoozing task:", error);
-      toast.error("延後失敗");
     }
   };
 
@@ -202,20 +289,23 @@ export default function DashboardPage() {
       return new Date(a.dateTime) - new Date(b.dateTime);
     });
 
+  // Tasks in completingIds stay in their original section during the completion animation
+  const isPending = (t) => !t.completed || completingIds.has(t.id);
+
   const todayTasks = sortByOrder(
     sortedTasks.filter((t) => {
       const taskDate = new Date(t.dateTime);
-      return isToday(taskDate) && !t.completed && t.status !== "snoozed";
+      return isToday(taskDate) && isPending(t) && t.status !== "snoozed";
     })
   );
 
-  // Find next upcoming task
-  const nextTask = todayTasks.find(t => new Date(t.dateTime) > now) || todayTasks[0];
+  // Find next upcoming task (exclude completing ones)
+  const nextTask = todayTasks.find(t => !t.completed && new Date(t.dateTime) > now) || todayTasks.find(t => !t.completed);
 
   const tomorrowTasks = sortByOrder(
     sortedTasks.filter((t) => {
       const taskDate = new Date(t.dateTime);
-      return isTomorrow(taskDate) && !t.completed && t.status !== "snoozed";
+      return isTomorrow(taskDate) && isPending(t) && t.status !== "snoozed";
     })
   );
 
@@ -226,21 +316,24 @@ export default function DashboardPage() {
         isThisWeek(taskDate, { weekStartsOn: 1 }) &&
         !isToday(taskDate) &&
         !isTomorrow(taskDate) &&
-        !t.completed &&
+        isPending(t) &&
         t.status !== "snoozed"
       );
     })
   );
 
+  // Completed today: tasks completed today (by completedAt), excluding those still animating
   const completedToday = sortedTasks.filter((t) => {
+    if (!t.completed || completingIds.has(t.id)) return false;
+    const completedDate = t.completedAt ? new Date(t.completedAt) : null;
     const taskDate = new Date(t.dateTime);
-    return isToday(taskDate) && t.completed;
+    return isToday(taskDate) || (completedDate && isToday(completedDate));
   });
 
   const overdueTasks = sortByOrder(
     sortedTasks.filter((t) => {
       const taskDate = new Date(t.dateTime);
-      return taskDate < startOfDay(now) && !t.completed && t.status !== "snoozed";
+      return taskDate < startOfDay(now) && isPending(t) && t.status !== "snoozed";
     })
   );
 
@@ -282,13 +375,25 @@ export default function DashboardPage() {
       const { over } = event;
       if (!over) {
         setOverSectionId(null);
+        clearTimeout(expandTimer.current);
         return;
       }
       // over.id can be a task ID or a section ID
       const section = taskToSection.get(over.id) || over.id;
       setOverSectionId(section);
+
+      // Auto-expand collapsed sections after 500ms hover (industry standard)
+      if (section !== expandedByDrag) {
+        clearTimeout(expandTimer.current);
+        const validSections = new Set(Object.values(SECTION_IDS));
+        if (validSections.has(section)) {
+          expandTimer.current = setTimeout(() => {
+            setExpandedByDrag(section);
+          }, 500);
+        }
+      }
     },
-    [taskToSection]
+    [taskToSection, expandedByDrag]
   );
 
   const handleDragEnd = useCallback(
@@ -296,6 +401,8 @@ export default function DashboardPage() {
       const { active, over } = event;
       setActiveDragId(null);
       setOverSectionId(null);
+      setExpandedByDrag(null);
+      clearTimeout(expandTimer.current);
 
       if (!over || active.id === over.id) return;
 
@@ -316,9 +423,14 @@ export default function DashboardPage() {
         if (oldIndex === -1 || newIndex === -1) return;
 
         const reordered = arrayMove(sectionTasks, oldIndex, newIndex);
-        const reorderedIds = new Set(reordered.map((t) => t.id));
+        // Apply new sortOrder values optimistically so sortByOrder() preserves the new order
+        const reorderedWithOrder = reordered.map((task, index) => ({
+          ...task,
+          sortOrder: (index + 1) * 1000,
+        }));
+        const reorderedIds = new Set(reorderedWithOrder.map((t) => t.id));
         const otherTasks = tasks.filter((t) => !reorderedIds.has(t.id));
-        setTasks([...otherTasks, ...reordered]);
+        setTasks([...otherTasks, ...reorderedWithOrder]);
 
         try {
           const sortUpdates = computeSortOrders(reordered);
@@ -410,6 +522,8 @@ export default function DashboardPage() {
   const handleDragCancel = useCallback(() => {
     setActiveDragId(null);
     setOverSectionId(null);
+    setExpandedByDrag(null);
+    clearTimeout(expandTimer.current);
   }, []);
 
   const activeDragTask = activeDragId ? tasks.find((t) => t.id === activeDragId) : null;
@@ -417,10 +531,38 @@ export default function DashboardPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading your day...</p>
+      <div className="max-w-2xl mx-auto pb-24">
+        {/* Header skeleton */}
+        <div className="mb-6">
+          <div className="skeleton-line h-7 w-32 mb-2" />
+          <div className="skeleton-line h-4 w-48" />
+        </div>
+        {/* Stats skeleton */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-xl p-4" style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+              <div className="skeleton-line h-3 w-16 mb-2" />
+              <div className="skeleton-line h-6 w-10" />
+            </div>
+          ))}
+        </div>
+        {/* Next task card skeleton */}
+        <div className="rounded-2xl p-6 mb-8" style={{ background: "linear-gradient(135deg, var(--glass-bg), var(--glass-bg-hover))" }}>
+          <div className="skeleton-line h-3 w-20 mb-3" />
+          <div className="skeleton-line h-6 w-3/4 mb-2" />
+          <div className="skeleton-line h-4 w-1/2" />
+        </div>
+        {/* Task list skeleton */}
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-start gap-3 p-4 rounded-xl" style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+              <div className="skeleton-line w-5 h-5 rounded-full flex-shrink-0" />
+              <div className="flex-1">
+                <div className="skeleton-line h-4 w-3/4 mb-2" />
+                <div className="skeleton-line h-3 w-1/3" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -488,6 +630,8 @@ export default function DashboardPage() {
             sectionId={SECTION_IDS.OVERDUE}
             droppable
             isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.OVERDUE && activeDragSourceSection !== SECTION_IDS.OVERDUE}
+            completingIds={completingIds}
+            forceExpand={expandedByDrag === SECTION_IDS.OVERDUE}
           />
         )}
 
@@ -512,6 +656,8 @@ export default function DashboardPage() {
           sectionId={SECTION_IDS.TODAY}
           droppable
           isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.TODAY && activeDragSourceSection !== SECTION_IDS.TODAY}
+          completingIds={completingIds}
+          forceExpand={expandedByDrag === SECTION_IDS.TODAY}
         />
 
         {/* Tomorrow's Tasks */}
@@ -530,6 +676,8 @@ export default function DashboardPage() {
           sectionId={SECTION_IDS.TOMORROW}
           droppable
           isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.TOMORROW && activeDragSourceSection !== SECTION_IDS.TOMORROW}
+          completingIds={completingIds}
+          forceExpand={expandedByDrag === SECTION_IDS.TOMORROW}
         />
 
         {/* This Week */}
@@ -548,6 +696,8 @@ export default function DashboardPage() {
             sectionId={SECTION_IDS.THIS_WEEK}
             droppable
             isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.THIS_WEEK && activeDragSourceSection !== SECTION_IDS.THIS_WEEK}
+            completingIds={completingIds}
+            forceExpand={expandedByDrag === SECTION_IDS.THIS_WEEK}
           />
         )}
 
@@ -567,28 +717,30 @@ export default function DashboardPage() {
             sectionId={SECTION_IDS.SNOOZED}
             droppable
             isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.SNOOZED && activeDragSourceSection !== SECTION_IDS.SNOOZED}
+            completingIds={completingIds}
+            forceExpand={expandedByDrag === SECTION_IDS.SNOOZED}
           />
         )}
 
-        {/* Completed Today */}
-        {(completedToday.length > 0 || activeDragId) && (
-          <TaskSection
-            title="Completed Today"
-            icon={<FaCheckCircle />}
-            tasks={completedToday}
-            onToggleComplete={handleToggleComplete}
-            onDelete={handleDelete}
-            onUpdate={handleUpdate}
-            onSnooze={handleSnooze}
-            accentColor="gray"
-            defaultCollapsed={!activeDragId && true}
-            showDate={false}
-            sortable
-            sectionId={SECTION_IDS.COMPLETED}
-            droppable
-            isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.COMPLETED && activeDragSourceSection !== SECTION_IDS.COMPLETED}
-          />
-        )}
+        {/* Completed Today — always visible */}
+        <TaskSection
+          title="Completed Today"
+          icon={<FaCheckCircle />}
+          tasks={completedToday}
+          onToggleComplete={handleToggleComplete}
+          onDelete={handleDelete}
+          onUpdate={handleUpdate}
+          onSnooze={handleSnooze}
+          accentColor="gray"
+          defaultCollapsed={false}
+          showDate={false}
+          sortable
+          sectionId={SECTION_IDS.COMPLETED}
+          droppable
+          isExternalDragOver={activeDragId && overSectionId === SECTION_IDS.COMPLETED && activeDragSourceSection !== SECTION_IDS.COMPLETED}
+          completingIds={completingIds}
+          forceExpand={expandedByDrag === SECTION_IDS.COMPLETED}
+        />
 
         <DragOverlay>
           {activeDragTask ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, forwardRef } from "react";
+import { useState, useRef, forwardRef } from "react";
 import { FaClock, FaEdit, FaTrash, FaFlag, FaChevronDown, FaChevronUp, FaMoon } from "react-icons/fa";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
@@ -8,20 +8,19 @@ import DragHandle from "@/components/ui/DragHandle";
 import SnoozePopover from "./SnoozePopover";
 
 const TaskItem = forwardRef(function TaskItem(
-  { task, onToggleComplete, onDelete, onUpdate, onSnooze, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle },
+  { task, onToggleComplete, onDelete, onUpdate, onSnooze, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle, animationClass },
   ref
 ) {
-  const [isCompleting, setIsCompleting] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState(task);
   const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
   const [isSnoozeOpen, setIsSnoozeOpen] = useState(false);
+  const snoozeButtonRef = useRef(null);
 
-  const handleToggle = async () => {
-    setIsCompleting(true);
-    await onToggleComplete(currentTask.id, !currentTask.completed);
-    setCurrentTask(prev => ({ ...prev, completed: !prev.completed }));
-    setTimeout(() => setIsCompleting(false), 300);
+  const handleToggle = () => {
+    const newCompleted = !currentTask.completed;
+    setCurrentTask(prev => ({ ...prev, completed: newCompleted }));
+    onToggleComplete(currentTask.id, newCompleted);
   };
 
   const formatTaskDate = (dateTime) => {
@@ -97,9 +96,9 @@ const TaskItem = forwardRef(function TaskItem(
     <>
     <div
       ref={ref}
-      className={`group flex items-start gap-3 p-4 rounded-xl transition-all duration-200 hover:opacity-90 ${
+      className={`group flex items-start gap-3 p-4 rounded-xl transition-[opacity,transform] duration-200 hover:opacity-90 ${
         currentTask.completed ? "opacity-60" : ""
-      } ${isCompleting ? "scale-[0.98]" : ""} ${isDragging ? "opacity-50" : ""}`}
+      } ${isDragging ? "opacity-50" : ""} ${animationClass || ""}`}
       style={{
         backgroundColor: "var(--card-bg)",
         borderColor: "var(--card-border)",
@@ -119,7 +118,7 @@ const TaskItem = forwardRef(function TaskItem(
       {/* Checkbox */}
       <button
         onClick={handleToggle}
-        className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded-full border-2 transition-all duration-200 ${
+        className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded-full border-2 transition-[border-color,background-color] duration-200 ${
           currentTask.completed
             ? "bg-green-500 border-green-500"
             : "hover:border-blue-500"
@@ -138,7 +137,7 @@ const TaskItem = forwardRef(function TaskItem(
       {/* Content */}
       <div className="flex-1 min-w-0">
         <h3
-          className={`text-sm font-medium transition-all duration-200 ${
+          className={`text-sm font-medium transition-colors duration-200 ${
             currentTask.completed ? "line-through" : ""
           }`}
           style={{
@@ -209,7 +208,7 @@ const TaskItem = forwardRef(function TaskItem(
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         {/* Snooze: show cancel for snoozed tasks, snooze button for others */}
         {onSnooze && currentTask.status !== "completed" && (
           currentTask.status === "snoozed" ? (
@@ -221,8 +220,9 @@ const TaskItem = forwardRef(function TaskItem(
               取消延後
             </button>
           ) : (
-            <div className="relative">
+            <>
               <button
+                ref={snoozeButtonRef}
                 onClick={(e) => { e.stopPropagation(); setIsSnoozeOpen(!isSnoozeOpen); }}
                 className="p-1.5 hover:text-purple-500 transition-colors"
                 style={{ color: "var(--text-muted)" }}
@@ -235,9 +235,10 @@ const TaskItem = forwardRef(function TaskItem(
                   taskId={currentTask.id}
                   onSnooze={onSnooze}
                   onClose={() => setIsSnoozeOpen(false)}
+                  anchorRef={snoozeButtonRef}
                 />
               )}
-            </div>
+            </>
           )
         )}
         <button
@@ -266,7 +267,7 @@ const TaskItem = forwardRef(function TaskItem(
             >
               <button
                 onClick={() => handleSubtaskToggle(subtask.id)}
-                className={`flex-shrink-0 w-4 h-4 rounded border transition-all duration-200 ${
+                className={`flex-shrink-0 w-4 h-4 rounded border transition-[border-color,background-color] duration-200 ${
                   subtask.completed
                     ? "bg-purple-500 border-purple-500"
                     : "hover:border-purple-500"
@@ -282,7 +283,7 @@ const TaskItem = forwardRef(function TaskItem(
                 )}
               </button>
               <span
-                className={`text-xs transition-all duration-200 ${
+                className={`text-xs transition-colors duration-200 ${
                   subtask.completed ? "line-through" : ""
                 }`}
                 style={{

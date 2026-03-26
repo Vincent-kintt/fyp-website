@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { FaTimes, FaClock, FaTag, FaSync, FaFlag, FaPlus, FaTrash, FaPlay, FaCheck, FaPause } from "react-icons/fa";
 import { toast } from "sonner";
 import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition, calculateEndTime } from "@/lib/utils";
@@ -25,6 +26,25 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [showSubtasks, setShowSubtasks] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+
+  // Manage mount/unmount with animation
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      setIsClosing(false);
+    }
+  }, [isOpen]);
+
+  const handleAnimatedClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setShouldRender(false);
+      setIsClosing(false);
+      onClose();
+    }, 150);
+  }, [onClose]);
 
   useEffect(() => {
     if (reminder && isOpen) {
@@ -53,12 +73,12 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === "Escape") {
-      onClose();
+      handleAnimatedClose();
     }
-  }, [onClose]);
+  }, [handleAnimatedClose]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (shouldRender) {
       document.addEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "hidden";
     }
@@ -66,7 +86,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
-  }, [isOpen, handleKeyDown]);
+  }, [shouldRender, handleKeyDown]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -101,7 +121,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
 
       if (data.success) {
         onSave({ ...reminder, ...formData });
-        onClose();
+        handleAnimatedClose();
       } else {
         toast.error(data.error || "Failed to update reminder");
       }
@@ -113,7 +133,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
     }
   };
 
-  if (!isOpen) return null;
+  if (!shouldRender) return null;
 
   const getPriorityColor = (priority) => {
     const colors = {
@@ -215,17 +235,17 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
     return Icon ? <Icon className={className} /> : null;
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
+        className={`absolute inset-0 bg-black/60 backdrop-blur-sm ${isClosing ? "modal-backdrop-exit" : "modal-backdrop-enter"}`}
+        onClick={handleAnimatedClose}
       />
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-md bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col"
+        className={`relative w-full max-w-md bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl shadow-2xl flex flex-col ${isClosing ? "modal-panel-exit" : "modal-panel-enter"}`}
         style={{ maxHeight: "min(90vh, 800px)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -235,7 +255,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
             Edit Reminder
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleAnimatedClose}
             className="p-2 rounded-lg hover:bg-gray-500/20 transition-colors"
             style={{ color: "var(--text-muted)" }}
           >
@@ -611,7 +631,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
         <div className="flex-shrink-0 flex gap-3 p-4 border-t border-[var(--card-border)] bg-[var(--card-bg)]">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleAnimatedClose}
             className="flex-1 px-4 py-2.5 rounded-lg border transition-colors hover:bg-gray-500/10 text-[14px] font-medium"
             style={{
               borderColor: "var(--card-border)",
@@ -631,6 +651,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

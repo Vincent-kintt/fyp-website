@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
@@ -26,8 +26,17 @@ export default function TaskSection({
   sectionId = null,
   droppable = false,
   isExternalDragOver = false,
+  completingIds = null,
+  forceExpand = false,
 }) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+
+  // Auto-expand when parent requests (drag hover)
+  useEffect(() => {
+    if (forceExpand && isCollapsed) {
+      setIsCollapsed(false);
+    }
+  }, [forceExpand, isCollapsed]);
   const { setNodeRef } = useDroppable({
     id: sectionId || "default",
     disabled: !droppable,
@@ -89,6 +98,7 @@ export default function TaskSection({
           showDate={showDate}
           emptyAction={emptyAction}
           emptyMessage={emptyMessage}
+          completingIds={completingIds}
         />
       )}
     </div>
@@ -98,13 +108,14 @@ export default function TaskSection({
 function TaskListContent({
   tasks, sortable,
   onToggleComplete, onDelete, onUpdate, onSnooze, showDate, emptyAction, emptyMessage,
+  completingIds,
 }) {
   const ItemComponent = sortable ? SortableTaskItem : TaskItem;
 
   const content = (
     <div className="space-y-2">
       {tasks.length > 0 ? (
-        tasks.map((task) => (
+        tasks.map((task, index) => (
           <ItemComponent
             key={task.id}
             task={task}
@@ -113,6 +124,8 @@ function TaskListContent({
             onUpdate={onUpdate}
             onSnooze={onSnooze}
             showDate={showDate}
+            isCompleting={completingIds?.has(task.id)}
+            animationDelay={Math.min(index * 40, 200)}
           />
         ))
       ) : emptyAction ? (

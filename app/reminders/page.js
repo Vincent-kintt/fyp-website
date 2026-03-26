@@ -79,10 +79,29 @@ export default function RemindersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p style={{ color: "var(--text-secondary)" }}>Loading reminders...</p>
+      <div className="relative">
+        <div className="mb-8">
+          <div className="skeleton-line h-8 w-48 mb-2" />
+          <div className="skeleton-line h-4 w-72" />
+        </div>
+        {/* Filter skeleton */}
+        <div className="flex gap-2 mb-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="skeleton-line h-8 w-20 rounded-full" />
+          ))}
+        </div>
+        {/* List skeleton */}
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-start gap-3 p-4 rounded-xl" style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+              <div className="skeleton-line w-5 h-5 rounded-full flex-shrink-0" />
+              <div className="flex-1">
+                <div className="skeleton-line h-4 w-3/4 mb-2" />
+                <div className="skeleton-line h-3 w-1/2 mb-1" />
+                <div className="skeleton-line h-3 w-1/4" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );

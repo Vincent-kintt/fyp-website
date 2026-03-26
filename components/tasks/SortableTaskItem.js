@@ -4,7 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import TaskItem from "./TaskItem";
 
-export default function SortableTaskItem({ task, ...rest }) {
+export default function SortableTaskItem({ task, isCompleting, animationDelay, ...rest }) {
   const {
     attributes,
     listeners,
