@@ -54,7 +54,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         {/* Logo */}
         <div className="text-center">
-          <FaBell className="mx-auto text-blue-600 dark:text-blue-400 text-6xl mb-4" />
+          <FaBell className="mx-auto text-primary text-6xl mb-4" />
           <h2 className="text-3xl font-bold text-text-primary">ReminderApp</h2>
           <p className="mt-2 text-sm text-text-muted">
             Sign in to your account
@@ -64,7 +64,7 @@ export default function LoginPage() {
         {/* Login Form */}
         <form className="mt-8 space-y-6 bg-surface border border-border p-8 rounded-lg shadow-sm" onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded">
+            <div className="bg-danger-light border border-danger/30 text-danger px-4 py-3 rounded">
               {error}
             </div>
           )}
