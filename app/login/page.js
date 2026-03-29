@@ -51,8 +51,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--primary-light)_0%,transparent_70%)] opacity-40" />
+      <div className="max-w-md w-full space-y-8 relative">
         {/* Logo */}
         <div className="text-center">
           <FaBell className="mx-auto text-primary text-6xl mb-4" />
@@ -63,7 +64,7 @@ export default function LoginPage() {
         </div>
 
         {/* Login Form */}
-        <form className="mt-8 space-y-6 bg-surface border border-border p-8 rounded-lg shadow-sm" onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-6 bg-surface border border-border p-8 rounded-lg shadow-lg" onSubmit={handleSubmit}>
           {error && <ErrorState message={error} />}
 
           <Input
@@ -90,9 +91,9 @@ export default function LoginPage() {
             type="submit"
             variant="primary"
             className="w-full"
-            disabled={isLoading}
+            loading={isLoading}
           >
-            {isLoading ? "Signing in..." : "Sign In"}
+            Sign In
           </Button>
 
           {/* Demo Accounts Info */}
