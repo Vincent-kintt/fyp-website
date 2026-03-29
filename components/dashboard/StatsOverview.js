@@ -11,7 +11,7 @@ export default function StatsOverview({ tasks }) {
   return (
     <div className="grid grid-cols-3 gap-4 mb-8">
       <div className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] flex flex-col items-center justify-center text-center">
-        <div className="text-green-500 mb-1">
+        <div className="text-success mb-1">
           <FaCheckCircle className="w-5 h-5" />
         </div>
         <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{completed}</div>
@@ -19,7 +19,7 @@ export default function StatsOverview({ tasks }) {
       </div>
       
       <div className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] flex flex-col items-center justify-center text-center">
-        <div className="text-blue-500 mb-1">
+        <div className="text-primary mb-1">
           <FaClock className="w-5 h-5" />
         </div>
         <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{total - completed}</div>
@@ -27,7 +27,7 @@ export default function StatsOverview({ tasks }) {
       </div>
 
       <div className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] flex flex-col items-center justify-center text-center">
-        <div className="text-red-500 mb-1">
+        <div className="text-danger mb-1">
           <FaExclamationCircle className="w-5 h-5" />
         </div>
         <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{overdue}</div>

@@ -7,9 +7,9 @@ import { getTagClasses, formatDuration, DURATION_PRESETS } from "@/lib/utils";
 const DEBOUNCE_MS = 600;
 
 const PRIORITY_CONFIG = {
-  high: { label: "High", labelZh: "高", color: "bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30" },
-  medium: { label: "Medium", labelZh: "中", color: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/30" },
-  low: { label: "Low", labelZh: "低", color: "bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30" },
+  high: { label: "High", labelZh: "高", color: "bg-danger/15 text-danger border border-danger/30" },
+  medium: { label: "Medium", labelZh: "中", color: "bg-warning/15 text-warning border border-warning/30" },
+  low: { label: "Low", labelZh: "低", color: "bg-success/15 text-success border border-success/30" },
 };
 
 export default function QuickAdd({ 
@@ -285,14 +285,14 @@ export default function QuickAdd({
             setIsExpanded(true);
             setTimeout(() => inputRef.current?.focus(), 50);
           }}
-          className="w-full flex items-center gap-3 p-3 text-left rounded-lg transition-colors border-2 border-dashed hover:border-blue-400 group"
+          className="w-full flex items-center gap-3 p-3 text-left rounded-lg transition-colors border-2 border-dashed hover:border-primary group"
           style={{
             color: "var(--text-muted)",
             backgroundColor: "var(--card-bg)",
             borderColor: "var(--card-border)",
           }}
         >
-          <FaPlus className="w-4 h-4 group-hover:text-blue-500 transition-colors" />
+          <FaPlus className="w-4 h-4 group-hover:text-primary transition-colors" />
           <span>{placeholder || t.placeholder}</span>
         </button>
       ) : (
@@ -320,7 +320,7 @@ export default function QuickAdd({
               style={{ color: "var(--text-primary)" }}
             />
             {isParsing && (
-              <FaSpinner className="w-4 h-4 animate-spin text-blue-500" />
+              <FaSpinner className="w-4 h-4 animate-spin text-primary" />
             )}
           </div>
 
@@ -330,7 +330,7 @@ export default function QuickAdd({
               {/* DateTime chip */}
               {(parsedData.dateTime || manualDate) && (
                 <span 
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 cursor-pointer hover:opacity-80 transition-opacity"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/30 cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={removeDateTime}
                   title={t.removeDate}
                 >
@@ -355,7 +355,7 @@ export default function QuickAdd({
 
               {/* Duration chip */}
               {parsedData.duration && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent/15 text-accent border border-accent/30">
                   <FaClock className="w-3 h-3" />
                   {formatDuration(parsedData.duration)}
                 </span>
@@ -376,7 +376,7 @@ export default function QuickAdd({
 
               {/* Parsed title preview */}
               {parsedData.title && parsedData.title !== inputText.trim() && (
-                <span className="text-xs text-gray-500 dark:text-gray-400 self-center ml-auto">
+                <span className="text-xs text-text-muted self-center ml-auto">
                   → {parsedData.title}
                 </span>
               )}
@@ -403,7 +403,7 @@ export default function QuickAdd({
               <button
                 type="button"
                 onClick={() => setShowDatePicker(false)}
-                className="text-xs text-gray-500 hover:text-gray-700"
+                className="text-xs text-text-muted hover:text-text-secondary"
               >
                 <FaTimes className="w-3 h-3" />
               </button>
@@ -431,14 +431,14 @@ export default function QuickAdd({
               <button
                 type="button"
                 onClick={() => addTag(newTag)}
-                className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="text-xs px-2 py-1 bg-primary text-text-inverted rounded hover:bg-primary-hover"
               >
                 +
               </button>
               <button
                 type="button"
                 onClick={() => setShowTagInput(false)}
-                className="text-xs text-gray-500 hover:text-gray-700"
+                className="text-xs text-text-muted hover:text-text-secondary"
               >
                 <FaTimes className="w-3 h-3" />
               </button>
@@ -458,7 +458,7 @@ export default function QuickAdd({
                   setShowDatePicker(!showDatePicker);
                   setShowTagInput(false);
                 }}
-                className={`p-2 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${showDatePicker ? "text-blue-500" : ""}`}
+                className={`p-2 rounded transition-colors hover:bg-surface-hover ${showDatePicker ? "text-primary" : ""}`}
                 style={{ color: showDatePicker ? undefined : "var(--text-muted)" }}
                 title={t.setDate}
               >
@@ -470,7 +470,7 @@ export default function QuickAdd({
                   setShowTagInput(!showTagInput);
                   setShowDatePicker(false);
                 }}
-                className={`p-2 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${showTagInput ? "text-blue-500" : ""}`}
+                className={`p-2 rounded transition-colors hover:bg-surface-hover ${showTagInput ? "text-primary" : ""}`}
                 style={{ color: showTagInput ? undefined : "var(--text-muted)" }}
                 title={t.setTag}
               >
@@ -482,7 +482,7 @@ export default function QuickAdd({
                 <button
                   type="button"
                   onClick={handleForwardToAI}
-                  className="p-2 rounded transition-colors hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-500 hover:text-purple-600 ml-1"
+                  className="p-2 rounded transition-colors hover:bg-accent-light text-accent hover:text-accent-hover ml-1"
                   title={t.aiAssist}
                 >
                   <FaRobot className="w-4 h-4" />
@@ -494,7 +494,7 @@ export default function QuickAdd({
             <div className="flex items-center gap-2">
               {/* Parsing indicator with hint */}
               {isParsing && (
-                <span className="text-xs text-blue-500 flex items-center gap-1" title={t.parsingHint}>
+                <span className="text-xs text-primary flex items-center gap-1" title={t.parsingHint}>
                   <FaSpinner className="w-3 h-3 animate-spin" />
                   {t.parsing}
                 </span>
@@ -512,8 +512,8 @@ export default function QuickAdd({
                 disabled={!inputText.trim() || isSubmitting}
                 className={`px-3 py-1.5 text-sm text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   isParsing 
-                    ? "bg-blue-400 hover:bg-blue-500" 
-                    : "bg-blue-600 hover:bg-blue-700"
+                    ? "bg-primary/70 hover:bg-primary"
+                    : "bg-primary hover:bg-primary-hover"
                 }`}
                 title={isParsing ? t.parsingHint : undefined}
               >
