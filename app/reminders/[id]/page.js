@@ -176,7 +176,7 @@ export default function ReminderDetailPage() {
             {tags.map((tag) => (
               <span
                 key={tag}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getTagClasses(tag)}`}
+                className={`px-2.5 py-1 rounded text-xs font-medium ${getTagClasses(tag)}`}
               >
                 {tag}
               </span>

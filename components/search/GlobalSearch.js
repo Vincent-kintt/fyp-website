@@ -220,7 +220,7 @@ export default function GlobalSearch() {
                           {r.tags?.slice(0, 2).map((tag) => (
                             <span
                               key={tag}
-                              className={`px-1.5 py-0 rounded-full text-[10px] font-medium border ${getTagClasses(tag)}`}
+                              className={`px-1.5 py-0 rounded text-[10px] font-medium ${getTagClasses(tag)}`}
                             >
                               {tag}
                             </span>

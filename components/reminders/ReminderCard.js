@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FaClock, FaTag, FaEdit, FaTrash, FaStickyNote, FaHourglass, FaPlay, FaCheck, FaPause } from "react-icons/fa";
+import { FaClock, FaTag, FaEdit, FaTrash, FaStickyNote, FaPlay, FaCheck, FaPause } from "react-icons/fa";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import Card from "../ui/Card";
@@ -81,15 +81,15 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
         <div className="flex flex-col gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           {/* Status Badge */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig.color}`}>
+            <span className={`inline-flex items-center gap-1 text-xs font-medium ${statusConfig.textColor}`}>
               <StatusIcon className="w-3 h-3" />
               {statusConfig.label}
             </span>
             
             {/* Duration Badge */}
             {currentReminder.duration && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-                <FaHourglass className="w-2.5 h-2.5" />
+              <span className="inline-flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                <FaClock className="w-2.5 h-2.5" />
                 {formatDuration(currentReminder.duration)}
               </span>
             )}
@@ -106,13 +106,13 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
             {tags.slice(0, 4).map((tag, idx) => (
               <span 
                 key={idx} 
-                className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getTagClasses(tag)}`}
+                className={`px-1.5 py-0.5 rounded text-xs font-medium ${getTagClasses(tag)}`}
               >
                 {tag}
               </span>
             ))}
             {tags.length > 4 && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/20 text-gray-500">
+              <span className="px-1.5 py-0.5 rounded text-xs" style={{ color: "var(--text-muted)" }}>
                 +{tags.length - 4}
               </span>
             )}
@@ -121,7 +121,7 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
 
         {currentReminder.recurring && (
           <div className="mt-3 text-sm">
-            <span className="bg-info-light text-info px-2 py-1 rounded font-medium">
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
               Recurring: {currentReminder.recurringType}
             </span>
           </div>

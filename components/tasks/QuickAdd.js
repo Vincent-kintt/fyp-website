@@ -365,7 +365,7 @@ export default function QuickAdd({
               {parsedData.tags?.map((tag) => (
                 <span
                   key={tag}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity border ${getTagClasses(tag)}`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${getTagClasses(tag)}`}
                   onClick={() => removeTag(tag)}
                   title={t.removeTag}
                 >

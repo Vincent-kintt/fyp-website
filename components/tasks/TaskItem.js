@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, forwardRef } from "react";
-import { FaClock, FaEdit, FaTrash, FaFlag, FaChevronDown, FaChevronUp, FaMoon } from "react-icons/fa";
+import { FaClock, FaEdit, FaTrash, FaChevronDown, FaChevronUp, FaMoon } from "react-icons/fa";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
 import DragHandle from "@/components/ui/DragHandle";
 import SnoozePopover from "./SnoozePopover";
+import { getPriorityConfig } from "@/lib/utils";
 
 const TaskItem = forwardRef(function TaskItem(
   { task, onToggleComplete, onDelete, onUpdate, onEdit, onSnooze, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle, animationClass },
@@ -49,14 +50,6 @@ const TaskItem = forwardRef(function TaskItem(
     return colors[category] || colors.other;
   };
 
-  const getPriorityConfig = (priority) => {
-    const configs = {
-      high: { color: "text-red-500", bg: "bg-red-500/10", border: "border-red-500/30", label: "High" },
-      medium: { color: "text-yellow-500", bg: "bg-yellow-500/10", border: "border-yellow-500/30", label: "Med" },
-      low: { color: "text-green-500", bg: "bg-green-500/10", border: "border-green-500/30", label: "Low" },
-    };
-    return configs[priority] || configs.medium;
-  };
 
   const subtasks = currentTask.subtasks || [];
   const completedSubtasks = subtasks.filter(st => st.completed).length;
@@ -169,19 +162,14 @@ const TaskItem = forwardRef(function TaskItem(
           
           {/* Priority Badge */}
           {currentTask.priority && currentTask.priority !== "medium" && (
-            <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-0.5 border ${getPriorityConfig(currentTask.priority).bg} ${getPriorityConfig(currentTask.priority).border} ${getPriorityConfig(currentTask.priority).color}`}>
-              <FaFlag className="w-2 h-2" />
+            <span className="ml-2 inline-flex items-center gap-1 text-[10px]" style={{ color: "var(--text-secondary)" }}>
+              <span className={`w-1.5 h-1.5 rounded-full ${getPriorityConfig(currentTask.priority).dotColor}`} />
               {getPriorityConfig(currentTask.priority).label}
             </span>
           )}
 
           {/* Category Badge */}
-          <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] capitalize border ${
-            currentTask.category === 'work' ? 'bg-primary-light border-primary/30 text-primary' :
-            currentTask.category === 'personal' ? 'bg-success-light border-success/30 text-success' :
-            currentTask.category === 'health' ? 'bg-danger-light border-danger/30 text-danger' :
-            'bg-background-tertiary border-border text-text-secondary'
-          }`}>
+          <span className="ml-2 text-[10px] capitalize" style={{ color: "var(--text-muted)" }}>
             {currentTask.category}
           </span>
 
@@ -189,7 +177,8 @@ const TaskItem = forwardRef(function TaskItem(
           {hasSubtasks && (
             <button
               onClick={(e) => { e.stopPropagation(); setIsSubtasksExpanded(!isSubtasksExpanded); }}
-              className="ml-2 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1 border bg-purple-500/10 border-purple-500/30 text-purple-500 hover:bg-purple-500/20 transition-colors"
+              className="ml-2 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1 hover:bg-[var(--background-tertiary)] transition-colors"
+              style={{ color: "var(--text-muted)" }}
             >
               {completedSubtasks}/{subtasks.length}
               {isSubtasksExpanded ? <FaChevronUp className="w-2 h-2" /> : <FaChevronDown className="w-2 h-2" />}
@@ -197,7 +186,7 @@ const TaskItem = forwardRef(function TaskItem(
           )}
 
           {currentTask.recurring && (
-            <span className="ml-1 px-1.5 py-0.5 bg-info-light text-info rounded text-[10px]">
+            <span className="ml-1 text-[10px]" style={{ color: "var(--text-muted)" }}>
               {currentTask.recurringType}
             </span>
           )}

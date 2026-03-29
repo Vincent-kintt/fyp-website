@@ -46,10 +46,10 @@ export default function ReminderFilter({ filters, onFilterChange, availableTags 
               }}
               className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
                 filters.tag === tag
-                  ? getTagClasses(tag)
-                  : "border-gray-500/30 bg-gray-500/10 hover:bg-gray-500/20"
+                  ? `border-transparent ${getTagClasses(tag)}`
+                  : "border-[var(--border)] bg-transparent hover:bg-[var(--background-tertiary)]"
               }`}
-              style={{ color: filters.tag === tag ? undefined : "var(--text-secondary)" }}
+              style={{ color: filters.tag === tag ? undefined : "var(--text-muted)" }}
             >
               {tag}
             </button>

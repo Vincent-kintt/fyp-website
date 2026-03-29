@@ -55,14 +55,14 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center">
           <FaBell className="mx-auto text-blue-600 dark:text-blue-400 text-6xl mb-4" />
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">ReminderApp</h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+          <h2 className="text-3xl font-bold text-text-primary">ReminderApp</h2>
+          <p className="mt-2 text-sm text-text-muted">
             Sign in to your account
           </p>
         </div>
 
         {/* Login Form */}
-        <form className="mt-8 space-y-6 bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md" onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-6 bg-surface border border-border p-8 rounded-lg shadow-sm" onSubmit={handleSubmit}>
           {error && (
             <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded">
               {error}
@@ -99,11 +99,11 @@ export default function LoginPage() {
           </Button>
 
           {/* Demo Accounts Info */}
-          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded">
-            <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">Demo Accounts:</p>
-            <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-              <p>👤 Admin: username: <code className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 rounded">admin</code> / password: <code className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 rounded">admin</code></p>
-              <p>👤 User: username: <code className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 rounded">user</code> / password: <code className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 rounded">user</code></p>
+          <div className="mt-6 p-4 bg-info-light border border-info/30 rounded">
+            <p className="text-sm font-semibold text-info mb-2">Demo Accounts:</p>
+            <div className="text-sm text-info/80 space-y-1">
+              <p>Admin: username: <code className="bg-info/10 text-info px-2 py-1 rounded">admin</code> / password: <code className="bg-info/10 text-info px-2 py-1 rounded">admin</code></p>
+              <p>User: username: <code className="bg-info/10 text-info px-2 py-1 rounded">user</code> / password: <code className="bg-info/10 text-info px-2 py-1 rounded">user</code></p>
             </div>
           </div>
         </form>
