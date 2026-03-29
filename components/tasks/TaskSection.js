@@ -6,6 +6,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { useDroppable } from "@dnd-kit/core";
 import TaskItem from "./TaskItem";
 import SortableTaskItem from "./SortableTaskItem";
+import EmptyState from "@/components/ui/EmptyState";
 import { getSectionDropColor } from "@/lib/dnd";
 
 export default function TaskSection({
@@ -143,9 +144,7 @@ function TaskListContent({
           </div>
         </div>
       ) : (
-        <p className="text-sm py-3 px-4" style={{ color: "var(--text-muted)" }}>
-          {emptyMessage}
-        </p>
+        <EmptyState title={emptyMessage} />
       )}
     </div>
   );

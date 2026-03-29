@@ -9,6 +9,7 @@ import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import TaskItem from "@/components/tasks/TaskItem";
 import SortableTaskItem from "@/components/tasks/SortableTaskItem";
+import EmptyState from "@/components/ui/EmptyState";
 import QuickAdd from "@/components/tasks/QuickAdd";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
@@ -261,12 +262,11 @@ export default function InboxPage() {
                 />
               ))
             ) : (
-              <div className="text-center py-12">
-                <FaInbox className="w-12 h-12 mx-auto mb-4" style={{ color: "var(--text-muted)" }} />
-                <p style={{ color: "var(--text-muted)" }}>
-                  Your inbox is empty. Start capturing ideas!
-                </p>
-              </div>
+              <EmptyState
+                icon={<FaInbox className="w-full h-full" />}
+                title="Your inbox is empty"
+                description="Start capturing ideas and tasks quickly"
+              />
             )}
           </div>
         </SortableContext>
