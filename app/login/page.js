@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { FaBell } from "react-icons/fa";
+import ErrorState from "@/components/ui/ErrorState";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -63,11 +64,7 @@ export default function LoginPage() {
 
         {/* Login Form */}
         <form className="mt-8 space-y-6 bg-surface border border-border p-8 rounded-lg shadow-sm" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-danger-light border border-danger/30 text-danger px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
+          {error && <ErrorState message={error} />}
 
           <Input
             label="Username"
