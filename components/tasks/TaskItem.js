@@ -6,7 +6,7 @@ import { format, isToday, isTomorrow, isPast } from "date-fns";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
 import DragHandle from "@/components/ui/DragHandle";
 import SnoozePopover from "./SnoozePopover";
-import { getPriorityConfig } from "@/lib/utils";
+import { getPriorityConfig, getCategoryIndicatorColor } from "@/lib/utils";
 
 const TaskItem = forwardRef(function TaskItem(
   { task, onToggleComplete, onDelete, onUpdate, onEdit, onSnooze, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle, animationClass },
@@ -38,16 +38,6 @@ const TaskItem = forwardRef(function TaskItem(
       return format(date, "'Tomorrow at' h:mm a");
     }
     return format(date, "MMM d 'at' h:mm a");
-  };
-
-  const getCategoryColor = (category) => {
-    const colors = {
-      work: "bg-blue-500",
-      personal: "bg-green-500",
-      health: "bg-red-500",
-      other: "bg-gray-500"
-    };
-    return colors[category] || colors.other;
   };
 
 
@@ -111,15 +101,15 @@ const TaskItem = forwardRef(function TaskItem(
       )}
 
       {/* Category indicator */}
-      <div className={`w-1 h-full min-h-[40px] rounded-full ${getCategoryColor(currentTask.category)}`} />
+      <div className={`w-1 h-full min-h-[40px] rounded-full ${getCategoryIndicatorColor(currentTask.category)}`} />
 
       {/* Checkbox */}
       <button
         onClick={handleToggle}
         className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded-full border-2 transition-[border-color,background-color] duration-200 ${
           currentTask.completed
-            ? "bg-green-500 border-green-500"
-            : "hover:border-blue-500"
+            ? "bg-success border-success"
+            : "hover:border-primary"
         }`}
         style={{
           borderColor: currentTask.completed ? undefined : "var(--text-muted)",
@@ -155,7 +145,7 @@ const TaskItem = forwardRef(function TaskItem(
         {/* Always show time, with full date info when showDate is true */}
         <div 
           className="flex items-center gap-1 mt-1 text-xs flex-wrap"
-          style={{ color: isOverdue ? "#dc2626" : "var(--text-muted)" }}
+          style={{ color: isOverdue ? "var(--danger)" : "var(--text-muted)" }}
         >
           <FaClock className="w-3 h-3" />
           <span>{showDate ? formatTaskDate(currentTask.dateTime) : formatTimeOnly(currentTask.dateTime)}</span>
@@ -194,7 +184,7 @@ const TaskItem = forwardRef(function TaskItem(
 
         {/* Snoozed indicator */}
         {currentTask.status === "snoozed" && currentTask.snoozedUntil && (
-          <div className="flex items-center gap-1 mt-1 text-xs text-purple-500">
+          <div className="flex items-center gap-1 mt-1 text-xs text-accent">
             <FaMoon className="w-3 h-3" />
             <span>延後至 {format(new Date(currentTask.snoozedUntil), "M/d HH:mm")}</span>
           </div>
@@ -208,7 +198,7 @@ const TaskItem = forwardRef(function TaskItem(
           currentTask.status === "snoozed" ? (
             <button
               onClick={(e) => { e.stopPropagation(); onSnooze(currentTask.id, null); }}
-              className="px-1.5 py-0.5 text-[10px] text-purple-500 hover:text-purple-700 hover:bg-purple-500/10 rounded transition-colors"
+              className="px-1.5 py-0.5 text-[10px] text-accent hover:text-accent-hover hover:bg-accent/10 rounded transition-colors"
               title="取消延後"
             >
               取消延後
@@ -218,7 +208,7 @@ const TaskItem = forwardRef(function TaskItem(
               <button
                 ref={snoozeButtonRef}
                 onClick={(e) => { e.stopPropagation(); setIsSnoozeOpen(!isSnoozeOpen); }}
-                className="p-1.5 hover:text-purple-500 transition-colors"
+                className="p-1.5 hover:text-accent transition-colors"
                 style={{ color: "var(--text-muted)" }}
                 title="延後提醒"
               >
@@ -237,14 +227,14 @@ const TaskItem = forwardRef(function TaskItem(
         )}
         <button
           onClick={() => onEdit ? onEdit(currentTask.id) : setIsEditModalOpen(true)}
-          className="p-1.5 hover:text-blue-600 transition-colors"
+          className="p-1.5 hover:text-primary transition-colors"
           style={{ color: "var(--text-muted)" }}
         >
           <FaEdit className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={() => onDelete(currentTask.id)}
-          className="p-1.5 hover:text-red-600 transition-colors"
+          className="p-1.5 hover:text-danger transition-colors"
           style={{ color: "var(--text-muted)" }}
         >
           <FaTrash className="w-3.5 h-3.5" />
@@ -257,14 +247,14 @@ const TaskItem = forwardRef(function TaskItem(
           {subtasks.map((subtask) => (
             <div
               key={subtask.id}
-              className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-500/10 transition-colors"
+              className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-surface-hover transition-colors"
             >
               <button
                 onClick={() => handleSubtaskToggle(subtask.id)}
                 className={`flex-shrink-0 w-4 h-4 rounded border transition-[border-color,background-color] duration-200 ${
                   subtask.completed
-                    ? "bg-purple-500 border-purple-500"
-                    : "hover:border-purple-500"
+                    ? "bg-accent border-accent"
+                    : "hover:border-accent"
                 }`}
                 style={{
                   borderColor: subtask.completed ? undefined : "var(--text-muted)",
