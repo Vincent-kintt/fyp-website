@@ -449,9 +449,9 @@ body {
   100% { border-left-color: transparent; }
 }
 
-/* Staggered list entry */
+/* Staggered list entry — opacity only to avoid conflicting with dnd-kit transforms */
 .task-stagger-enter {
-  animation: slideUp var(--duration-normal) var(--ease-decelerate) both;
+  animation: fadeIn var(--duration-normal) var(--ease-decelerate) both;
 }
 
 /* Reasoning shimmer animation */
