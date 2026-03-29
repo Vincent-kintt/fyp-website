@@ -184,8 +184,8 @@ export default function InboxPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading inbox...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-text-secondary">Loading inbox...</p>
         </div>
       </div>
     );
@@ -196,7 +196,7 @@ export default function InboxPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
-          <FaInbox className="text-blue-500" />
+          <FaInbox className="text-primary" />
           Inbox
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -213,7 +213,7 @@ export default function InboxPage() {
         />
         <button
           onClick={() => setIsAIModalOpen(true)}
-          className="flex items-center justify-center gap-2 p-3 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors border-2 border-dashed border-purple-300 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-500"
+          className="flex items-center justify-center gap-2 p-3 text-accent hover:bg-accent-light rounded-lg transition-colors border-2 border-dashed border-accent/30 hover:border-accent/50"
         >
           <FaLightbulb className="w-4 h-4" />
           <span>AI Assistant</span>

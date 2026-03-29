@@ -170,12 +170,12 @@ export default function CalendarPage() {
             onClick={() => setSelectedDate(currentDay)}
             className="relative p-2 h-12 flex flex-col items-center justify-start rounded-lg transition-all"
             style={{
-              backgroundColor: isSelected ? "#2563eb" : isTodayDate ? "rgba(59, 130, 246, 0.1)" : "transparent",
-              color: isSelected ? "#ffffff" : isTodayDate ? "#2563eb" : isCurrentMonth ? "var(--text-primary)" : "var(--text-muted)",
+              backgroundColor: isSelected ? "var(--primary)" : isTodayDate ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "transparent",
+              color: isSelected ? "var(--text-inverted)" : isTodayDate ? "var(--primary)" : isCurrentMonth ? "var(--text-primary)" : "var(--text-muted)",
               opacity: isCurrentMonth ? 1 : 0.4,
             }}
             onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.05)")}
-            onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = isTodayDate ? "rgba(59, 130, 246, 0.1)" : "transparent")}
+            onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = isTodayDate ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "transparent")}
           >
             <span className="text-sm">{format(currentDay, "d")}</span>
             {dayTasks.length > 0 && (
@@ -184,7 +184,7 @@ export default function CalendarPage() {
                   <div
                     key={idx}
                     className={`w-1 h-1 rounded-full ${
-                      isSelected ? "bg-white" : "bg-blue-500"
+                      isSelected ? "bg-white" : "bg-primary"
                     }`}
                   />
                 ))}
@@ -208,8 +208,8 @@ export default function CalendarPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading calendar...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-text-secondary">Loading calendar...</p>
         </div>
       </div>
     );
@@ -221,7 +221,7 @@ export default function CalendarPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
-            <FaCalendarAlt className="text-blue-500" />
+            <FaCalendarAlt className="text-primary" />
             Calendar
           </h1>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -234,8 +234,8 @@ export default function CalendarPage() {
           <button
             onClick={() => setViewMode('month')}
             className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              viewMode === 'month' 
-                ? 'bg-blue-500 text-white' 
+              viewMode === 'month'
+                ? 'bg-primary text-text-inverted'
                 : 'text-[var(--text-muted)] hover:bg-[var(--background)]'
             }`}
           >
@@ -244,8 +244,8 @@ export default function CalendarPage() {
           <button
             onClick={() => setViewMode('timeline')}
             className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              viewMode === 'timeline' 
-                ? 'bg-blue-500 text-white' 
+              viewMode === 'timeline'
+                ? 'bg-primary text-text-inverted'
                 : 'text-[var(--text-muted)] hover:bg-[var(--background)]'
             }`}
           >
@@ -272,11 +272,11 @@ export default function CalendarPage() {
             <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Stats for {format(selectedDate, 'MMM d')}</h3>
             <div className="flex gap-4 text-xs">
                <div className="flex items-center gap-2">
-                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                 <div className="w-2 h-2 rounded-full bg-primary"></div>
                  <span style={{ color: "var(--text-secondary)" }}>{selectedDateTasks.filter(t => !t.completed).length} Pending</span>
                </div>
                <div className="flex items-center gap-2">
-                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                 <div className="w-2 h-2 rounded-full bg-success"></div>
                  <span style={{ color: "var(--text-secondary)" }}>{selectedDateTasks.filter(t => t.completed).length} Done</span>
                </div>
             </div>
@@ -299,7 +299,7 @@ export default function CalendarPage() {
                 </span>
               </div>
               {selectedDateTasks.length > 0 && (
-                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500">
+                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                   {selectedDateTasks.length}
                 </span>
               )}
