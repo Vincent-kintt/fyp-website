@@ -600,7 +600,7 @@ export default function DashboardPage() {
       {/* Next Task Card (Hero) */}
       {nextTask && (
         <div className="mb-8">
-          <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-gray-500 dark:text-gray-400">Focus</h2>
+          <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-text-muted">Focus</h2>
           <NextTaskCard task={nextTask} onComplete={handleToggleComplete} />
         </div>
       )}
