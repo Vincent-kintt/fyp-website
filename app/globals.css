@@ -48,7 +48,11 @@
     --info: #0891b2;
     --info-hover: #0e7490;
     --info-light: #cffafe;
-    
+
+    --accent: #8b5cf6;
+    --accent-hover: #7c3aed;
+    --accent-light: rgba(139, 92, 246, 0.1);
+
     /* Input/Form colors */
     --input-bg: #ffffff;
     --input-border: #d1d5db;
@@ -159,7 +163,11 @@
     --info: #22d3ee;
     --info-hover: #67e8f9;
     --info-light: #164e63;
-    
+
+    --accent: #a78bfa;
+    --accent-hover: #8b5cf6;
+    --accent-light: rgba(139, 92, 246, 0.15);
+
     /* Input/Form colors */
     --input-bg: #161616;
     --input-border: #3f3f46;
@@ -267,7 +275,11 @@
   --color-info: var(--info);
   --color-info-hover: var(--info-hover);
   --color-info-light: var(--info-light);
-  
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-light: var(--accent-light);
+
   /* Input */
   --color-input-bg: var(--input-bg);
   --color-input-border: var(--input-border);
@@ -286,6 +298,23 @@ body {
   background: var(--background);
   color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  z-index: 999;
+  padding: 0.5rem 1rem;
+  background: var(--primary);
+  color: var(--text-inverted);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.skip-to-content:focus-visible {
+  left: 1rem;
+  top: 1rem;
+  position: fixed;
 }
 
 /* ── Motion Design Tokens (Material Design 3) ── */
