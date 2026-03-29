@@ -9,7 +9,7 @@ import SnoozePopover from "./SnoozePopover";
 import { getPriorityConfig, getCategoryIndicatorColor } from "@/lib/utils";
 
 const TaskItem = forwardRef(function TaskItem(
-  { task, onToggleComplete, onDelete, onUpdate, onEdit, onSnooze, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle, animationClass },
+  { task, onToggleComplete, onDelete, onUpdate, onEdit, onSnooze, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle, animationClass, animationDelay },
   ref
 ) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -92,6 +92,7 @@ const TaskItem = forwardRef(function TaskItem(
         borderColor: "var(--card-border)",
         borderWidth: "1px",
         borderStyle: "solid",
+        animationDelay: animationDelay ? `${animationDelay}ms` : undefined,
         ...dragStyle,
       }}
     >
@@ -117,7 +118,12 @@ const TaskItem = forwardRef(function TaskItem(
       >
         {currentTask.completed && (
           <svg className="w-full h-full text-white p-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-            <polyline points="20 6 9 17 4 12" />
+            <polyline
+              points="20 6 9 17 4 12"
+              strokeDasharray="24"
+              strokeDashoffset="0"
+              style={{ animation: "checkmark-draw 200ms var(--ease-decelerate)" }}
+            />
           </svg>
         )}
       </button>

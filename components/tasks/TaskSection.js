@@ -129,7 +129,8 @@ function TaskListContent({
             onEdit={onEdit}
             showDate={showDate}
             isCompleting={completingIds?.has(task.id)}
-            animationDelay={Math.min(index * 40, 200)}
+            animationClass="task-stagger-enter"
+            animationDelay={Math.min(index * 40, 600)}
           />
         ))
       ) : emptyAction ? (

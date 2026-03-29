@@ -4,7 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import TaskItem from "./TaskItem";
 
-export default function SortableTaskItem({ task, isCompleting, animationDelay, ...rest }) {
+export default function SortableTaskItem({ task, isCompleting, animationDelay, animationClass, ...rest }) {
   const {
     attributes,
     listeners,
@@ -27,6 +27,8 @@ export default function SortableTaskItem({ task, isCompleting, animationDelay, .
       isDragging={isDragging}
       dragHandleListeners={listeners}
       dragHandleAttributes={attributes}
+      animationClass={animationClass}
+      animationDelay={animationDelay}
       {...rest}
     />
   );

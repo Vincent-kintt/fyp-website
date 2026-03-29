@@ -436,6 +436,24 @@ body {
   }
 }
 
+/* Checkmark draw animation */
+@keyframes checkmark-draw {
+  from { stroke-dashoffset: 24; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* Border pulse on task completion */
+@keyframes border-pulse {
+  0%   { border-left-color: var(--success); }
+  50%  { border-left-color: var(--success); box-shadow: -2px 0 8px var(--success); }
+  100% { border-left-color: transparent; }
+}
+
+/* Staggered list entry */
+.task-stagger-enter {
+  animation: slideUp var(--duration-normal) var(--ease-decelerate) both;
+}
+
 /* Reasoning shimmer animation */
 @keyframes reasoning-shimmer {
   0% { background-position: -200% 0; }
