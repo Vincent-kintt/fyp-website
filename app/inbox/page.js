@@ -13,7 +13,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import QuickAdd from "@/components/tasks/QuickAdd";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
-import { useDndSensors, computeSortOrders, reorderReminders } from "@/lib/dnd";
+import { useDndSensors, computeSortOrders, reorderReminders, DROP_ANIMATION_CONFIG } from "@/lib/dnd";
 
 export default function InboxPage() {
   const { data: session, status } = useSession();
@@ -271,7 +271,7 @@ export default function InboxPage() {
             )}
           </div>
         </SortableContext>
-        <DragOverlay>
+        <DragOverlay dropAnimation={DROP_ANIMATION_CONFIG}>
           {activeDragTask ? (
             <TaskItem
               task={activeDragTask}

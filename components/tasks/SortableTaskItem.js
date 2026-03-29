@@ -4,7 +4,11 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import TaskItem from "./TaskItem";
 
-export default function SortableTaskItem({ task, isCompleting, animationDelay, animationClass, ...rest }) {
+// Stable references — defined outside component to avoid re-creation on every render
+const noLayoutAnimation = () => false;
+const sortableTransition = { duration: 150, easing: "cubic-bezier(0.25, 1, 0.5, 1)" };
+
+export default function SortableTaskItem({ task, animationDelay, animationClass, ...rest }) {
   const {
     attributes,
     listeners,
@@ -12,11 +16,17 @@ export default function SortableTaskItem({ task, isCompleting, animationDelay, a
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id });
+  } = useSortable({
+    id: task.id,
+    animateLayoutChanges: noLayoutAnimation,
+    transition: sortableTransition,
+  });
 
   const style = {
     transform: CSS.Translate.toString(transform),
     transition,
+    willChange: isDragging ? "transform" : undefined,
+    contain: "layout style",
   };
 
   return (

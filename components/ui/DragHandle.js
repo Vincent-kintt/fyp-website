@@ -1,6 +1,8 @@
 "use client";
 
-export default function DragHandle({ listeners, attributes }) {
+import { memo } from "react";
+
+export default memo(function DragHandle({ listeners, attributes }) {
   return (
     <button
       {...listeners}
@@ -19,4 +21,4 @@ export default function DragHandle({ listeners, attributes }) {
       </svg>
     </button>
   );
-}
+});

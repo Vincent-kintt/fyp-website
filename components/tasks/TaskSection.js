@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
@@ -8,6 +8,23 @@ import TaskItem from "./TaskItem";
 import SortableTaskItem from "./SortableTaskItem";
 import EmptyState from "@/components/ui/EmptyState";
 import { getSectionDropColor } from "@/lib/dnd";
+
+// Thin wrapper that isolates useDroppable subscription from TaskSection
+// Without this, every TaskSection re-renders on every drag event
+const DroppableWrapper = memo(function DroppableWrapper({ sectionId, children, isExternalDragOver }) {
+  const { setNodeRef } = useDroppable({ id: sectionId });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`mb-6 rounded-lg transition-colors ${
+        isExternalDragOver ? getSectionDropColor(sectionId) : ""
+      }`}
+      style={{ minHeight: "48px" }}
+    >
+      {children}
+    </div>
+  );
+});
 
 export default function TaskSection({
   title,
@@ -39,10 +56,6 @@ export default function TaskSection({
       setIsCollapsed(false);
     }
   }, [forceExpand, isCollapsed]);
-  const { setNodeRef } = useDroppable({
-    id: sectionId || "default",
-    disabled: !droppable,
-  });
 
   const accentColors = {
     blue: "text-primary",
@@ -55,14 +68,8 @@ export default function TaskSection({
   const completedCount = tasks.filter((t) => t.completed).length;
   const totalCount = tasks.length;
 
-  return (
-    <div
-      ref={droppable ? setNodeRef : undefined}
-      className={`mb-6 rounded-lg transition-colors ${
-        isExternalDragOver ? getSectionDropColor(sectionId) : ""
-      }`}
-      style={{ minHeight: droppable ? "48px" : undefined }}
-    >
+  const inner = (
+    <>
       {/* Header */}
       <button
         onClick={() => collapsible && setIsCollapsed(!isCollapsed)}
@@ -104,8 +111,20 @@ export default function TaskSection({
           completingIds={completingIds}
         />
       )}
-    </div>
+    </>
   );
+
+  // Isolate useDroppable subscription in DroppableWrapper to prevent
+  // all TaskSections from re-rendering on every drag event
+  if (droppable && sectionId) {
+    return (
+      <DroppableWrapper sectionId={sectionId} isExternalDragOver={isExternalDragOver}>
+        {inner}
+      </DroppableWrapper>
+    );
+  }
+
+  return <div className="mb-6">{inner}</div>;
 }
 
 function TaskListContent({

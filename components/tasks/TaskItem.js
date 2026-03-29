@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, forwardRef } from "react";
+import { useState, useEffect, useRef, forwardRef, memo } from "react";
 import { FaClock, FaEdit, FaTrash, FaChevronDown, FaChevronUp, FaMoon } from "react-icons/fa";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
@@ -8,7 +8,7 @@ import DragHandle from "@/components/ui/DragHandle";
 import SnoozePopover from "./SnoozePopover";
 import { getPriorityConfig, getCategoryIndicatorColor } from "@/lib/utils";
 
-const TaskItem = forwardRef(function TaskItem(
+const TaskItem = memo(forwardRef(function TaskItem(
   { task, onToggleComplete, onDelete, onUpdate, onEdit, onSnooze, showDate = true, dragHandleListeners, dragHandleAttributes, isDragging, style: dragStyle, animationClass, animationDelay },
   ref
 ) {
@@ -299,6 +299,6 @@ const TaskItem = forwardRef(function TaskItem(
     )}
     </>
   );
-});
+}));
 
 export default TaskItem;

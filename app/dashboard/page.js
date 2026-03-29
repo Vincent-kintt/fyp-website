@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { FaSun, FaCalendarDay, FaCalendarWeek, FaCheckCircle, FaMoon } from "react-icons/fa";
 import { toast } from "sonner";
 import { isToday, isTomorrow, isThisWeek, startOfDay, endOfDay, addDays } from "date-fns";
-import { DndContext, closestCenter, DragOverlay, pointerWithin, rectIntersection, MeasuringStrategy } from "@dnd-kit/core";
+import { DndContext, closestCenter, DragOverlay, MeasuringStrategy } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import TaskItem from "@/components/tasks/TaskItem";
 import TaskSection from "@/components/tasks/TaskSection";
@@ -19,7 +19,7 @@ import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 import {
   useDndSensors, computeSortOrders, reorderReminders, patchReminderStatus,
   SECTION_IDS, getSectionTargetDate, getSectionTargetStatus, isStatusChangeNeeded,
-  computeNewDateTime, getSectionLabel, getDefaultSnoozeUntil,
+  computeNewDateTime, getSectionLabel, getDefaultSnoozeUntil, DROP_ANIMATION_CONFIG,
 } from "@/lib/dnd";
 import { isValidStatusTransition } from "@/lib/utils";
 
@@ -758,7 +758,7 @@ export default function DashboardPage() {
           forceExpand={expandedByDrag === SECTION_IDS.COMPLETED}
         />
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={DROP_ANIMATION_CONFIG}>
           {activeDragTask ? (
             <TaskItem
               task={activeDragTask}
