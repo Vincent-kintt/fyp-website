@@ -182,10 +182,26 @@ export default function InboxPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-text-secondary">Loading inbox...</p>
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div>
+          <div className="skeleton-line h-7 w-32 mb-2" />
+          <div className="skeleton-line h-4 w-56" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="skeleton-line h-12 rounded-lg" />
+          <div className="skeleton-line h-12 rounded-lg" />
+        </div>
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="bg-surface rounded-xl border border-border p-4 flex items-center gap-3">
+              <div className="skeleton-line w-1 h-10 rounded-full" />
+              <div className="skeleton-line w-5 h-5 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <div className="skeleton-line h-4 w-3/4" />
+                <div className="skeleton-line h-3 w-1/3" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );

@@ -206,10 +206,24 @@ export default function CalendarPage() {
 
   if (status === "loading" || loading || !currentMonth || !selectedDate) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-text-secondary">Loading calendar...</p>
+      <div className="max-w-6xl mx-auto px-4 pb-20 space-y-6">
+        <div>
+          <div className="skeleton-line h-7 w-32 mb-2" />
+          <div className="skeleton-line h-4 w-48" />
+        </div>
+        <div className="bg-surface rounded-xl border border-border p-4">
+          <div className="flex justify-between mb-4">
+            <div className="skeleton-line h-6 w-32" />
+            <div className="flex gap-2">
+              <div className="skeleton-line w-8 h-8 rounded" />
+              <div className="skeleton-line w-8 h-8 rounded" />
+            </div>
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {[...Array(35)].map((_, i) => (
+              <div key={i} className="skeleton-line h-10 rounded" />
+            ))}
+          </div>
         </div>
       </div>
     );
