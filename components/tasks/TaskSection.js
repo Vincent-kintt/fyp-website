@@ -115,7 +115,7 @@ function TaskListContent({
   const ItemComponent = sortable ? SortableTaskItem : TaskItem;
 
   const content = (
-    <div className="space-y-2">
+    <div className="space-y-2" aria-live="polite">
       {tasks.length > 0 ? (
         tasks.map((task, index) => (
           <ItemComponent
