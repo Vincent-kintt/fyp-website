@@ -106,7 +106,7 @@ const TaskItem = forwardRef(function TaskItem(
       {/* Checkbox */}
       <button
         onClick={handleToggle}
-        className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded-full border-2 transition-[border-color,background-color] duration-200 ${
+        className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-[border-color,background-color] duration-200 ${
           currentTask.completed
             ? "bg-success border-success"
             : "hover:border-primary"
@@ -192,7 +192,7 @@ const TaskItem = forwardRef(function TaskItem(
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+      <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         {/* Snooze: show cancel for snoozed tasks, snooze button for others */}
         {onSnooze && currentTask.status !== "completed" && (
           currentTask.status === "snoozed" ? (
@@ -208,7 +208,7 @@ const TaskItem = forwardRef(function TaskItem(
               <button
                 ref={snoozeButtonRef}
                 onClick={(e) => { e.stopPropagation(); setIsSnoozeOpen(!isSnoozeOpen); }}
-                className="p-1.5 hover:text-accent transition-colors"
+                className="p-2.5 hover:text-accent transition-colors"
                 style={{ color: "var(--text-muted)" }}
                 title="延後提醒"
               >
@@ -227,14 +227,14 @@ const TaskItem = forwardRef(function TaskItem(
         )}
         <button
           onClick={() => onEdit ? onEdit(currentTask.id) : setIsEditModalOpen(true)}
-          className="p-1.5 hover:text-primary transition-colors"
+          className="p-2.5 hover:text-primary transition-colors"
           style={{ color: "var(--text-muted)" }}
         >
           <FaEdit className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={() => onDelete(currentTask.id)}
-          className="p-1.5 hover:text-danger transition-colors"
+          className="p-2.5 hover:text-danger transition-colors"
           style={{ color: "var(--text-muted)" }}
         >
           <FaTrash className="w-3.5 h-3.5" />
@@ -251,7 +251,7 @@ const TaskItem = forwardRef(function TaskItem(
             >
               <button
                 onClick={() => handleSubtaskToggle(subtask.id)}
-                className={`flex-shrink-0 w-4 h-4 rounded border transition-[border-color,background-color] duration-200 ${
+                className={`flex-shrink-0 w-5 h-5 rounded border transition-[border-color,background-color] duration-200 ${
                   subtask.completed
                     ? "bg-accent border-accent"
                     : "hover:border-accent"
