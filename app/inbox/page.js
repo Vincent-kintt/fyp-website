@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { FaInbox, FaPlus, FaLightbulb } from "react-icons/fa";
 import { toast } from "sonner";
-import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
+import { DndContext, closestCenter, DragOverlay, MeasuringStrategy } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import TaskItem from "@/components/tasks/TaskItem";
 import SortableTaskItem from "@/components/tasks/SortableTaskItem";
@@ -241,6 +241,7 @@ export default function InboxPage() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}

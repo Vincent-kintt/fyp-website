@@ -84,7 +84,7 @@ const TaskItem = forwardRef(function TaskItem(
     <>
     <div
       ref={ref}
-      className={`group flex items-start gap-3 p-4 rounded-xl transition-[opacity,transform] duration-200 hover:opacity-90 ${
+      className={`group flex items-start gap-3 p-4 rounded-xl transition-opacity duration-200 hover:opacity-90 ${
         currentTask.completed ? "opacity-60" : ""
       } ${isDragging ? "opacity-50" : ""} ${animationClass || ""}`}
       style={{

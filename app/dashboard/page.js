@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { FaSun, FaCalendarDay, FaCalendarWeek, FaCheckCircle, FaMoon } from "react-icons/fa";
 import { toast } from "sonner";
 import { isToday, isTomorrow, isThisWeek, startOfDay, endOfDay, addDays } from "date-fns";
-import { DndContext, closestCenter, DragOverlay, pointerWithin, rectIntersection } from "@dnd-kit/core";
+import { DndContext, closestCenter, DragOverlay, pointerWithin, rectIntersection, MeasuringStrategy } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import TaskItem from "@/components/tasks/TaskItem";
 import TaskSection from "@/components/tasks/TaskSection";
@@ -618,6 +618,7 @@ export default function DashboardPage() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
