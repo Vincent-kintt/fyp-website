@@ -332,6 +332,7 @@ export default function AIReminderModal({
         body: () => ({
           model: settingsRef.current.model,
           reasoningEffort: settingsRef.current.reasoningEffort,
+          reasoningEnabled: settingsRef.current.reasoningEnabled,
           language: settingsRef.current.language,
           userLocation: userLocationRef.current,
         }),

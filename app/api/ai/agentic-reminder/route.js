@@ -17,66 +17,77 @@ export async function POST(request) {
     );
   }
 
-  const {
-    messages: uiMessages,
-    model,
-    reasoningEffort = "medium",
-    language = "zh",
-    userLocation = null,
-  } = await request.json();
+  try {
+    const {
+      messages: uiMessages,
+      model,
+      reasoningEffort = "medium",
+      language = "zh",
+      userLocation = null,
+    } = await request.json();
 
-  const messages = await convertToModelMessages(uiMessages);
+    const messages = await convertToModelMessages(uiMessages);
 
-  const result = streamText({
-    model: getModel(model),
-    system: getSystemPrompt({ language, userLocation }),
-    messages,
-    tools: createTools(session.user.id),
-    stopWhen: stepCountIs(10),
-    maxRetries: 2,
-    prepareStep: async ({ messages: stepMessages }) => {
-      if (stepMessages.length > 30) {
-        return {
-          messages: [stepMessages[0], ...stepMessages.slice(-20)],
-        };
-      }
-      return {};
-    },
-    providerOptions: {
-      openai: { reasoningEffort },
-    },
-    onStepFinish: ({ usage, toolResults }) => {
-      console.log(
-        JSON.stringify({
-          event: "step_finish",
-          inputTokens: usage?.promptTokens,
-          outputTokens: usage?.completionTokens,
-          toolCalls: toolResults?.length || 0,
-          timestamp: new Date().toISOString(),
-        }),
-      );
-    },
-    onFinish: ({ totalUsage, steps }) => {
-      console.log(
-        JSON.stringify({
-          event: "agent_complete",
-          totalSteps: steps.length,
-          totalInputTokens: totalUsage?.promptTokens,
-          totalOutputTokens: totalUsage?.completionTokens,
-          timestamp: new Date().toISOString(),
-        }),
-      );
-    },
-    onError: ({ error }) => {
-      console.error(
-        JSON.stringify({
-          event: "agent_error",
-          message: error.message,
-          timestamp: new Date().toISOString(),
-        }),
-      );
-    },
-  });
+    const result = streamText({
+      model: getModel(model),
+      system: getSystemPrompt({ language, userLocation }),
+      messages,
+      tools: createTools(session.user.id),
+      stopWhen: stepCountIs(10),
+      maxRetries: 2,
+      prepareStep: async ({ messages: stepMessages }) => {
+        if (stepMessages.length > 30) {
+          return {
+            messages: [stepMessages[0], ...stepMessages.slice(-20)],
+          };
+        }
+        return {};
+      },
+      providerOptions: {
+        openai: { reasoningEffort },
+      },
+      onStepFinish: ({ usage, toolResults }) => {
+        console.log(
+          JSON.stringify({
+            event: "step_finish",
+            inputTokens: usage?.promptTokens,
+            outputTokens: usage?.completionTokens,
+            toolCalls: toolResults?.length || 0,
+            timestamp: new Date().toISOString(),
+          }),
+        );
+      },
+      onFinish: ({ totalUsage, steps }) => {
+        console.log(
+          JSON.stringify({
+            event: "agent_complete",
+            totalSteps: steps.length,
+            totalInputTokens: totalUsage?.promptTokens,
+            totalOutputTokens: totalUsage?.completionTokens,
+            timestamp: new Date().toISOString(),
+          }),
+        );
+      },
+      onError: ({ error }) => {
+        console.error(
+          JSON.stringify({
+            event: "agent_error",
+            message: error.message,
+            timestamp: new Date().toISOString(),
+          }),
+        );
+      },
+    });
 
-  return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse();
+  } catch (error) {
+    console.error("POST /api/ai/agentic-reminder error:", error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message || "Failed to process request",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
 }
