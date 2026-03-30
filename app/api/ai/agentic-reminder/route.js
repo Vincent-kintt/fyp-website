@@ -25,7 +25,7 @@ export async function POST(request) {
     userLocation = null,
   } = await request.json();
 
-  const messages = convertToModelMessages(uiMessages);
+  const messages = await convertToModelMessages(uiMessages);
 
   const result = streamText({
     model: getModel(model),
