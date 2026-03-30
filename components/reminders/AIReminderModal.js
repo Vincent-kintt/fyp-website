@@ -7,7 +7,6 @@ import {
   FaSpinner,
   FaTimes,
   FaCheck,
-  FaRobot,
   FaTrash,
   FaChevronDown,
   FaChevronUp,
@@ -109,10 +108,26 @@ const translations = {
 };
 
 const modelOptions = [
-  { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
-  { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro" },
-  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash" },
-  { value: "deepseek/deepseek-v3.2", label: "DeepSeek V3.2" },
+  {
+    value: "x-ai/grok-4.1-fast",
+    label: "Grok 4.1 Fast",
+    desc: "Fast, great at tool use",
+  },
+  {
+    value: "google/gemini-3-pro-preview",
+    label: "Gemini 3 Pro",
+    desc: "Strong reasoning, detailed answers",
+  },
+  {
+    value: "google/gemini-3-flash-preview",
+    label: "Gemini 3 Flash",
+    desc: "Lightweight, fastest response",
+  },
+  {
+    value: "deepseek/deepseek-v3.2",
+    label: "DeepSeek V3.2",
+    desc: "Open-weight, good at Chinese",
+  },
 ];
 
 // Extract tool name from a part (handles both typed tool-<name> and dynamic-tool)
@@ -125,6 +140,66 @@ function getToolName(part) {
 // Check if a part is a tool invocation
 function isToolPart(part) {
   return part.type === "dynamic-tool" || part.type.startsWith("tool-");
+}
+
+function getToolDescription(toolName, state, output) {
+  if (state === "input-streaming" || state === "input-available") {
+    const labels = {
+      createReminder: "Creating reminder",
+      updateReminder: "Updating reminder",
+      deleteReminder: "Deleting reminder",
+      batchCreate: "Creating multiple reminders",
+      listReminders: "Fetching reminders",
+      findConflicts: "Checking for conflicts",
+      analyzePatterns: "Analyzing patterns",
+      summarizeUpcoming: "Summarizing upcoming tasks",
+      suggestReminders: "Generating suggestions",
+      snoozeReminder: "Snoozing reminder",
+      setQuickReminder: "Setting quick reminder",
+      templateCreate: "Creating from template",
+      exportReminders: "Exporting reminders",
+      askClarification: "Asking for clarification",
+      searchWeb: "Searching the web",
+    };
+    return labels[toolName] || `Running ${toolName}`;
+  }
+  if (output?.success === false) return `${toolName} failed`;
+  switch (toolName) {
+    case "createReminder":
+      return `Created ${output?.reminder?.title || "reminder"}`;
+    case "updateReminder":
+      return `Updated ${output?.reminder?.title || "reminder"}`;
+    case "deleteReminder":
+      return "Deleted reminder";
+    case "batchCreate":
+      return `Created ${output?.count || ""} reminders`;
+    case "listReminders":
+      return `Listed ${output?.count || ""} reminders`;
+    case "findConflicts":
+      return output?.hasConflicts
+        ? `Found ${output.conflicts?.length} conflicts`
+        : "No conflicts found";
+    case "analyzePatterns":
+      return "Analysis complete";
+    case "summarizeUpcoming":
+      return `${output?.total || ""} upcoming tasks`;
+    case "suggestReminders":
+      return "Suggestions ready";
+    case "snoozeReminder":
+      return `Snoozed ${output?.snoozedMinutes || ""} minutes`;
+    case "setQuickReminder":
+      return "Quick reminder set";
+    case "templateCreate":
+      return "Created from template";
+    case "exportReminders":
+      return `Exported (${output?.format || "json"})`;
+    case "askClarification":
+      return "Need more info";
+    case "searchWeb":
+      return "Search complete";
+    default:
+      return `${toolName} completed`;
+  }
 }
 
 // Collapsible reasoning block
@@ -200,80 +275,88 @@ function ReasoningBlock({ text, isStreaming, language }) {
   );
 }
 
-// Tool invocation card with status + result
 function ToolInvocationBlock({ part, language }) {
   const toolName = getToolName(part);
   const { state, input, output, errorText } = part;
-
   const isRunning = state === "input-streaming" || state === "input-available";
   const isSuccess = state === "output-available";
   const isError = state === "output-error";
-
-  const description = toolName;
+  const isReadOnly = isSuccess && !MUTATION_TOOLS.includes(toolName);
+  const description = getToolDescription(
+    toolName,
+    state,
+    isSuccess ? output : null,
+  );
 
   return (
-    <div className="tool-block" style={{ width: "100%" }}>
-      {/* Tool Execution Status Bar */}
+    <div style={{ width: "100%" }}>
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "10px",
-          padding: "10px 14px",
+          gap: "8px",
+          padding: "8px 12px",
           background: "var(--glass-bg)",
           border: "1px solid var(--glass-border)",
-          borderRadius: "8px",
-          marginBottom: "8px",
+          borderRadius: "10px",
+          marginBottom: isSuccess || isError ? "8px" : "0",
         }}
       >
         <div
           style={{
+            width: "18px",
+            height: "18px",
+            borderRadius: "50%",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "20px",
-            height: "20px",
+            flexShrink: 0,
+            background: isRunning
+              ? "transparent"
+              : isError
+                ? "rgba(220,38,38,0.1)"
+                : isReadOnly
+                  ? "rgba(59,130,246,0.1)"
+                  : "rgba(22,163,74,0.1)",
           }}
         >
           {isRunning ? (
             <FaSpinner
               className="animate-spin"
-              style={{ color: "var(--modal-accent)", fontSize: "14px" }}
+              style={{ color: "var(--modal-accent)", fontSize: "12px" }}
             />
           ) : isSuccess ? (
-            <FaCheck style={{ color: "var(--success)", fontSize: "14px" }} />
+            <FaCheck
+              style={{
+                color: isReadOnly ? "#3b82f6" : "var(--success)",
+                fontSize: "10px",
+              }}
+            />
           ) : (
-            <FaTimes style={{ color: "var(--danger)", fontSize: "14px" }} />
+            <FaTimes style={{ color: "var(--danger)", fontSize: "10px" }} />
           )}
         </div>
-
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <span
-            style={{
-              fontSize: "13px",
-              color: "var(--modal-text)",
-              fontWeight: "500",
-            }}
-          >
-            {description}
-          </span>
-          <span style={{ fontSize: "11px", color: "var(--modal-text-muted)" }}>
-            {isRunning
-              ? language === "en"
-                ? "Executing..."
-                : "執行中..."
-              : isSuccess
-                ? language === "en"
-                  ? "Completed"
-                  : "已完成"
-                : language === "en"
-                  ? "Failed"
-                  : "失敗"}
-          </span>
-        </div>
+        <span
+          style={{
+            flex: 1,
+            fontSize: "12px",
+            color: "var(--modal-text-secondary, #999)",
+          }}
+        >
+          {description}
+        </span>
+        <span
+          style={{
+            fontSize: "10px",
+            color: "var(--modal-text-muted, #555)",
+            padding: "2px 6px",
+            background: "var(--glass-bg)",
+            borderRadius: "4px",
+          }}
+        >
+          {toolName}
+        </span>
       </div>
-
-      {/* Tool Result Details */}
       {(isSuccess || isError) && (
         <div style={{ marginLeft: "4px" }}>
           <ToolResultCard
@@ -286,6 +369,316 @@ function ToolInvocationBlock({ part, language }) {
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function ModelDropdown({ model, onChange, isOpen, onToggle }) {
+  if (!isOpen) return null;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "calc(100% + 4px)",
+        left: 0,
+        width: "260px",
+        background: "var(--modal-bg, #111)",
+        border: "1px solid var(--glass-border)",
+        borderRadius: "14px",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+        padding: "6px",
+        zIndex: 20,
+      }}
+    >
+      {modelOptions.map((opt) => (
+        <div
+          key={opt.value}
+          onClick={() => {
+            onChange(opt.value);
+            onToggle();
+          }}
+          style={{
+            padding: "10px 14px",
+            borderRadius: "10px",
+            cursor: "pointer",
+            marginBottom: "4px",
+            background:
+              model === opt.value ? "rgba(139,92,246,0.1)" : "transparent",
+            border:
+              model === opt.value
+                ? "1px solid rgba(139,92,246,0.25)"
+                : "1px solid transparent",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div
+              style={{
+                fontSize: "13px",
+                color: "var(--modal-text)",
+                fontWeight: 500,
+              }}
+            >
+              {opt.label}
+            </div>
+            <div
+              style={{
+                fontSize: "11px",
+                color: "var(--modal-text-muted)",
+                marginTop: "2px",
+              }}
+            >
+              {opt.desc}
+            </div>
+          </div>
+          {model === opt.value && (
+            <FaCheck
+              style={{ color: "#8b5cf6", fontSize: "12px", flexShrink: 0 }}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SettingsPopover({
+  settings,
+  onChange,
+  isOpen,
+  supportsReasoning,
+  supportsReasoningToggle,
+  language,
+}) {
+  if (!isOpen) return null;
+  const zh = language === "zh";
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "calc(100% + 4px)",
+        right: 0,
+        width: "280px",
+        background: "var(--modal-bg, #111)",
+        border: "1px solid var(--glass-border)",
+        borderRadius: "14px",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+        padding: "4px",
+        zIndex: 20,
+      }}
+    >
+      {(supportsReasoning || supportsReasoningToggle) && (
+        <div style={{ padding: "14px 16px" }}>
+          <div
+            style={{
+              fontSize: "10px",
+              color: "var(--modal-text-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.8px",
+              fontWeight: 600,
+              marginBottom: "12px",
+            }}
+          >
+            {zh ? "推理設定" : "Reasoning"}
+          </div>
+          {supportsReasoningToggle && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: supportsReasoning ? "12px" : 0,
+              }}
+            >
+              <span style={{ fontSize: "13px", color: "var(--modal-text)" }}>
+                {zh ? "推理模式" : "Reasoning mode"}
+              </span>
+              <div
+                onClick={() =>
+                  onChange({ reasoningEnabled: !settings.reasoningEnabled })
+                }
+                style={{
+                  width: "40px",
+                  height: "22px",
+                  borderRadius: "11px",
+                  background: settings.reasoningEnabled
+                    ? "#7c3aed"
+                    : "var(--glass-border)",
+                  padding: "2px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  transition: "background 0.2s",
+                }}
+              >
+                <div
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "50%",
+                    background: "#fff",
+                    marginLeft: settings.reasoningEnabled ? "auto" : "0",
+                    transition: "margin 0.2s",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          {supportsReasoning && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <span style={{ fontSize: "13px", color: "var(--modal-text)" }}>
+                {zh ? "強度" : "Effort"}
+              </span>
+              <div style={{ display: "flex", gap: "4px" }}>
+                {["low", "medium", "high"].map((level) => (
+                  <div
+                    key={level}
+                    onClick={() => onChange({ reasoningEffort: level })}
+                    style={{
+                      padding: "4px 12px",
+                      borderRadius: "6px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      color:
+                        settings.reasoningEffort === level
+                          ? "#a78bfa"
+                          : "var(--modal-text-muted)",
+                      background:
+                        settings.reasoningEffort === level
+                          ? "rgba(139,92,246,0.15)"
+                          : "var(--glass-bg)",
+                      border: `1px solid ${settings.reasoningEffort === level ? "rgba(139,92,246,0.3)" : "var(--glass-border)"}`,
+                    }}
+                  >
+                    {level === "low"
+                      ? zh
+                        ? "低"
+                        : "Low"
+                      : level === "medium"
+                        ? zh
+                          ? "中"
+                          : "Med"
+                        : zh
+                          ? "高"
+                          : "High"}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {(supportsReasoning || supportsReasoningToggle) && (
+        <div
+          style={{
+            height: "1px",
+            background: "var(--glass-border)",
+            margin: "0 16px",
+          }}
+        />
+      )}
+      <div style={{ padding: "14px 16px" }}>
+        <div
+          style={{
+            fontSize: "10px",
+            color: "var(--modal-text-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.8px",
+            fontWeight: 600,
+            marginBottom: "12px",
+          }}
+        >
+          {zh ? "語言" : "Language"}
+        </div>
+        <div style={{ display: "flex", gap: "4px" }}>
+          {[
+            { value: "zh", label: "繁體中文" },
+            { value: "en", label: "English" },
+          ].map((lang) => (
+            <div
+              key={lang.value}
+              onClick={() => onChange({ language: lang.value })}
+              style={{
+                flex: 1,
+                padding: "6px 16px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                textAlign: "center",
+                cursor: "pointer",
+                color:
+                  settings.language === lang.value
+                    ? "#a78bfa"
+                    : "var(--modal-text-muted)",
+                background:
+                  settings.language === lang.value
+                    ? "rgba(139,92,246,0.15)"
+                    : "var(--glass-bg)",
+                border: `1px solid ${settings.language === lang.value ? "rgba(139,92,246,0.3)" : "var(--glass-border)"}`,
+              }}
+            >
+              {lang.label}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div
+        style={{
+          height: "1px",
+          background: "var(--glass-border)",
+          margin: "0 16px",
+        }}
+      />
+      <div
+        style={{
+          padding: "12px 16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <span style={{ fontSize: "12px", color: "var(--modal-text-muted)" }}>
+          {zh ? "開啟 AI 對話" : "Open AI Chat"}
+        </span>
+        <div style={{ display: "flex", gap: "4px" }}>
+          <span
+            style={{
+              padding: "2px 6px",
+              background: "var(--glass-bg)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: "4px",
+              fontSize: "10px",
+              color: "var(--modal-text-muted)",
+              fontFamily: "monospace",
+            }}
+          >
+            {typeof navigator !== "undefined" &&
+            navigator?.platform?.includes("Mac")
+              ? "Cmd"
+              : "Ctrl"}
+          </span>
+          <span
+            style={{
+              padding: "2px 6px",
+              background: "var(--glass-bg)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: "4px",
+              fontSize: "10px",
+              color: "var(--modal-text-muted)",
+              fontFamily: "monospace",
+            }}
+          >
+            J
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -591,7 +984,7 @@ export default function AIReminderModal({
       const mobile = windowWidth < 768;
       setIsMobile(mobile);
       setPosition({
-        x: mobile ? 0 : (windowWidth - 900) / 2,
+        x: mobile ? 0 : (windowWidth - 720) / 2,
         y: mobile ? 0 : windowHeight * 0.1,
       });
       document.body.style.overflow = "hidden";
@@ -690,29 +1083,8 @@ export default function AIReminderModal({
     }
   };
 
-  const handleModelChange = (e) => {
-    const newSettings = { ...settings, model: e.target.value };
-    setSettings(newSettings);
-    localStorage.setItem("ai_reminder_settings", JSON.stringify(newSettings));
-  };
-
-  const handleReasoningEffortChange = (e) => {
-    const newSettings = { ...settings, reasoningEffort: e.target.value };
-    setSettings(newSettings);
-    localStorage.setItem("ai_reminder_settings", JSON.stringify(newSettings));
-  };
-
-  const handleLanguageChange = (e) => {
-    const newSettings = { ...settings, language: e.target.value };
-    setSettings(newSettings);
-    localStorage.setItem("ai_reminder_settings", JSON.stringify(newSettings));
-  };
-
-  const handleReasoningEnabledChange = (e) => {
-    const newSettings = {
-      ...settings,
-      reasoningEnabled: e.target.value === "true",
-    };
+  const handleSettingsChange = (patch) => {
+    const newSettings = { ...settings, ...patch };
     setSettings(newSettings);
     localStorage.setItem("ai_reminder_settings", JSON.stringify(newSettings));
   };
@@ -721,6 +1093,26 @@ export default function AIReminderModal({
   const isGrokModel = settings.model.includes("grok");
   const isDeepSeekModel = settings.model.includes("deepseek");
   const supportsReasoningToggle = isGrokModel || isDeepSeekModel;
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const supportsReasoning = isGeminiModel;
+  const currentModelLabel =
+    modelOptions.find((o) => o.value === settings.model)?.label || "Model";
+
+  useEffect(() => {
+    if (!showModelDropdown && !showSettings) return;
+    const handleClick = (e) => {
+      if (
+        !e.target.closest(".model-dropdown-anchor") &&
+        !e.target.closest(".settings-anchor")
+      ) {
+        setShowModelDropdown(false);
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showModelDropdown, showSettings]);
 
   // Error display: combine chatError with any local display need
   const errorMessage = chatError?.message || null;
@@ -730,7 +1122,7 @@ export default function AIReminderModal({
   return (
     <>
       <div
-        className={`${isMobile ? "fixed inset-0 z-[9999]" : "fixed z-[9999] w-[900px] max-h-[85vh] shadow-2xl"} ${isClosing ? "modal-panel-exit" : "modal-panel-enter"}`}
+        className={`${isMobile ? "fixed inset-0 z-[9999]" : "fixed z-[9999] w-[720px] max-h-[85vh] shadow-2xl"} ${isClosing ? "modal-panel-exit" : "modal-panel-enter"}`}
         style={{
           position: "fixed",
           ...(isMobile
@@ -746,209 +1138,183 @@ export default function AIReminderModal({
         }}
         onMouseDown={isMobile ? undefined : handleMouseDown}
       >
-        {/* Header with settings */}
         <div
-          className={`modal-header flex items-center justify-between ${isMobile ? "" : "cursor-move"} select-none`}
+          className={`modal-header flex items-center gap-3 ${isMobile ? "" : "cursor-move"} select-none`}
           style={{
-            padding: "10px 12px",
+            padding: "12px 20px",
             borderRadius: isMobile ? "0" : "20px 20px 0 0",
             background: "var(--modal-header-bg)",
             backdropFilter: "blur(10px)",
             borderBottom: "1px solid var(--modal-header-border)",
           }}
         >
-          <div className="flex items-center gap-2 flex-1 flex-wrap">
-            <select
-              value={settings.model}
-              onChange={handleModelChange}
-              onMouseDown={(e) => e.stopPropagation()}
-              style={{
-                padding: "5px 10px",
-                background: "var(--select-bg)",
-                border: "1px solid var(--glass-border)",
-                borderRadius: "8px",
-                color: "var(--modal-text)",
-                fontSize: "11px",
-                cursor: "pointer",
-                outline: "none",
-                transition: "all 0.2s ease",
-                minWidth: "140px",
-              }}
-            >
-              {modelOptions.map((option) => (
-                <option
-                  key={option.value}
-                  value={option.value}
-                  style={{
-                    background: "var(--select-option-bg)",
-                    color: "var(--modal-text)",
-                  }}
-                >
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            {isGeminiModel && (
-              <select
-                value={settings.reasoningEffort}
-                onChange={handleReasoningEffortChange}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{
-                  padding: "5px 10px",
-                  background: "var(--select-bg)",
-                  border: "1px solid var(--glass-border)",
-                  borderRadius: "8px",
-                  color: "var(--modal-text)",
-                  fontSize: "11px",
-                  cursor: "pointer",
-                  outline: "none",
-                  transition: "all 0.2s ease",
-                  minWidth: "60px",
-                }}
-              >
-                <option
-                  value="low"
-                  style={{
-                    background: "var(--select-option-bg)",
-                    color: "var(--modal-text)",
-                  }}
-                >
-                  {t.low}
-                </option>
-                <option
-                  value="medium"
-                  style={{
-                    background: "var(--select-option-bg)",
-                    color: "var(--modal-text)",
-                  }}
-                >
-                  {t.medium}
-                </option>
-                <option
-                  value="high"
-                  style={{
-                    background: "var(--select-option-bg)",
-                    color: "var(--modal-text)",
-                  }}
-                >
-                  {t.high}
-                </option>
-              </select>
-            )}
-
-            {supportsReasoningToggle && (
-              <select
-                value={settings.reasoningEnabled.toString()}
-                onChange={handleReasoningEnabledChange}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{
-                  padding: "5px 10px",
-                  background: "var(--select-bg)",
-                  border: "1px solid var(--glass-border)",
-                  borderRadius: "8px",
-                  color: "var(--modal-text)",
-                  fontSize: "11px",
-                  cursor: "pointer",
-                  outline: "none",
-                  transition: "all 0.2s ease",
-                  minWidth: "60px",
-                }}
-              >
-                <option
-                  value="true"
-                  style={{
-                    background: "var(--select-option-bg)",
-                    color: "var(--modal-text)",
-                  }}
-                >
-                  {t.enabled}
-                </option>
-                <option
-                  value="false"
-                  style={{
-                    background: "var(--select-option-bg)",
-                    color: "var(--modal-text)",
-                  }}
-                >
-                  {t.disabled}
-                </option>
-              </select>
-            )}
-
-            <select
-              value={settings.language}
-              onChange={handleLanguageChange}
-              onMouseDown={(e) => e.stopPropagation()}
-              style={{
-                padding: "5px 10px",
-                background: "var(--select-bg)",
-                border: "1px solid var(--glass-border)",
-                borderRadius: "8px",
-                color: "var(--modal-text)",
-                fontSize: "11px",
-                cursor: "pointer",
-                outline: "none",
-                transition: "all 0.2s ease",
-                minWidth: "80px",
-              }}
-            >
-              <option
-                value="zh"
-                style={{
-                  background: "var(--select-option-bg)",
-                  color: "var(--modal-text)",
-                }}
-              >
-                繁體中文
-              </option>
-              <option
-                value="en"
-                style={{
-                  background: "var(--select-option-bg)",
-                  color: "var(--modal-text)",
-                }}
-              >
-                English
-              </option>
-            </select>
-          </div>
-
-          <button
-            onClick={handleAnimatedClose}
+          <div
             style={{
-              width: "28px",
-              height: "28px",
-              borderRadius: "50%",
-              background: "var(--glass-bg-hover)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid var(--glass-border-hover)",
-              color: "var(--modal-text)",
-              cursor: "pointer",
-              fontSize: "18px",
-              fontWeight: "300",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+              gap: "10px",
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                width: isMobile ? "8px" : "10px",
+                height: isMobile ? "8px" : "10px",
+                borderRadius: "50%",
+                background: "#8b5cf6",
+                boxShadow: "0 0 8px rgba(139,92,246,0.4)",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "var(--modal-text)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {isMobile
+                ? "AI"
+                : settings.language === "zh"
+                  ? "AI 助理"
+                  : "AI Assistant"}
+            </span>
+            <div
+              className="model-dropdown-anchor"
+              style={{ position: "relative" }}
+            >
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowModelDropdown(!showModelDropdown);
+                  setShowSettings(false);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  background: showModelDropdown
+                    ? "rgba(139,92,246,0.15)"
+                    : "var(--glass-bg)",
+                  border: `1px solid ${showModelDropdown ? "rgba(139,92,246,0.4)" : "var(--glass-border)"}`,
+                  color: showModelDropdown
+                    ? "#a78bfa"
+                    : "var(--modal-text-secondary)",
+                  fontSize: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  maxWidth: isMobile ? "120px" : "none",
+                }}
+              >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {currentModelLabel}
+                </span>
+                <FaChevronDown style={{ fontSize: "8px", flexShrink: 0 }} />
+              </div>
+              <ModelDropdown
+                model={settings.model}
+                onChange={(model) => handleSettingsChange({ model })}
+                isOpen={showModelDropdown}
+                onToggle={() => setShowModelDropdown(false)}
+              />
+            </div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
               flexShrink: 0,
             }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = "var(--tool-error-bg)";
-              e.currentTarget.style.borderColor = "var(--tool-error-border)";
-              e.currentTarget.style.transform = "rotate(90deg) scale(1.1)";
-              e.currentTarget.style.color = "#ef4444";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = "var(--glass-bg-hover)";
-              e.currentTarget.style.borderColor = "var(--glass-border-hover)";
-              e.currentTarget.style.transform = "rotate(0deg) scale(1)";
-              e.currentTarget.style.color = "var(--modal-text)";
-            }}
-            aria-label="Close"
           >
-            &times;
-          </button>
+            <div className="settings-anchor" style={{ position: "relative" }}>
+              <button
+                onClick={() => {
+                  setShowSettings(!showSettings);
+                  setShowModelDropdown(false);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{
+                  width: isMobile ? "28px" : "32px",
+                  height: isMobile ? "28px" : "32px",
+                  borderRadius: "8px",
+                  border: `1px solid ${showSettings ? "rgba(139,92,246,0.4)" : "var(--glass-border)"}`,
+                  background: showSettings
+                    ? "rgba(139,92,246,0.15)"
+                    : "var(--glass-bg)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: showSettings ? "#a78bfa" : "var(--modal-text-muted)",
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                </svg>
+              </button>
+              <SettingsPopover
+                settings={settings}
+                onChange={handleSettingsChange}
+                isOpen={showSettings}
+                supportsReasoning={supportsReasoning}
+                supportsReasoningToggle={supportsReasoningToggle}
+                language={settings.language}
+              />
+            </div>
+            {messages.length > 0 && (
+              <button
+                onClick={handleClearChat}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{
+                  width: isMobile ? "28px" : "32px",
+                  height: isMobile ? "28px" : "32px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--glass-border)",
+                  background: "var(--glass-bg)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "var(--modal-text-muted)",
+                }}
+              >
+                <FaTrash style={{ fontSize: "12px" }} />
+              </button>
+            )}
+            <button
+              onClick={handleAnimatedClose}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                width: isMobile ? "28px" : "32px",
+                height: isMobile ? "28px" : "32px",
+                borderRadius: "8px",
+                border: "1px solid var(--glass-border)",
+                background: "var(--glass-bg)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "var(--modal-text-muted)",
+              }}
+            >
+              <FaTimes style={{ fontSize: "12px" }} />
+            </button>
+          </div>
         </div>
 
         <div
@@ -969,62 +1335,6 @@ export default function AIReminderModal({
               border: "1px solid var(--glass-border)",
             }}
           >
-            {/* Chat title and clear button */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "12px 16px",
-                borderBottom: "1px solid var(--glass-border)",
-              }}
-            >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
-              >
-                <FaRobot
-                  style={{ color: "var(--modal-accent)", fontSize: "16px" }}
-                />
-                <h3
-                  style={{
-                    fontSize: "15px",
-                    fontWeight: "600",
-                    color: "var(--modal-text)",
-                  }}
-                >
-                  {t.chatTitle}
-                </h3>
-              </div>
-              {messages.length > 0 && (
-                <button
-                  onClick={handleClearChat}
-                  style={{
-                    padding: "6px 12px",
-                    background: "var(--tool-error-bg)",
-                    border: "1px solid var(--tool-error-border)",
-                    borderRadius: "8px",
-                    color: "#ef4444",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.background =
-                      "var(--tool-error-border)";
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = "var(--tool-error-bg)";
-                  }}
-                >
-                  <FaTrash style={{ fontSize: "11px" }} />
-                  {t.clearChat}
-                </button>
-              )}
-            </div>
-
             {/* Message list */}
             <div
               style={{
@@ -1036,6 +1346,38 @@ export default function AIReminderModal({
                 gap: "12px",
               }}
             >
+              {initialText && messages.length <= 1 && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 10px",
+                    background: "rgba(139,92,246,0.08)",
+                    border: "1px solid rgba(139,92,246,0.15)",
+                    borderRadius: "8px",
+                    alignSelf: "flex-start",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#8b5cf6"
+                    strokeWidth="2"
+                  >
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                  <span style={{ fontSize: "10px", color: "#a78bfa" }}>
+                    {settings.language === "zh"
+                      ? "從 QuickAdd 繼續"
+                      : "Continued from QuickAdd"}
+                  </span>
+                </div>
+              )}
               {messages.length === 0 ? (
                 <div
                   style={{
@@ -1044,20 +1386,81 @@ export default function AIReminderModal({
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "12px",
-                    color: "var(--modal-text-muted)",
+                    gap: "16px",
                   }}
                 >
-                  <FaRobot style={{ fontSize: "48px", opacity: 0.3 }} />
+                  <div
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "50%",
+                      background: "#8b5cf6",
+                      boxShadow: "0 0 16px rgba(139,92,246,0.4)",
+                    }}
+                  />
                   <p
                     style={{
                       fontSize: "14px",
+                      color: "var(--modal-text-muted)",
                       textAlign: "center",
-                      whiteSpace: "pre-line",
                     }}
                   >
-                    {t.emptyAgenticChat}
+                    {settings.language === "zh"
+                      ? "讓我幫你管理提醒"
+                      : "Ask me to manage your reminders"}
                   </p>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "6px",
+                      flexWrap: "wrap",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {[
+                      {
+                        zh: "建立提醒",
+                        en: "Create a reminder",
+                        prompt:
+                          settings.language === "zh"
+                            ? "建立一個提醒"
+                            : "Create a reminder",
+                      },
+                      {
+                        zh: "查看今天",
+                        en: "Today's tasks",
+                        prompt:
+                          settings.language === "zh"
+                            ? "列出今天的提醒"
+                            : "List today's reminders",
+                      },
+                      {
+                        zh: "規劃本週",
+                        en: "Plan my week",
+                        prompt:
+                          settings.language === "zh"
+                            ? "幫我規劃本週"
+                            : "Help me plan this week",
+                      },
+                    ].map((chip) => (
+                      <button
+                        key={chip.en}
+                        onClick={() => setInput(chip.prompt)}
+                        style={{
+                          padding: "6px 14px",
+                          borderRadius: "99px",
+                          fontSize: "11px",
+                          fontWeight: 500,
+                          background: "var(--glass-bg)",
+                          color: "#a78bfa",
+                          border: "1px solid var(--glass-border)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {settings.language === "zh" ? chip.zh : chip.en}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <>
@@ -1079,7 +1482,7 @@ export default function AIReminderModal({
                             padding: "10px 14px",
                             background: "var(--user-bubble-bg)",
                             border: "1px solid var(--user-bubble-border)",
-                            borderRadius: "12px 12px 2px 12px",
+                            borderRadius: "14px 14px 4px 14px",
                             fontSize: "13px",
                             color: "var(--modal-text)",
                           }}
@@ -1172,7 +1575,7 @@ export default function AIReminderModal({
                                     background: "var(--agent-bubble-bg)",
                                     border:
                                       "1px solid var(--agent-bubble-border)",
-                                    borderRadius: "12px 12px 12px 2px",
+                                    borderRadius: "14px 14px 14px 4px",
                                     fontSize: "13px",
                                     color: "var(--modal-text)",
                                   }}
@@ -1368,7 +1771,17 @@ export default function AIReminderModal({
                   {isProcessing ? (
                     <FaSpinner className="animate-spin" />
                   ) : (
-                    <FaRobot />
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M22 2L11 13" />
+                      <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+                    </svg>
                   )}
                   {isProcessing ? t.generating : t.send}
                 </button>
@@ -1377,140 +1790,6 @@ export default function AIReminderModal({
           </div>
         </div>
       </div>
-
-      <style jsx global>{`
-        .modal-header:active {
-          cursor: grabbing !important;
-        }
-
-        .markdown-content {
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-        }
-
-        .markdown-content p {
-          margin: 0 0 8px 0;
-        }
-
-        .markdown-content p:last-child {
-          margin-bottom: 0;
-        }
-
-        .markdown-content h1,
-        .markdown-content h2,
-        .markdown-content h3 {
-          margin: 8px 0 6px 0;
-          font-weight: 600;
-        }
-
-        .markdown-content h1 {
-          font-size: 18px;
-        }
-
-        .markdown-content h2 {
-          font-size: 16px;
-        }
-
-        .markdown-content h3 {
-          font-size: 14px;
-        }
-
-        .markdown-content ul,
-        .markdown-content ol {
-          margin: 4px 0 8px 0;
-          padding-left: 20px;
-        }
-
-        .markdown-content li {
-          margin: 2px 0;
-        }
-
-        .markdown-content code {
-          background: rgba(0, 0, 0, 0.3);
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-size: 12px;
-          font-family: "Courier New", monospace;
-        }
-
-        .markdown-content pre {
-          background: rgba(0, 0, 0, 0.3);
-          padding: 10px;
-          border-radius: 8px;
-          overflow-x: auto;
-          margin: 8px 0;
-        }
-
-        .markdown-content pre code {
-          background: none;
-          padding: 0;
-        }
-
-        .markdown-content blockquote {
-          border-left: 3px solid rgba(255, 255, 255, 0.3);
-          padding-left: 12px;
-          margin: 8px 0;
-          color: rgba(255, 255, 255, 0.7);
-        }
-
-        .markdown-content strong {
-          font-weight: 600;
-          color: rgba(255, 255, 255, 0.95);
-        }
-
-        .markdown-content em {
-          font-style: italic;
-        }
-
-        .markdown-content a {
-          color: rgba(139, 92, 246, 1);
-          text-decoration: underline;
-        }
-
-        .markdown-content hr {
-          border: none;
-          border-top: 1px solid rgba(255, 255, 255, 0.2);
-          margin: 12px 0;
-        }
-
-        .markdown-content table {
-          border-collapse: collapse;
-          width: 100%;
-          margin: 8px 0;
-        }
-
-        .markdown-content th,
-        .markdown-content td {
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          padding: 6px 10px;
-          text-align: left;
-        }
-
-        .markdown-content th {
-          background: rgba(255, 255, 255, 0.1);
-          font-weight: 600;
-        }
-
-        @keyframes slideInUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes fadeOut {
-          from {
-            opacity: 1;
-          }
-          to {
-            opacity: 0;
-          }
-        }
-      `}</style>
     </>
   );
 }
