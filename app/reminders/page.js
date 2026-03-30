@@ -17,13 +17,13 @@ export default function RemindersPage() {
     search: "",
     category: "all",
     tag: null,
-    type: "all"
+    type: "all",
   });
 
   // Fetch reminders from API
-  const fetchReminders = async () => {
+  const fetchReminders = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await fetch("/api/reminders");
       const data = await response.json();
 
@@ -33,7 +33,7 @@ export default function RemindersPage() {
     } catch (error) {
       console.error("Error fetching reminders:", error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -50,7 +50,7 @@ export default function RemindersPage() {
       });
 
       if (response.ok) {
-        setReminders(reminders.filter(reminder => reminder.id !== id));
+        setReminders(reminders.filter((reminder) => reminder.id !== id));
         toast.success("Reminder deleted");
       } else {
         toast.error("Failed to delete reminder");
@@ -62,17 +62,27 @@ export default function RemindersPage() {
   };
 
   const handleUpdate = (updatedReminder) => {
-    setReminders(reminders.map((r) => (r.id === updatedReminder.id ? { ...r, ...updatedReminder } : r)));
+    setReminders(
+      reminders.map((r) =>
+        r.id === updatedReminder.id ? { ...r, ...updatedReminder } : r,
+      ),
+    );
   };
 
-  const filteredReminders = reminders.filter(reminder => {
-    const matchesSearch = reminder.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-                         reminder.description?.toLowerCase().includes(filters.search.toLowerCase());
-    const matchesCategory = filters.category === "all" || reminder.category === filters.category;
-    const matchesTag = !filters.tag || (reminder.tags && reminder.tags.includes(filters.tag));
-    const matchesType = filters.type === "all" ||
-                       (filters.type === "recurring" && reminder.recurring) ||
-                       (filters.type === "one-time" && !reminder.recurring);
+  const filteredReminders = reminders.filter((reminder) => {
+    const matchesSearch =
+      reminder.title.toLowerCase().includes(filters.search.toLowerCase()) ||
+      reminder.description
+        ?.toLowerCase()
+        .includes(filters.search.toLowerCase());
+    const matchesCategory =
+      filters.category === "all" || reminder.category === filters.category;
+    const matchesTag =
+      !filters.tag || (reminder.tags && reminder.tags.includes(filters.tag));
+    const matchesType =
+      filters.type === "all" ||
+      (filters.type === "recurring" && reminder.recurring) ||
+      (filters.type === "one-time" && !reminder.recurring);
 
     return matchesSearch && matchesCategory && matchesTag && matchesType;
   });
@@ -93,7 +103,14 @@ export default function RemindersPage() {
         {/* List skeleton */}
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex items-start gap-3 p-4 rounded-xl" style={{ backgroundColor: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+            <div
+              key={i}
+              className="flex items-start gap-3 p-4 rounded-xl"
+              style={{
+                backgroundColor: "var(--card-bg)",
+                border: "1px solid var(--card-border)",
+              }}
+            >
               <div className="skeleton-line w-5 h-5 rounded-full flex-shrink-0" />
               <div className="flex-1">
                 <div className="skeleton-line h-4 w-3/4 mb-2" />
@@ -110,12 +127,23 @@ export default function RemindersPage() {
   return (
     <div className="relative">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>My Reminders</h1>
-        <p style={{ color: "var(--text-secondary)" }}>Manage all your reminders in one place</p>
+        <h1
+          className="text-3xl font-bold mb-2"
+          style={{ color: "var(--text-primary)" }}
+        >
+          My Reminders
+        </h1>
+        <p style={{ color: "var(--text-secondary)" }}>
+          Manage all your reminders in one place
+        </p>
       </div>
 
       <ReminderFilter filters={filters} onFilterChange={setFilters} />
-      <ReminderList reminders={filteredReminders} onDelete={handleDelete} onUpdate={handleUpdate} />
+      <ReminderList
+        reminders={filteredReminders}
+        onDelete={handleDelete}
+        onUpdate={handleUpdate}
+      />
 
       {/* Floating Add Button */}
       <button
@@ -130,7 +158,7 @@ export default function RemindersPage() {
       <AIReminderModal
         isOpen={isPanelOpen}
         onClose={() => setIsPanelOpen(false)}
-        onSuccess={fetchReminders}
+        onSuccess={() => fetchReminders({ silent: true })}
       />
     </div>
   );

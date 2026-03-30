@@ -5,15 +5,29 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { FaInbox, FaPlus, FaLightbulb } from "react-icons/fa";
 import { toast } from "sonner";
-import { DndContext, closestCenter, DragOverlay, MeasuringStrategy } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import {
+  DndContext,
+  closestCenter,
+  DragOverlay,
+  MeasuringStrategy,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import TaskItem from "@/components/tasks/TaskItem";
 import SortableTaskItem from "@/components/tasks/SortableTaskItem";
 import EmptyState from "@/components/ui/EmptyState";
 import QuickAdd from "@/components/tasks/QuickAdd";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
-import { useDndSensors, computeSortOrders, reorderReminders, DROP_ANIMATION_CONFIG } from "@/lib/dnd";
+import {
+  useDndSensors,
+  computeSortOrders,
+  reorderReminders,
+  DROP_ANIMATION_CONFIG,
+} from "@/lib/dnd";
 
 export default function InboxPage() {
   const { data: session, status } = useSession();
@@ -39,9 +53,9 @@ export default function InboxPage() {
     return () => window.removeEventListener("open-ai-modal", handler);
   }, []);
 
-  const fetchTasks = async () => {
+  const fetchTasks = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await fetch("/api/reminders");
       const data = await response.json();
       if (data.success) {
@@ -57,7 +71,7 @@ export default function InboxPage() {
     } catch (error) {
       console.error("Error fetching tasks:", error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -108,7 +122,11 @@ export default function InboxPage() {
   };
 
   const handleUpdate = (updatedTask) => {
-    setTasks(tasks.map((t) => (t.id === updatedTask.id ? { ...t, ...updatedTask } : t)));
+    setTasks(
+      tasks.map((t) =>
+        t.id === updatedTask.id ? { ...t, ...updatedTask } : t,
+      ),
+    );
   };
 
   const handleQuickAdd = async (taskData) => {
@@ -166,7 +184,7 @@ export default function InboxPage() {
         toast.error("Failed to reorder");
       }
     },
-    [tasks]
+    [tasks],
   );
 
   const handleDragCancel = useCallback(() => {
@@ -194,7 +212,10 @@ export default function InboxPage() {
         </div>
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="bg-surface rounded-xl border border-border p-4 flex items-center gap-3">
+            <div
+              key={i}
+              className="bg-surface rounded-xl border border-border p-4 flex items-center gap-3"
+            >
               <div className="skeleton-line w-1 h-10 rounded-full" />
               <div className="skeleton-line w-5 h-5 rounded-full" />
               <div className="flex-1 space-y-2">
@@ -212,7 +233,10 @@ export default function InboxPage() {
     <div className="max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
+        <h1
+          className="text-2xl font-bold flex items-center gap-3"
+          style={{ color: "var(--text-primary)" }}
+        >
           <FaInbox className="text-primary" />
           Inbox
         </h1>
@@ -223,10 +247,10 @@ export default function InboxPage() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-        <QuickAdd 
-          onAdd={handleQuickAdd} 
+        <QuickAdd
+          onAdd={handleQuickAdd}
           onOpenAI={handleOpenAIFromQuickAdd}
-          placeholder="Quick capture..." 
+          placeholder="Quick capture..."
         />
         <button
           onClick={() => setIsAIModalOpen(true)}
@@ -286,8 +310,14 @@ export default function InboxPage() {
 
       {/* Completed Section */}
       {completedTasks.length > 0 && (
-        <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--card-border)" }}>
-          <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text-muted)" }}>
+        <div
+          className="mt-8 pt-6"
+          style={{ borderTop: "1px solid var(--card-border)" }}
+        >
+          <h2
+            className="text-sm font-semibold mb-3"
+            style={{ color: "var(--text-muted)" }}
+          >
             Completed ({completedTasks.length})
           </h2>
           <div className="space-y-2 opacity-60">
@@ -302,7 +332,10 @@ export default function InboxPage() {
               />
             ))}
             {completedTasks.length > 5 && (
-              <p className="text-xs py-2 px-4" style={{ color: "var(--text-muted)" }}>
+              <p
+                className="text-xs py-2 px-4"
+                style={{ color: "var(--text-muted)" }}
+              >
                 +{completedTasks.length - 5} more completed
               </p>
             )}
@@ -324,7 +357,7 @@ export default function InboxPage() {
           setIsAIModalOpen(false);
           setAiInitialText("");
         }}
-        onSuccess={fetchTasks}
+        onSuccess={() => fetchTasks({ silent: true })}
         initialText={aiInitialText}
       />
     </div>
