@@ -1,4 +1,4 @@
-import { streamText, stepCountIs } from "ai";
+import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { getModel } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { getSystemPrompt } from "@/lib/ai/prompt.js";
@@ -18,12 +18,14 @@ export async function POST(request) {
   }
 
   const {
-    messages,
+    messages: uiMessages,
     model,
     reasoningEffort = "medium",
     language = "zh",
     userLocation = null,
   } = await request.json();
+
+  const messages = convertToModelMessages(uiMessages);
 
   const result = streamText({
     model: getModel(model),
