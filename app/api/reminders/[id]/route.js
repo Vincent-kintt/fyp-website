@@ -67,6 +67,34 @@ export async function PUT(request, { params }) {
       return apiError("Missing required fields (title, dateTime)", 400);
     }
 
+    if (title && title.length > 200) {
+      return NextResponse.json(
+        { success: false, error: "Title must be 200 characters or less" },
+        { status: 400 },
+      );
+    }
+    if (description && description.length > 5000) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Description must be 5000 characters or less",
+        },
+        { status: 400 },
+      );
+    }
+    if (remark && remark.length > 2000) {
+      return NextResponse.json(
+        { success: false, error: "Remark must be 2000 characters or less" },
+        { status: 400 },
+      );
+    }
+    if (tags && (tags.length > 20 || tags.some((t) => t.length > 50))) {
+      return NextResponse.json(
+        { success: false, error: "Too many tags or tag too long" },
+        { status: 400 },
+      );
+    }
+
     // Validate duration if provided
     if (duration !== undefined && duration !== null) {
       const durationValidation = validateDuration(duration);
@@ -288,6 +316,37 @@ export async function PATCH(request, { params }) {
         return apiError(durationValidation.error, 400);
       }
       updateData.duration = body.duration;
+    }
+
+    if (body.title && body.title.length > 200) {
+      return NextResponse.json(
+        { success: false, error: "Title must be 200 characters or less" },
+        { status: 400 },
+      );
+    }
+    if (body.description && body.description.length > 5000) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Description must be 5000 characters or less",
+        },
+        { status: 400 },
+      );
+    }
+    if (body.remark && body.remark.length > 2000) {
+      return NextResponse.json(
+        { success: false, error: "Remark must be 2000 characters or less" },
+        { status: 400 },
+      );
+    }
+    if (
+      body.tags &&
+      (body.tags.length > 20 || body.tags.some((t) => t.length > 50))
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Too many tags or tag too long" },
+        { status: 400 },
+      );
     }
 
     if (body.title) updateData.title = body.title;
