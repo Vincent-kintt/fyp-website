@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useTasks } from "@/hooks/useTasks";
 import {
   FaCalendarAlt,
   FaChevronLeft,
@@ -26,9 +27,8 @@ import DayTimeline from "@/components/calendar/DayTimeline";
 export default function CalendarPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
+  const { tasks, loading, toggleComplete, deleteTask } = useTasks();
+
   // Initialize with null to prevent hydration mismatch
   const [currentMonth, setCurrentMonth] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -44,56 +44,6 @@ export default function CalendarPage() {
       router.push("/login");
     }
   }, [status, router]);
-
-  const fetchTasks = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/reminders");
-      const data = await response.json();
-      if (data.success) {
-        setTasks(data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (session) {
-      fetchTasks();
-    }
-  }, [session]);
-
-  const handleToggleComplete = async (id, completed) => {
-    try {
-      const response = await fetch(`/api/reminders/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed }),
-      });
-      if (response.ok) {
-        setTasks(tasks.map((t) => (t.id === id ? { ...t, completed } : t)));
-      }
-    } catch (error) {
-      console.error("Error updating task:", error);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      const response = await fetch(`/api/reminders/${id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (response.ok) {
-        setTasks(tasks.filter((t) => t.id !== id));
-      }
-    } catch (error) {
-      console.error("Error deleting task:", error);
-    }
-  };
 
   // Get tasks for a specific date
   const getTasksForDate = (date) => {
@@ -322,8 +272,8 @@ export default function CalendarPage() {
             <DayTimeline 
               date={selectedDate}
               tasks={selectedDateTasks}
-              onToggleComplete={handleToggleComplete}
-              onDelete={handleDelete}
+              onToggleComplete={toggleComplete}
+              onDelete={deleteTask}
             />
           </div>
         </div>
