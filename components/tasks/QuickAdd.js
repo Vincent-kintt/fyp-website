@@ -134,8 +134,10 @@ export default function QuickAdd({
     } else if (parsedData?.dateTime) {
       data.dateTime = parsedData.dateTime;
     } else {
-      // Default to now
-      data.dateTime = new Date().toISOString();
+      // Default to end of today so the task appears in Today without being immediately overdue
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 0, 0);
+      data.dateTime = endOfDay.toISOString();
     }
 
     // Duration

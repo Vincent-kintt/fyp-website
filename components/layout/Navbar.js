@@ -23,7 +23,7 @@ export default function Navbar() {
   };
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+    setTheme(currentTheme === "dark" ? "light" : "dark");
   };
 
   // Get current theme, accounting for system preference

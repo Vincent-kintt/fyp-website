@@ -529,7 +529,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Overview */}
-      <StatsOverview tasks={todayTasks.concat(completedToday)} />
+      <StatsOverview tasks={overdueTasks.concat(todayTasks, completedToday)} />
 
       {/* Next Task Card (Hero) */}
       {nextTask && (
