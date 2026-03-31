@@ -7,7 +7,7 @@ import Card from "../ui/Card";
 import EditReminderModal from "./EditReminderModal";
 import { getTagClasses, getStatusConfig, formatDuration } from "@/lib/utils";
 import { getCategoryColor } from "@/lib/taskConfig";
-import { formatDateFull } from "@/lib/format";
+import { formatDateMedium } from "@/lib/format";
 
 export default function ReminderCard({ reminder, onDelete, onUpdate }) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -84,7 +84,7 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
           
           <div className="flex items-center space-x-1">
             <FaClock className="flex-shrink-0" />
-            <span>{formatDateFull(currentReminder.dateTime)}</span>
+            <span>{formatDateMedium(currentReminder.dateTime)}</span>
           </div>
           
           {/* Tags Display */}
