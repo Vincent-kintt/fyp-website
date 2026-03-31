@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { FaInbox, FaPlus, FaLightbulb } from "react-icons/fa";
+import { useQueryClient } from "@tanstack/react-query";
+import { FaInbox, FaLightbulb } from "react-icons/fa";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -22,6 +23,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import QuickAdd from "@/components/tasks/QuickAdd";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
+import { useTasks } from "@/hooks/useTasks";
 import {
   useDndSensors,
   computeSortOrders,
@@ -32,13 +34,23 @@ import {
 export default function InboxPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { tasks: rawTasks, loading, toggleComplete, deleteTask, quickAdd, refetch } = useTasks();
+  const queryClient = useQueryClient();
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiInitialText, setAiInitialText] = useState("");
   const [activeDragId, setActiveDragId] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const sensors = useDndSensors();
+
+  const tasks = useMemo(
+    () =>
+      [...rawTasks].sort((a, b) => {
+        const orderDiff = (a.sortOrder || 0) - (b.sortOrder || 0);
+        if (orderDiff !== 0) return orderDiff;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }),
+    [rawTasks]
+  );
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -53,100 +65,9 @@ export default function InboxPage() {
     return () => window.removeEventListener("open-ai-modal", handler);
   }, []);
 
-  const fetchTasks = async ({ silent = false } = {}) => {
-    try {
-      if (!silent) setLoading(true);
-      const response = await fetch("/api/reminders");
-      const data = await response.json();
-      if (data.success) {
-        // Sort by sortOrder asc (custom order), then createdAt desc as tiebreaker
-        const sorted = data.data.sort((a, b) => {
-          const orderA = a.sortOrder || 0;
-          const orderB = b.sortOrder || 0;
-          if (orderA !== orderB) return orderA - orderB;
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        });
-        setTasks(sorted);
-      }
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (session) {
-      fetchTasks();
-    }
-  }, [session]);
-
-  const handleToggleComplete = async (id, completed) => {
-    try {
-      const response = await fetch(`/api/reminders/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed }),
-      });
-      if (response.ok) {
-        setTasks(tasks.map((t) => (t.id === id ? { ...t, completed } : t)));
-      } else {
-        toast.error("Failed to update task");
-      }
-    } catch (error) {
-      console.error("Error updating task:", error);
-      toast.error("Failed to update task");
-    }
-  };
-
   const handleEditTask = useCallback((taskId) => {
     setSelectedTaskId(taskId);
   }, []);
-
-  const handleDelete = async (id) => {
-    if (id === selectedTaskId) setSelectedTaskId(null);
-    try {
-      const response = await fetch(`/api/reminders/${id}`, {
-        method: "DELETE",
-      });
-      if (response.ok) {
-        setTasks(tasks.filter((t) => t.id !== id));
-        toast.success("Task deleted");
-      } else {
-        toast.error("Failed to delete task");
-      }
-    } catch (error) {
-      console.error("Error deleting task:", error);
-      toast.error("Failed to delete task");
-    }
-  };
-
-  const handleUpdate = (updatedTask) => {
-    setTasks(
-      tasks.map((t) =>
-        t.id === updatedTask.id ? { ...t, ...updatedTask } : t,
-      ),
-    );
-  };
-
-  const handleQuickAdd = async (taskData) => {
-    try {
-      const response = await fetch("/api/reminders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(taskData),
-      });
-      if (response.ok) {
-        fetchTasks();
-        toast.success("Task added");
-      } else {
-        toast.error("Failed to add task");
-      }
-    } catch (error) {
-      console.error("Error adding task:", error);
-      toast.error("Failed to add task");
-    }
-  };
 
   const handleOpenAIFromQuickAdd = (text) => {
     setAiInitialText(text || "");
@@ -163,28 +84,29 @@ export default function InboxPage() {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      const incompleteTasks = tasks.filter((t) => !t.completed);
+      const currentTasks = queryClient.getQueryData(["tasks"]) ?? [];
+      const incompleteTasks = currentTasks.filter((t) => !t.completed);
       const oldIndex = incompleteTasks.findIndex((t) => t.id === active.id);
       const newIndex = incompleteTasks.findIndex((t) => t.id === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
 
       const reordered = arrayMove(incompleteTasks, oldIndex, newIndex);
-      const completedTasks = tasks.filter((t) => t.completed);
+      const completedTasks = currentTasks.filter((t) => t.completed);
 
       // Optimistic update
-      const previousTasks = tasks;
-      setTasks([...reordered, ...completedTasks]);
+      const previousTasks = currentTasks;
+      queryClient.setQueryData(["tasks"], [...reordered, ...completedTasks]);
 
       // Persist to server
       try {
         const sortUpdates = computeSortOrders(reordered);
         await reorderReminders(sortUpdates);
       } catch {
-        setTasks(previousTasks);
+        queryClient.setQueryData(["tasks"], previousTasks);
         toast.error("Failed to reorder");
       }
     },
-    [tasks],
+    [queryClient],
   );
 
   const handleDragCancel = useCallback(() => {
@@ -248,7 +170,7 @@ export default function InboxPage() {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         <QuickAdd
-          onAdd={handleQuickAdd}
+          onAdd={quickAdd}
           onOpenAI={handleOpenAIFromQuickAdd}
           placeholder="Quick capture..."
         />
@@ -280,9 +202,9 @@ export default function InboxPage() {
                 <SortableTaskItem
                   key={task.id}
                   task={task}
-                  onToggleComplete={handleToggleComplete}
-                  onDelete={handleDelete}
-                  onUpdate={handleUpdate}
+                  onToggleComplete={toggleComplete}
+                  onDelete={(id) => { if (selectedTaskId === id) setSelectedTaskId(null); deleteTask(id); }}
+                  onUpdate={refetch}
                   onEdit={handleEditTask}
                 />
               ))
@@ -325,9 +247,9 @@ export default function InboxPage() {
               <TaskItem
                 key={task.id}
                 task={task}
-                onToggleComplete={handleToggleComplete}
-                onDelete={handleDelete}
-                onUpdate={handleUpdate}
+                onToggleComplete={toggleComplete}
+                onDelete={(id) => { if (selectedTaskId === id) setSelectedTaskId(null); deleteTask(id); }}
+                onUpdate={refetch}
                 onEdit={handleEditTask}
               />
             ))}
@@ -347,7 +269,7 @@ export default function InboxPage() {
         taskId={selectedTaskId}
         tasks={tasks}
         onClose={() => setSelectedTaskId(null)}
-        onSave={handleUpdate}
+        onSave={refetch}
       />
 
       {/* AI Modal */}
@@ -357,7 +279,7 @@ export default function InboxPage() {
           setIsAIModalOpen(false);
           setAiInitialText("");
         }}
-        onSuccess={() => fetchTasks({ silent: true })}
+        onSuccess={() => refetch()}
         initialText={aiInitialText}
       />
     </div>
