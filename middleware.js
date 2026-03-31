@@ -7,6 +7,9 @@ export const config = {
   matcher: [
     "/reminders/:path*",
     "/api/reminders/:path*",
+    "/api/ai/:path*",
+    "/api/push/:path*",
+    "/api/account/:path*",
     "/dashboard",
     "/inbox",
     "/calendar",
