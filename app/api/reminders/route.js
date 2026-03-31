@@ -1,14 +1,11 @@
-import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
 import { auth } from "@/auth";
-import { ObjectId } from "mongodb";
 import {
   normalizeTags,
   getMainCategory,
-  deriveStatusFromCompleted,
-  deriveCompletedFromStatus,
   validateDuration,
 } from "@/lib/utils";
+import { formatReminder, normalizeSubtasks, apiSuccess, apiError } from "@/lib/reminderUtils";
 
 // GET /api/reminders - Get all reminders for logged-in user
 export async function GET(request) {
@@ -16,10 +13,7 @@ export async function GET(request) {
     const session = await auth();
 
     if (!session || !session.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
+      return apiError("Unauthorized", 401);
     }
 
     const { searchParams } = new URL(request.url);
@@ -69,40 +63,12 @@ export async function GET(request) {
       .toArray();
 
     // Convert _id to id for frontend compatibility
-    const formattedReminders = reminders.map((reminder) => ({
-      id: reminder._id.toString(),
-      title: reminder.title,
-      description: reminder.description,
-      remark: reminder.remark || "",
-      dateTime: reminder.dateTime,
-      duration: reminder.duration || null,
-      category: reminder.category || getMainCategory(reminder.tags),
-      tags: reminder.tags || [],
-      recurring: reminder.recurring,
-      recurringType: reminder.recurringType,
-      status: reminder.status || deriveStatusFromCompleted(reminder.completed),
-      completed: reminder.completed || false,
-      snoozedUntil: reminder.snoozedUntil || null,
-      startedAt: reminder.startedAt || null,
-      completedAt: reminder.completedAt || null,
-      priority: reminder.priority || "medium",
-      subtasks: reminder.subtasks || [],
-      sortOrder: reminder.sortOrder || 0,
-      username: reminder.username,
-      createdAt: reminder.createdAt,
-      updatedAt: reminder.updatedAt,
-    }));
+    const formattedReminders = reminders.map(formatReminder);
 
-    return NextResponse.json({
-      success: true,
-      data: formattedReminders,
-    });
+    return apiSuccess(formattedReminders);
   } catch (error) {
     console.error("GET /api/reminders error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return apiError(error.message, 500);
   }
 }
 
@@ -112,10 +78,7 @@ export async function POST(request) {
     const session = await auth();
 
     if (!session || !session.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
+      return apiError("Unauthorized", 401);
     }
 
     const body = await request.json();
@@ -123,20 +86,14 @@ export async function POST(request) {
 
     // Validation - tags or category required
     if (!title || !dateTime) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields (title, dateTime)" },
-        { status: 400 }
-      );
+      return apiError("Missing required fields (title, dateTime)", 400);
     }
 
     // Validate duration if provided
     if (duration !== undefined && duration !== null) {
       const durationValidation = validateDuration(duration);
       if (!durationValidation.isValid) {
-        return NextResponse.json(
-          { success: false, error: durationValidation.error },
-          { status: 400 }
-        );
+        return apiError(durationValidation.error, 400);
       }
     }
 
@@ -161,11 +118,7 @@ export async function POST(request) {
       priority: priority || "medium",
       status: "pending", // New status lifecycle field
       completed: false, // Backward compatibility: always store completed field
-      subtasks: Array.isArray(subtasks) ? subtasks.map((st, idx) => ({
-        id: st.id || `st-${Date.now()}-${idx}`,
-        title: st.title,
-        completed: st.completed || false,
-      })) : [],
+      subtasks: normalizeSubtasks(subtasks),
       sortOrder: body.sortOrder || 0,
       notificationSent: false,
       createdAt: new Date(),
@@ -175,23 +128,11 @@ export async function POST(request) {
     const result = await remindersCollection.insertOne(newReminder);
 
     // Return created reminder with id
-    const createdReminder = {
-      id: result.insertedId.toString(),
-      ...newReminder,
-      dateTime: newReminder.dateTime.toISOString(),
-      createdAt: newReminder.createdAt.toISOString(),
-      updatedAt: newReminder.updatedAt.toISOString(),
-    };
+    const insertedDoc = { ...newReminder, _id: result.insertedId };
 
-    return NextResponse.json(
-      { success: true, data: createdReminder },
-      { status: 201 }
-    );
+    return apiSuccess(formatReminder(insertedDoc), 201);
   } catch (error) {
     console.error("POST /api/reminders error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return apiError(error.message, 500);
   }
 }
