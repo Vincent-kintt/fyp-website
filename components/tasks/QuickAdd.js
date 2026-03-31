@@ -36,6 +36,7 @@ export default function QuickAdd({
   const [showEscalation, setShowEscalation] = useState(false);
 
   const debounceRef = useRef(null);
+  const dismissTimerRef = useRef(null);
   const inputRef = useRef(null);
 
   const t =
@@ -140,12 +141,11 @@ export default function QuickAdd({
     }, DEBOUNCE_MS);
   };
 
-  // Cleanup debounce on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
     };
   }, []);
 
@@ -202,7 +202,7 @@ export default function QuickAdd({
       setShowTagInput(false);
       setShowEscalation(false);
 
-      setTimeout(() => {
+      dismissTimerRef.current = setTimeout(() => {
         setInlineResult(null);
         setIsExpanded(false);
       }, 5000);
@@ -224,6 +224,10 @@ export default function QuickAdd({
   };
 
   const handleCancel = () => {
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
     setIsExpanded(false);
     setInputText("");
     setParsedData(null);
