@@ -34,7 +34,14 @@ import {
 export default function InboxPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { tasks: rawTasks, loading, toggleComplete, deleteTask, quickAdd, refetch } = useTasks();
+  const {
+    tasks: rawTasks,
+    loading,
+    toggleComplete,
+    deleteTask,
+    quickAdd,
+    refetch,
+  } = useTasks();
   const queryClient = useQueryClient();
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiInitialText, setAiInitialText] = useState("");
@@ -49,7 +56,7 @@ export default function InboxPage() {
         if (orderDiff !== 0) return orderDiff;
         return new Date(b.createdAt) - new Date(a.createdAt);
       }),
-    [rawTasks]
+    [rawTasks],
   );
 
   useEffect(() => {
@@ -65,6 +72,16 @@ export default function InboxPage() {
     return () => window.removeEventListener("open-ai-modal", handler);
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
+        e.preventDefault();
+        setIsAIModalOpen((prev) => !prev);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
   const handleEditTask = useCallback((taskId) => {
     setSelectedTaskId(taskId);
   }, []);
@@ -203,7 +220,10 @@ export default function InboxPage() {
                   key={task.id}
                   task={task}
                   onToggleComplete={toggleComplete}
-                  onDelete={(id) => { if (selectedTaskId === id) setSelectedTaskId(null); deleteTask(id); }}
+                  onDelete={(id) => {
+                    if (selectedTaskId === id) setSelectedTaskId(null);
+                    deleteTask(id);
+                  }}
                   onUpdate={refetch}
                   onEdit={handleEditTask}
                 />
@@ -248,7 +268,10 @@ export default function InboxPage() {
                 key={task.id}
                 task={task}
                 onToggleComplete={toggleComplete}
-                onDelete={(id) => { if (selectedTaskId === id) setSelectedTaskId(null); deleteTask(id); }}
+                onDelete={(id) => {
+                  if (selectedTaskId === id) setSelectedTaskId(null);
+                  deleteTask(id);
+                }}
                 onUpdate={refetch}
                 onEdit={handleEditTask}
               />

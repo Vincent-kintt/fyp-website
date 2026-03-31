@@ -1,11 +1,12 @@
 import { getCollection } from "@/lib/db";
 import { auth } from "@/auth";
+import { normalizeTags, getMainCategory, validateDuration } from "@/lib/utils";
 import {
-  normalizeTags,
-  getMainCategory,
-  validateDuration,
-} from "@/lib/utils";
-import { formatReminder, normalizeSubtasks, apiSuccess, apiError } from "@/lib/reminderUtils";
+  formatReminder,
+  normalizeSubtasks,
+  apiSuccess,
+  apiError,
+} from "@/lib/reminderUtils";
 
 // GET /api/reminders - Get all reminders for logged-in user
 export async function GET(request) {
@@ -31,20 +32,14 @@ export async function GET(request) {
     // Filter by category (backward compatible)
     if (category && category !== "all") {
       // Support both legacy category field and new tags array
-      filter.$or = [
-        { category: category },
-        { tags: category }
-      ];
+      filter.$or = [{ category: category }, { tags: category }];
     }
 
     // Filter by specific tag
     if (tag) {
       // If category filter is already set with $or, combine with $and to avoid conflict
       if (filter.$or) {
-        filter.$and = [
-          { $or: filter.$or },
-          { tags: tag },
-        ];
+        filter.$and = [{ $or: filter.$or }, { tags: tag }];
         delete filter.$or;
       } else {
         filter.tags = tag;
@@ -68,7 +63,7 @@ export async function GET(request) {
     return apiSuccess(formattedReminders);
   } catch (error) {
     console.error("GET /api/reminders error:", error);
-    return apiError(error.message, 500);
+    return apiError("Internal server error", 500);
   }
 }
 
@@ -82,11 +77,51 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { title, description, dateTime, duration, category, tags, recurring, recurringType, priority, subtasks, remark } = body;
+    const {
+      title,
+      description,
+      dateTime,
+      duration,
+      category,
+      tags,
+      recurring,
+      recurringType,
+      priority,
+      subtasks,
+      remark,
+    } = body;
 
     // Validation - tags or category required
     if (!title || !dateTime) {
       return apiError("Missing required fields (title, dateTime)", 400);
+    }
+
+    if (title && title.length > 200) {
+      return NextResponse.json(
+        { success: false, error: "Title must be 200 characters or less" },
+        { status: 400 },
+      );
+    }
+    if (description && description.length > 5000) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Description must be 5000 characters or less",
+        },
+        { status: 400 },
+      );
+    }
+    if (remark && remark.length > 2000) {
+      return NextResponse.json(
+        { success: false, error: "Remark must be 2000 characters or less" },
+        { status: 400 },
+      );
+    }
+    if (tags && (tags.length > 20 || tags.some((t) => t.length > 50))) {
+      return NextResponse.json(
+        { success: false, error: "Too many tags or tag too long" },
+        { status: 400 },
+      );
     }
 
     // Validate duration if provided
@@ -99,7 +134,8 @@ export async function POST(request) {
 
     // Process tags - normalize and ensure we have at least one
     const processedTags = normalizeTags(tags || []);
-    const effectiveCategory = category || getMainCategory(processedTags) || "personal";
+    const effectiveCategory =
+      category || getMainCategory(processedTags) || "personal";
 
     const remindersCollection = await getCollection("reminders");
 
@@ -133,6 +169,6 @@ export async function POST(request) {
     return apiSuccess(formatReminder(insertedDoc), 201);
   } catch (error) {
     console.error("POST /api/reminders error:", error);
-    return apiError(error.message, 500);
+    return apiError("Internal server error", 500);
   }
 }

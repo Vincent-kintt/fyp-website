@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createTools } from "@/lib/ai/tools.js";
 
@@ -33,7 +34,16 @@ export async function POST(request) {
       );
     }
 
-    const result = await tools[toolName].execute(params || {});
+    // Validate input against tool's Zod schema (same validation the AI SDK does automatically)
+    const parsed = tools[toolName].inputSchema.safeParse(params || {});
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid tool input", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const result = await tools[toolName].execute(parsed.data);
 
     return new Response(JSON.stringify(result), {
       status: result.success ? 200 : 400,
@@ -41,9 +51,9 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("Tool execution error:", error);
-    return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }

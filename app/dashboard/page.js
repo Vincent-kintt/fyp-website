@@ -11,12 +11,7 @@ import {
   FaMoon,
 } from "react-icons/fa";
 import { toast } from "sonner";
-import {
-  isToday,
-  isTomorrow,
-  isThisWeek,
-  startOfDay,
-} from "date-fns";
+import { isToday, isTomorrow, isThisWeek, startOfDay } from "date-fns";
 import {
   DndContext,
   closestCenter,
@@ -89,6 +84,16 @@ export default function DashboardPage() {
     return () => window.removeEventListener("open-ai-modal", handler);
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
+        e.preventDefault();
+        setIsAIModalOpen((prev) => !prev);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
   const clearCompletingId = useCallback((id) => {
     clearTimeout(completingTimers.current.get(id));
     completingTimers.current.delete(id);
@@ -341,7 +346,10 @@ export default function DashboardPage() {
         }));
         const reorderedIds = new Set(reorderedWithOrder.map((t) => t.id));
         const otherTasks = tasks.filter((t) => !reorderedIds.has(t.id));
-        queryClient.setQueryData(["tasks"], [...otherTasks, ...reorderedWithOrder]);
+        queryClient.setQueryData(
+          ["tasks"],
+          [...otherTasks, ...reorderedWithOrder],
+        );
 
         try {
           const sortUpdates = computeSortOrders(reordered);
@@ -397,7 +405,10 @@ export default function DashboardPage() {
           );
         }
 
-        queryClient.setQueryData(["tasks"], tasks.map((t) => (t.id === active.id ? optimistic : t)));
+        queryClient.setQueryData(
+          ["tasks"],
+          tasks.map((t) => (t.id === active.id ? optimistic : t)),
+        );
 
         try {
           if (needsStatus) {

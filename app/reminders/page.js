@@ -17,6 +17,17 @@ export default function RemindersPage() {
     type: "all",
   });
 
+  // Cmd+J / Ctrl+J to toggle AI modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
+        e.preventDefault();
+        setIsPanelOpen((prev) => !prev);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
   const filteredReminders = reminders.filter((reminder) => {
     const matchesSearch =
       reminder.title.toLowerCase().includes(filters.search.toLowerCase()) ||

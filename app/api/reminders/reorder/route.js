@@ -11,7 +11,7 @@ export async function PATCH(request) {
     if (!session || !session.user) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -21,7 +21,7 @@ export async function PATCH(request) {
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { success: false, error: "items array is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -30,13 +30,16 @@ export async function PATCH(request) {
       if (!item.id || !ObjectId.isValid(item.id)) {
         return NextResponse.json(
           { success: false, error: `Invalid reminder ID: ${item.id}` },
-          { status: 400 }
+          { status: 400 },
         );
       }
       if (typeof item.sortOrder !== "number") {
         return NextResponse.json(
-          { success: false, error: `sortOrder must be a number for ID: ${item.id}` },
-          { status: 400 }
+          {
+            success: false,
+            error: `sortOrder must be a number for ID: ${item.id}`,
+          },
+          { status: 400 },
         );
       }
     }
@@ -78,8 +81,8 @@ export async function PATCH(request) {
   } catch (error) {
     console.error("PATCH /api/reminders/reorder error:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

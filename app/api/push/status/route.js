@@ -9,7 +9,7 @@ export async function GET() {
     if (!session || !session.user) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -25,8 +25,8 @@ export async function GET() {
   } catch (error) {
     console.error("GET /api/push/status error:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

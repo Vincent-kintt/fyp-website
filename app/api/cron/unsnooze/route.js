@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
 
 export async function GET(request) {
-  // Verify Vercel CRON_SECRET (skip in dev if not set)
+  // Verify CRON_SECRET — deny by default when unset
   const authHeader = request.headers.get("authorization");
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (
+    !process.env.CRON_SECRET ||
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -24,7 +27,7 @@ export async function GET(request) {
           snoozedUntil: null,
           updatedAt: now,
         },
-      }
+      },
     );
 
     return NextResponse.json({
@@ -35,8 +38,8 @@ export async function GET(request) {
   } catch (error) {
     console.error("[cron/unsnooze] Error:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

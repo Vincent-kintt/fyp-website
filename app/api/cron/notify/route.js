@@ -5,7 +5,7 @@ import { sendPushNotification } from "@/lib/push";
 export async function GET(request) {
   const authHeader = request.headers.get("authorization");
   if (
-    process.env.CRON_SECRET &&
+    !process.env.CRON_SECRET ||
     authHeader !== `Bearer ${process.env.CRON_SECRET}`
   ) {
     return new Response("Unauthorized", { status: 401 });
@@ -39,7 +39,7 @@ export async function GET(request) {
         },
         {
           $set: { notificationSent: true, notifiedAt: now },
-        }
+        },
       );
 
       if (!claimed) continue;
@@ -63,7 +63,7 @@ export async function GET(request) {
       for (const sub of subscriptions) {
         const result = await sendPushNotification(
           { endpoint: sub.endpoint, keys: sub.keys },
-          payload
+          payload,
         );
 
         if (result.success) {
@@ -74,7 +74,7 @@ export async function GET(request) {
         } else {
           failed++;
           console.error(
-            `[cron/notify] Push failed for sub ${sub._id}: ${result.statusCode} ${result.error}`
+            `[cron/notify] Push failed for sub ${sub._id}: ${result.statusCode} ${result.error}`,
           );
         }
       }
@@ -91,8 +91,8 @@ export async function GET(request) {
   } catch (error) {
     console.error("[cron/notify] Error:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: "Internal server error" },
+      { status: 500 },
     );
   }
 }
