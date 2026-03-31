@@ -2,14 +2,12 @@ import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
 import { auth } from "@/auth";
 import { ObjectId } from "mongodb";
-import { 
-  normalizeTags, 
-  getMainCategory, 
-  isValidStatus,
+import {
+  normalizeTags,
+  getMainCategory,
   deriveStatusFromCompleted,
   deriveCompletedFromStatus,
   validateDuration,
-  formatDuration
 } from "@/lib/utils";
 
 // GET /api/reminders - Get all reminders for logged-in user

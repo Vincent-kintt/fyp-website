@@ -28,7 +28,7 @@ export default async function Home() {
             Stay organized with our intelligent reminder application. Create, manage, and track all your important tasks in one place.
           </p>
           <div className="flex justify-center gap-4">
-            <Link href="/reminders/new">
+            <Link href="/login">
               <Button variant="primary" className="text-lg px-8 py-3">
                 Create Your First Reminder
               </Button>
@@ -89,7 +89,7 @@ export default async function Home() {
           <p className="text-lg text-text-secondary mb-8">
             Start managing your reminders effectively today.
           </p>
-          <Link href="/reminders/new">
+          <Link href="/login">
             <Button variant="primary" className="text-lg px-8 py-3">
               Get Started Now
             </Button>

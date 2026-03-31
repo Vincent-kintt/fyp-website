@@ -7,7 +7,7 @@ import Credentials from "next-auth/providers/credentials";
 import { getCollection } from "@/lib/db";
 import { authConfig } from "./auth.config";
 
-const bcrypt = require("bcryptjs");
+import bcrypt from "bcryptjs";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
