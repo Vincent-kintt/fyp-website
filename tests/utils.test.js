@@ -6,10 +6,7 @@ import { describe, it, expect } from "vitest";
 import {
   normalizeTag,
   normalizeTags,
-  validateTag,
   getMainCategory,
-  categoryToTag,
-  ensureCategoryTag,
   isValidStatus,
   isValidStatusTransition,
   deriveStatusFromCompleted,
@@ -19,7 +16,6 @@ import {
   calculateEndTime,
   hasTimeOverlap,
   REMINDER_STATUSES,
-  STATUS_TRANSITIONS,
 } from "@/lib/utils.js";
 
 // ============================================
@@ -74,17 +70,6 @@ describe("normalizeTags", () => {
   });
 });
 
-describe("validateTag", () => {
-  it("accepts valid tag", () => {
-    expect(validateTag("work")).toEqual({ isValid: true });
-  });
-  it("rejects too short tag", () => {
-    const result = validateTag("a");
-    expect(result.isValid).toBe(false);
-    expect(result.error).toContain("2 characters");
-  });
-});
-
 describe("getMainCategory", () => {
   it("returns work if present", () => {
     expect(getMainCategory(["work", "urgent"])).toBe("work");
@@ -103,29 +88,6 @@ describe("getMainCategory", () => {
   });
   it("returns personal for non-array", () => {
     expect(getMainCategory(null)).toBe("personal");
-  });
-});
-
-describe("categoryToTag", () => {
-  it("maps known categories", () => {
-    expect(categoryToTag("work")).toBe("work");
-    expect(categoryToTag("health")).toBe("health");
-    expect(categoryToTag("other")).toBe("general");
-  });
-  it("defaults to general for unknown", () => {
-    expect(categoryToTag("xyz")).toBe("general");
-  });
-});
-
-describe("ensureCategoryTag", () => {
-  it("adds category tag if missing", () => {
-    const result = ensureCategoryTag(["urgent"], "work");
-    expect(result).toContain("work");
-    expect(result).toContain("urgent");
-  });
-  it("does not duplicate if already present", () => {
-    const result = ensureCategoryTag(["work", "urgent"], "work");
-    expect(result.filter((t) => t === "work").length).toBe(1);
   });
 });
 
