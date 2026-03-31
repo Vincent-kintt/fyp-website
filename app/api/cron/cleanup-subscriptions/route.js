@@ -4,7 +4,7 @@ import { getCollection } from "@/lib/db";
 export async function GET(request) {
   const authHeader = request.headers.get("authorization");
   if (
-    process.env.CRON_SECRET &&
+    !process.env.CRON_SECRET ||
     authHeader !== `Bearer ${process.env.CRON_SECRET}`
   ) {
     return new Response("Unauthorized", { status: 401 });
@@ -27,7 +27,7 @@ export async function GET(request) {
     console.error("[cron/cleanup-subscriptions] Error:", error);
     return NextResponse.json(
       { success: false, error: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
