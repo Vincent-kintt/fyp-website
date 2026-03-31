@@ -16,8 +16,6 @@ import {
   isTomorrow,
   isThisWeek,
   startOfDay,
-  endOfDay,
-  addDays,
 } from "date-fns";
 import {
   DndContext,
@@ -26,6 +24,8 @@ import {
   MeasuringStrategy,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTasks } from "@/hooks/useTasks";
 import TaskItem from "@/components/tasks/TaskItem";
 import TaskSection from "@/components/tasks/TaskSection";
 import QuickAdd from "@/components/tasks/QuickAdd";
@@ -53,8 +53,18 @@ import { isValidStatusTransition } from "@/lib/utils";
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    tasks: rawTasks,
+    loading,
+    toggleComplete,
+    deleteTask,
+    updateTask,
+    snoozeTask,
+    quickAdd,
+    refetch,
+  } = useTasks();
+  const queryClient = useQueryClient();
+  const tasks = rawTasks;
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiInitialText, setAiInitialText] = useState("");
   const [activeDragId, setActiveDragId] = useState(null);
@@ -79,44 +89,6 @@ export default function DashboardPage() {
     return () => window.removeEventListener("open-ai-modal", handler);
   }, []);
 
-  const fetchTasks = async ({ silent = false } = {}) => {
-    try {
-      if (!silent) setLoading(true);
-      const response = await fetch("/api/reminders");
-      const data = await response.json();
-      if (data.success) {
-        const now = new Date();
-        const processed = data.data.map((r) => {
-          if (
-            r.status === "snoozed" &&
-            r.snoozedUntil &&
-            new Date(r.snoozedUntil) <= now
-          ) {
-            // Fire-and-forget PATCH to update DB
-            fetch(`/api/reminders/${r.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "pending" }),
-            }).catch(console.error);
-            return { ...r, status: "pending", snoozedUntil: null };
-          }
-          return r;
-        });
-        setTasks(processed);
-      }
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (session) {
-      fetchTasks();
-    }
-  }, [session]);
-
   const clearCompletingId = useCallback((id) => {
     clearTimeout(completingTimers.current.get(id));
     completingTimers.current.delete(id);
@@ -127,215 +99,58 @@ export default function DashboardPage() {
     });
   }, []);
 
-  const handleToggleComplete = async (id, completed) => {
-    const previousTasks = tasks;
-    // Optimistic update — UI responds instantly (strikethrough + checkbox fill)
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
-        return {
-          ...t,
-          completed,
-          status: completed ? "completed" : "pending",
-          completedAt: completed ? new Date().toISOString() : t.completedAt,
-          snoozedUntil: completed ? null : t.snoozedUntil,
-        };
-      }),
-    );
-
-    if (completed) {
-      // Keep task in original section during animation (1.5s hold)
-      setCompletingIds((prev) => new Set(prev).add(id));
-
-      const timer = setTimeout(() => {
-        completingTimers.current.delete(id);
-        setCompletingIds((prev) => {
-          const s = new Set(prev);
-          s.delete(id);
-          return s;
-        });
-      }, 1500);
-      completingTimers.current.set(id, timer);
-
-      // Undo toast (Todoist-style)
-      toast.success("已完成", {
-        action: {
-          label: "撤銷",
-          onClick: () => {
-            clearCompletingId(id);
-            setTasks((prev) =>
-              prev.map((t) => {
-                if (t.id !== id) return t;
-                return { ...t, completed: false, status: "pending" };
-              }),
-            );
-            fetch(`/api/reminders/${id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ completed: false }),
-            }).catch(console.error);
-          },
-        },
-        duration: 3000,
-      });
-    } else {
-      // Un-completing: clear any pending animation, dismiss stale toast
-      clearCompletingId(id);
-      toast.dismiss();
-    }
-
-    try {
-      const response = await fetch(`/api/reminders/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed }),
-      });
-      if (!response.ok) {
+  const handleToggleComplete = useCallback(
+    async (id, completed) => {
+      if (completed) {
+        setCompletingIds((prev) => new Set(prev).add(id));
+        const timer = setTimeout(() => {
+          setCompletingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          completingTimers.current.delete(id);
+        }, 1500);
+        completingTimers.current.set(id, timer);
+      } else {
         clearCompletingId(id);
-        setTasks(previousTasks);
-        toast.error("Failed to update task");
       }
-    } catch (error) {
-      console.error("Error updating task:", error);
-      clearCompletingId(id);
-      setTasks(previousTasks);
-      toast.error("Failed to update task");
-    }
-  };
-
-  const deleteTimers = useRef(new Map());
-
-  const handleDelete = (id) => {
-    const deletedTask = tasks.find((t) => t.id === id);
-    if (!deletedTask) return;
-
-    // Close panel if the deleted task is currently selected
-    if (id === selectedTaskId) setSelectedTaskId(null);
-
-    // Optimistic remove from UI
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-
-    // Delayed API call — only delete after undo window expires (5s, Todoist pattern)
-    const timer = setTimeout(async () => {
-      deleteTimers.current.delete(id);
       try {
-        const response = await fetch(`/api/reminders/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) {
-          setTasks((prev) => [...prev, deletedTask]);
-          toast.error("刪除失敗");
-        }
-      } catch (error) {
-        console.error("Error deleting task:", error);
-        setTasks((prev) => [...prev, deletedTask]);
-        toast.error("刪除失敗");
+        await toggleComplete(id, completed);
+      } catch {
+        clearCompletingId(id);
       }
-    }, 5000);
-    deleteTimers.current.set(id, timer);
+    },
+    [toggleComplete, clearCompletingId],
+  );
 
-    toast("已刪除", {
-      description: deletedTask.title,
-      action: {
-        label: "復原",
-        onClick: () => {
-          clearTimeout(deleteTimers.current.get(id));
-          deleteTimers.current.delete(id);
-          setTasks((prev) => [...prev, deletedTask]);
-        },
-      },
-      duration: 5000,
-    });
-  };
+  const handleDelete = useCallback(
+    (id) => {
+      if (selectedTaskId === id) setSelectedTaskId(null);
+      deleteTask(id);
+    },
+    [deleteTask, selectedTaskId],
+  );
 
-  const handleUpdate = (updatedTask) => {
-    setTasks(
-      tasks.map((t) =>
-        t.id === updatedTask.id ? { ...t, ...updatedTask } : t,
-      ),
-    );
-  };
+  const handleUpdate = useCallback(() => refetch(), [refetch]);
 
   const handleEditTask = useCallback((taskId) => {
     setSelectedTaskId(taskId);
   }, []);
 
-  const handleSnooze = async (id, snoozedUntil) => {
-    const previousTasks = tasks;
-    if (snoozedUntil === null) {
-      // Optimistic cancel snooze
-      setTasks(
-        tasks.map((t) =>
-          t.id === id
-            ? { ...t, status: "pending", snoozedUntil: null, completed: false }
-            : t,
-        ),
-      );
-      try {
-        const response = await fetch(`/api/reminders/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "pending" }),
-        });
-        if (response.ok) {
-          toast.success("已取消延後");
-        } else {
-          setTasks(previousTasks);
-          toast.error("取消延後失敗");
-        }
-      } catch (error) {
-        console.error("Error canceling snooze:", error);
-        setTasks(previousTasks);
-        toast.error("取消延後失敗");
-      }
-    } else {
-      // Optimistic snooze
-      setTasks(
-        tasks.map((t) =>
-          t.id === id
-            ? { ...t, status: "snoozed", snoozedUntil, completed: false }
-            : t,
-        ),
-      );
-      try {
-        const response = await fetch(`/api/reminders/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "snoozed", snoozedUntil }),
-        });
-        if (response.ok) {
-          toast.success("已延後提醒");
-        } else {
-          setTasks(previousTasks);
-          const errData = await response.json();
-          toast.error(errData.error || "延後失敗");
-        }
-      } catch (error) {
-        console.error("Error snoozing task:", error);
-        setTasks(previousTasks);
-        toast.error("延後失敗");
-      }
-    }
-  };
+  const handleSnooze = useCallback(
+    (id, snoozedUntil) => {
+      snoozeTask(id, snoozedUntil);
+    },
+    [snoozeTask],
+  );
 
-  const handleQuickAdd = async (taskData) => {
-    try {
-      const response = await fetch("/api/reminders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(taskData),
-      });
-      if (response.ok) {
-        fetchTasks();
-        toast.success("Task added");
-      } else {
-        toast.error("Failed to add task");
-      }
-    } catch (error) {
-      console.error("Error adding task:", error);
-      toast.error("Failed to add task");
-    }
-  };
+  const handleQuickAdd = useCallback(
+    (data) => {
+      quickAdd(data);
+    },
+    [quickAdd],
+  );
 
   const handleOpenAIFromQuickAdd = (text) => {
     setAiInitialText(text || "");
@@ -509,7 +324,7 @@ export default function DashboardPage() {
 
       if (!sourceSection || !targetSection) return;
 
-      const previousTasks = tasks;
+      const originalTasks = queryClient.getQueryData(["tasks"]);
 
       if (sourceSection === targetSection) {
         // Within-section reorder
@@ -526,13 +341,13 @@ export default function DashboardPage() {
         }));
         const reorderedIds = new Set(reorderedWithOrder.map((t) => t.id));
         const otherTasks = tasks.filter((t) => !reorderedIds.has(t.id));
-        setTasks([...otherTasks, ...reorderedWithOrder]);
+        queryClient.setQueryData(["tasks"], [...otherTasks, ...reorderedWithOrder]);
 
         try {
           const sortUpdates = computeSortOrders(reordered);
           await reorderReminders(sortUpdates);
         } catch {
-          setTasks(previousTasks);
+          queryClient.setQueryData(["tasks"], originalTasks);
           toast.error("Failed to reorder");
         }
       } else {
@@ -582,7 +397,7 @@ export default function DashboardPage() {
           );
         }
 
-        setTasks(tasks.map((t) => (t.id === active.id ? optimistic : t)));
+        queryClient.setQueryData(["tasks"], tasks.map((t) => (t.id === active.id ? optimistic : t)));
 
         try {
           if (needsStatus) {
@@ -612,12 +427,12 @@ export default function DashboardPage() {
           }
           toast.success(`已移至${getSectionLabel(targetSection)}`);
         } catch {
-          setTasks(previousTasks);
+          queryClient.setQueryData(["tasks"], originalTasks);
           toast.error("移動失敗");
         }
       }
     },
-    [tasks, taskToSection, getSectionTasks],
+    [tasks, taskToSection, getSectionTasks, queryClient],
   );
 
   const handleDragCancel = useCallback(() => {
@@ -931,7 +746,7 @@ export default function DashboardPage() {
           setIsAIModalOpen(false);
           setAiInitialText("");
         }}
-        onSuccess={() => fetchTasks({ silent: true })}
+        onSuccess={() => refetch()}
         initialText={aiInitialText}
       />
     </div>
