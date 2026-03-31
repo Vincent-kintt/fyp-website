@@ -1,17 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useState } from "react";
 import { FaPlus } from "react-icons/fa";
-import { toast } from "sonner";
 import ReminderList from "@/components/reminders/ReminderList";
 import ReminderFilter from "@/components/reminders/ReminderFilter";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
+import { useTasks } from "@/hooks/useTasks";
 
 export default function RemindersPage() {
-  const { data: session } = useSession();
-  const [reminders, setReminders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { tasks: reminders, loading, deleteTask, refetch } = useTasks();
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
@@ -19,55 +16,6 @@ export default function RemindersPage() {
     tag: null,
     type: "all",
   });
-
-  // Fetch reminders from API
-  const fetchReminders = async ({ silent = false } = {}) => {
-    try {
-      if (!silent) setLoading(true);
-      const response = await fetch("/api/reminders");
-      const data = await response.json();
-
-      if (data.success) {
-        setReminders(data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching reminders:", error);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (session) {
-      fetchReminders();
-    }
-  }, [session]);
-
-  const handleDelete = async (id) => {
-    try {
-      const response = await fetch(`/api/reminders/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        setReminders(reminders.filter((reminder) => reminder.id !== id));
-        toast.success("Reminder deleted");
-      } else {
-        toast.error("Failed to delete reminder");
-      }
-    } catch (error) {
-      console.error("Error deleting reminder:", error);
-      toast.error("Failed to delete reminder");
-    }
-  };
-
-  const handleUpdate = (updatedReminder) => {
-    setReminders(
-      reminders.map((r) =>
-        r.id === updatedReminder.id ? { ...r, ...updatedReminder } : r,
-      ),
-    );
-  };
 
   const filteredReminders = reminders.filter((reminder) => {
     const matchesSearch =
@@ -141,8 +89,8 @@ export default function RemindersPage() {
       <ReminderFilter filters={filters} onFilterChange={setFilters} />
       <ReminderList
         reminders={filteredReminders}
-        onDelete={handleDelete}
-        onUpdate={handleUpdate}
+        onDelete={deleteTask}
+        onUpdate={refetch}
       />
 
       {/* Floating Add Button */}
@@ -158,7 +106,7 @@ export default function RemindersPage() {
       <AIReminderModal
         isOpen={isPanelOpen}
         onClose={() => setIsPanelOpen(false)}
-        onSuccess={() => fetchReminders({ silent: true })}
+        onSuccess={() => refetch()}
       />
     </div>
   );
