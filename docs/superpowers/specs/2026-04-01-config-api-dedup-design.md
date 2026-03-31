@@ -5,7 +5,7 @@
 
 ## Scope
 
-Config extraction + API helper extraction. No logic changes, no UI changes, no new features.
+Config extraction + API helper extraction. No logic changes, no new features. One deliberate visual normalization: detail page priority badges switch from hardcoded Tailwind colors (`bg-red-500/10`) to design tokens (`bg-danger/15`) for consistency with the rest of the app.
 
 ## 1. `getCategoryColor` — Extract to `lib/taskConfig.js`
 
@@ -79,9 +79,10 @@ export function getPriority(level) {
 ```
 
 Consumers import and pick the fields they need:
-- `lib/utils.js`: replace internal `PRIORITY_CONFIG` and `getPriorityConfig` with imports from `lib/taskConfig.js`
-- `reminders/[id]/page.js`: delete local `priorityConfig`, use `getPriority(p).badgeClass`
+- `lib/utils.js`: replace internal `PRIORITY_CONFIG` and `getPriorityConfig` with imports from `lib/taskConfig.js`. Re-export `getPriority` as `getPriorityConfig` for backward compatibility (so `TaskItem.js` and any other consumer importing from `@/lib/utils` continues to work without import path changes).
+- `reminders/[id]/page.js`: delete local `priorityConfig`, use `getPriority(p).badgeClass`. Note: this switches from hardcoded colors (`bg-red-500/10`) to design tokens (`bg-danger/15`) — a deliberate normalization.
 - `QuickAdd.js`: delete local `PRIORITY_CONFIG`, import `PRIORITY` from `lib/taskConfig.js`
+- `TaskItem.js`: no changes needed — continues importing `getPriorityConfig` from `@/lib/utils` via re-export
 
 ## 3. `formatDate` — Distinct named formatters in `lib/format.js`
 
@@ -117,6 +118,9 @@ Each consumer imports only its specific formatter:
 - `ToolResultCard.js`: delete local `formatDate`, import `formatDateCompact`
 - `GlobalSearch.js`: delete local `formatDate`, import `formatDateShort`
 - `reminders/[id]/page.js`: delete local `formatDateTime`, import `formatDateFull`
+- `ReminderCard.js`: delete local `formatDateTime` (identical to `formatDateFull`), import `formatDateFull`
+
+Note: `QuickAdd.js` has its own `formatDateTime` that does relative date labeling ("Today", "Tomorrow", day name). This is intentionally out of scope — it is tightly coupled to QuickAdd's UX and genuinely different from the other formatters.
 
 ## 4. `formatReminder` — Extract to `lib/reminderUtils.js`
 
@@ -157,18 +161,25 @@ Note: The PUT handler currently calls `.toISOString()` on date fields, but GET a
 
 The DELETE response (stripped) stays inline since it's intentionally different (minimal response for a deleted resource).
 
+Also apply `formatReminder` to `app/api/reminders/route.js`:
+- GET list handler (lines 72-94): replace inline formatting with `formatReminder(doc)`. Note: this adds `notificationSent` to list responses — harmless, frontend ignores it.
+- POST handler (lines 178-184): replace inline formatting (which uses `.toISOString()`) with `formatReminder(doc)`. The `.toISOString()` calls are unnecessary since `Response.json()`/`NextResponse.json()` auto-serializes Date objects via `JSON.stringify()`.
+
 Also add API response helpers:
 ```js
+import { NextResponse } from "next/server";
+
 export function apiSuccess(data, status = 200) {
-  return Response.json({ success: true, data }, { status });
+  return NextResponse.json({ success: true, data }, { status });
 }
 export function apiError(message, status = 500) {
-  return Response.json({ success: false, error: message }, { status });
+  return NextResponse.json({ success: false, error: message }, { status });
 }
 ```
 
-Replace `NextResponse.json({ success: true, data: ... })` calls with `apiSuccess(data)`.
-Also apply to `app/api/reminders/route.js` (the list endpoint).
+Uses `NextResponse.json()` (not `Response.json()`) to match the existing convention across all API routes.
+
+Replace `NextResponse.json({ success: true, data: ... })` calls with `apiSuccess(data)` in both `route.js` and `[id]/route.js`.
 
 ## 5. `normalizeSubtasks` — Extract to `lib/reminderUtils.js`
 
@@ -213,7 +224,7 @@ Callers:
 ## Files Modified
 
 - `components/calendar/DayTimeline.js` — delete local `getCategoryColor`, import from taskConfig
-- `components/reminders/ReminderCard.js` — delete local `getCategoryColor`, import from taskConfig
+- `components/reminders/ReminderCard.js` — delete local `getCategoryColor` and `formatDateTime`, import from taskConfig and format
 - `app/reminders/[id]/page.js` — delete local `priorityConfig` and `formatDateTime`, import from taskConfig/format
 - `components/tasks/QuickAdd.js` — delete local `PRIORITY_CONFIG`, import from taskConfig
 - `lib/utils.js` — remove internal `PRIORITY_CONFIG` and `getPriorityConfig`, re-export from taskConfig
