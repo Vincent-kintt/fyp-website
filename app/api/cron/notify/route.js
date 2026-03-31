@@ -91,7 +91,7 @@ export async function GET(request) {
   } catch (error) {
     console.error("[cron/notify] Error:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: "Internal server error" },
       { status: 500 },
     );
   }

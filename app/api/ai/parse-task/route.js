@@ -14,18 +14,18 @@ customChrono.refiners.push({
   refine: (context, results) => {
     results.forEach((result) => {
       // Only apply if meridiem (AM/PM) is not certain
-      if (!result.start.isCertain('meridiem')) {
-        const hour = result.start.get('hour');
+      if (!result.start.isCertain("meridiem")) {
+        const hour = result.start.get("hour");
         // Hours 1-6 without AM/PM -> assume PM (13:00-18:00)
         // This is because people rarely schedule tasks at 1-6 AM
         if (hour >= 1 && hour <= 6) {
-          result.start.assign('meridiem', 1); // 1 = PM
-          result.start.assign('hour', hour + 12);
+          result.start.assign("meridiem", 1); // 1 = PM
+          result.start.assign("hour", hour + 12);
         }
       }
     });
     return results;
-  }
+  },
 });
 
 /**
@@ -39,31 +39,33 @@ customChrono.refiners.push({
  */
 function parseDateTimeWithChrono(text, refDate, forceToday = false) {
   if (!text) return null;
-  
+
   // Use custom parser with smart AM/PM inference
   // Disable forwardDate if user explicitly says "today" to prevent pushing to tomorrow
-  const results = customChrono.parse(text, refDate, { forwardDate: !forceToday });
-  
+  const results = customChrono.parse(text, refDate, {
+    forwardDate: !forceToday,
+  });
+
   if (results.length === 0) return null;
-  
+
   const parsed = results[0];
   const startDate = parsed.start.date();
-  
+
   // Check if time was explicitly mentioned
   const hasTime = parsed.start.isCertain("hour");
-  
+
   // If no time specified, default to 09:00
   if (!hasTime) {
     startDate.setHours(9, 0, 0, 0);
   }
-  
+
   // Format as ISO string without seconds
   const year = startDate.getFullYear();
   const month = String(startDate.getMonth() + 1).padStart(2, "0");
   const day = String(startDate.getDate()).padStart(2, "0");
   const hours = String(startDate.getHours()).padStart(2, "0");
   const minutes = String(startDate.getMinutes()).padStart(2, "0");
-  
+
   return {
     dateTime: `${year}-${month}-${day}T${hours}:${minutes}`,
     matchedText: parsed.text,
@@ -77,7 +79,7 @@ export async function POST(request) {
     if (!session?.user) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -86,25 +88,25 @@ export async function POST(request) {
     if (!text?.trim()) {
       return NextResponse.json(
         { success: false, error: "Text is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const now = new Date();
-    
+
     // HYBRID APPROACH: LLM Normalization + Deterministic Parsing
     // 1. LLM extracts intent and normalizes date string (e.g. "tmr" -> "tomorrow")
     // 2. Chrono parses the normalized date string reliably
-    
+
     // Format current time for context
     const currentTimeStr = now.toLocaleString("en-US", {
       weekday: "long",
       year: "numeric",
-      month: "long", 
+      month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      hour12: true
+      hour12: true,
     });
 
     const systemPrompt = `You are a smart task parser. Current time: ${currentTimeStr}
@@ -120,7 +122,7 @@ Extract structured data from user input. Return JSON only:
 **Date/Time Rules:**
 - Normalize all dates to English (e.g., "tmr" -> "tomorrow", "下週二" -> "next Tuesday")
 - ALWAYS include AM/PM based on context. Use current time to infer:
-  - If it's now ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}, and user says "today 10:00", pick the next logical 10:00 (AM if before 10am, PM if after 10am)
+  - If it's now ${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}, and user says "today 10:00", pick the next logical 10:00 (AM if before 10am, PM if after 10am)
   - Ambiguous times like "4:30" without AM/PM → use PM for typical task hours (1-6)
 - Format: "today at 4:30 pm", "tomorrow at 9:00 am", "next Friday at 2:00 pm"
 
@@ -164,7 +166,9 @@ Examples:
 
     // Extract JSON from response
     let jsonString = content.trim();
-    const codeBlockMatch = jsonString.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    const codeBlockMatch = jsonString.match(
+      /```(?:json)?\s*(\{[\s\S]*?\})\s*```/,
+    );
     if (codeBlockMatch) {
       jsonString = codeBlockMatch[1];
     } else {
@@ -183,21 +187,26 @@ Examples:
     }
 
     // Detect if user explicitly said "today"
-    const isToday = llmParsed.is_today === true || 
+    const isToday =
+      llmParsed.is_today === true ||
       /\b(today|今天|今日|2day|tdy)\b/i.test(text);
-    
+
     // Parse the normalized date expression with Chrono
     let chronoResult = null;
     if (llmParsed.date_expression) {
-      chronoResult = parseDateTimeWithChrono(llmParsed.date_expression, now, isToday);
+      chronoResult = parseDateTimeWithChrono(
+        llmParsed.date_expression,
+        now,
+        isToday,
+      );
     }
-    
+
     // Fallback: If LLM missed the date but Chrono can find something in the original text
     if (!chronoResult) {
-       const fallbackResult = parseDateTimeWithChrono(text, now, isToday);
-       if (fallbackResult) {
-         chronoResult = fallbackResult;
-       }
+      const fallbackResult = parseDateTimeWithChrono(text, now, isToday);
+      if (fallbackResult) {
+        chronoResult = fallbackResult;
+      }
     }
 
     // Construct final result
@@ -225,8 +234,8 @@ Examples:
   } catch (error) {
     console.error("[parse-task] Error:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

@@ -51,9 +51,9 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("Tool execution error:", error);
-    return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }

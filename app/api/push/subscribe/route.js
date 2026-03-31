@@ -9,7 +9,7 @@ export async function POST(request) {
     if (!session || !session.user) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -23,7 +23,7 @@ export async function POST(request) {
           error:
             "Invalid subscription: endpoint and keys (p256dh, auth) required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -33,13 +33,13 @@ export async function POST(request) {
       if (!url.protocol.startsWith("https")) {
         return NextResponse.json(
           { success: false, error: "Subscription endpoint must use HTTPS" },
-          { status: 400 }
+          { status: 400 },
         );
       }
     } catch {
       return NextResponse.json(
         { success: false, error: "Invalid subscription endpoint URL" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -58,7 +58,7 @@ export async function POST(request) {
           createdAt: new Date(),
         },
       },
-      { upsert: true }
+      { upsert: true },
     );
 
     return NextResponse.json({
@@ -71,8 +71,8 @@ export async function POST(request) {
   } catch (error) {
     console.error("POST /api/push/subscribe error:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: "Internal server error" },
+      { status: 500 },
     );
   }
 }
@@ -84,7 +84,7 @@ export async function DELETE(request) {
     if (!session || !session.user) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -94,7 +94,7 @@ export async function DELETE(request) {
     if (!endpoint) {
       return NextResponse.json(
         { success: false, error: "endpoint is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -112,8 +112,8 @@ export async function DELETE(request) {
   } catch (error) {
     console.error("DELETE /api/push/subscribe error:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
+      { success: false, error: "Internal server error" },
+      { status: 500 },
     );
   }
 }

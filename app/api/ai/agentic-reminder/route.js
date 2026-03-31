@@ -85,7 +85,7 @@ export async function POST(request) {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || "Failed to process request",
+        error: "Failed to process request",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );

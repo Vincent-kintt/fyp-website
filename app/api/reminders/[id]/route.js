@@ -7,9 +7,14 @@ import {
   isValidStatus,
   isValidStatusTransition,
   deriveCompletedFromStatus,
-  validateDuration
+  validateDuration,
 } from "@/lib/utils";
-import { formatReminder, normalizeSubtasks, apiSuccess, apiError } from "@/lib/reminderUtils";
+import {
+  formatReminder,
+  normalizeSubtasks,
+  apiSuccess,
+  apiError,
+} from "@/lib/reminderUtils";
 
 // GET /api/reminders/[id] - Get a single reminder (must belong to user)
 export async function GET(request, { params }) {
@@ -40,7 +45,7 @@ export async function GET(request, { params }) {
     return apiSuccess(formatReminder(reminder));
   } catch (error) {
     console.error("GET /api/reminders/[id] error:", error);
-    return apiError(error.message, 500);
+    return apiError("Internal server error", 500);
   }
 }
 
@@ -55,7 +60,20 @@ export async function PUT(request, { params }) {
 
     const { id } = await params;
     const body = await request.json();
-    const { title, description, remark, dateTime, duration, status, category, tags, recurring, recurringType, priority, subtasks } = body;
+    const {
+      title,
+      description,
+      remark,
+      dateTime,
+      duration,
+      status,
+      category,
+      tags,
+      recurring,
+      recurringType,
+      priority,
+      subtasks,
+    } = body;
 
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
@@ -105,12 +123,16 @@ export async function PUT(request, { params }) {
 
     // Validate status if provided
     if (status !== undefined && !isValidStatus(status)) {
-      return apiError(`Invalid status: ${status}. Valid values: pending, in_progress, completed, snoozed`, 400);
+      return apiError(
+        `Invalid status: ${status}. Valid values: pending, in_progress, completed, snoozed`,
+        400,
+      );
     }
 
     // Process tags
     const processedTags = normalizeTags(tags || []);
-    const effectiveCategory = category || getMainCategory(processedTags) || "personal";
+    const effectiveCategory =
+      category || getMainCategory(processedTags) || "personal";
 
     const remindersCollection = await getCollection("reminders");
 
@@ -127,7 +149,10 @@ export async function PUT(request, { params }) {
 
       const currentStatus = currentReminder.status || "pending";
       if (!isValidStatusTransition(currentStatus, status)) {
-        return apiError(`Invalid status transition from '${currentStatus}' to '${status}'`, 400);
+        return apiError(
+          `Invalid status transition from '${currentStatus}' to '${status}'`,
+          400,
+        );
       }
     }
 
@@ -158,7 +183,7 @@ export async function PUT(request, { params }) {
         _id: new ObjectId(id),
         userId: session.user.id, // Ensure reminder belongs to user
       },
-      { $set: updateData }
+      { $set: updateData },
     );
 
     if (result.matchedCount === 0) {
@@ -174,7 +199,7 @@ export async function PUT(request, { params }) {
     return apiSuccess(formatReminder(updatedReminder));
   } catch (error) {
     console.error("PUT /api/reminders/[id] error:", error);
-    return apiError(error.message, 500);
+    return apiError("Internal server error", 500);
   }
 }
 
@@ -232,7 +257,7 @@ export async function DELETE(request, { params }) {
     return apiSuccess(formattedReminder);
   } catch (error) {
     console.error("DELETE /api/reminders/[id] error:", error);
-    return apiError(error.message, 500);
+    return apiError("Internal server error", 500);
   }
 }
 
@@ -305,7 +330,10 @@ export async function PATCH(request, { params }) {
       if (currentReminder) {
         const currentStatus = currentReminder.status || "pending";
         if (!isValidStatusTransition(currentStatus, body.status)) {
-          return apiError(`Invalid status transition from '${currentStatus}' to '${body.status}'`, 400);
+          return apiError(
+            `Invalid status transition from '${currentStatus}' to '${body.status}'`,
+            400,
+          );
         }
 
         updateData.status = body.status;
@@ -351,14 +379,16 @@ export async function PATCH(request, { params }) {
     }
 
     if (body.title) updateData.title = body.title;
-    if (body.description !== undefined) updateData.description = body.description;
+    if (body.description !== undefined)
+      updateData.description = body.description;
     if (body.remark !== undefined) updateData.remark = body.remark;
     if (body.dateTime) {
       updateData.dateTime = new Date(body.dateTime);
       updateData.notificationSent = false;
     }
     if (body.category) updateData.category = body.category;
-    if (body.tags !== undefined) updateData.tags = normalizeTags(body.tags || []);
+    if (body.tags !== undefined)
+      updateData.tags = normalizeTags(body.tags || []);
     if (body.priority) updateData.priority = body.priority;
     if (body.sortOrder !== undefined) updateData.sortOrder = body.sortOrder;
     if (body.subtasks !== undefined) {
@@ -370,7 +400,7 @@ export async function PATCH(request, { params }) {
         _id: new ObjectId(id),
         userId: session.user.id,
       },
-      { $set: updateData }
+      { $set: updateData },
     );
 
     if (result.matchedCount === 0) {
@@ -386,6 +416,6 @@ export async function PATCH(request, { params }) {
     return apiSuccess(formatReminder(updatedReminder));
   } catch (error) {
     console.error("PATCH /api/reminders/[id] error:", error);
-    return apiError(error.message, 500);
+    return apiError("Internal server error", 500);
   }
 }
