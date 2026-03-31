@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { format, differenceInMinutes, startOfDay } from "date-fns";
 import { FaClock } from "react-icons/fa";
+import { getCategoryColor } from "@/lib/taskConfig";
 
 export default function DayTimeline({ date, tasks, onToggleComplete, onDelete }) {
   const [currentTime, setCurrentTime] = useState(null);
@@ -29,16 +30,6 @@ export default function DayTimeline({ date, tasks, onToggleComplete, onDelete })
   const getCurrentTimeBlock = () => {
     if (!currentTime) return -1;
     return Math.floor(currentTime.getHours() / 2);
-  };
-
-  const getCategoryColor = (category) => {
-    const colors = {
-      work: "bg-primary-light border-primary/30 text-primary",
-      personal: "bg-success-light border-success/30 text-success",
-      health: "bg-danger-light border-danger/30 text-danger",
-      other: "bg-background-tertiary border-border text-text-secondary"
-    };
-    return colors[category] || colors.other;
   };
 
   // Group tasks by time block
@@ -90,7 +81,7 @@ export default function DayTimeline({ date, tasks, onToggleComplete, onDelete })
                   onClick={() => onToggleComplete(task.id, !task.completed)}
                   className={`cursor-pointer rounded px-2 py-0.5 text-xs transition-all hover:brightness-95 flex items-center gap-1.5 max-w-full ${
                     task.completed ? "opacity-50 line-through" : ""
-                  } ${getCategoryColor(task.category)}`}
+                  } ${getCategoryColor(task.category, { withBorder: true })}`}
                 >
                   <span className="truncate font-medium">{task.title}</span>
                   <span className="text-[10px] opacity-70 flex-shrink-0">

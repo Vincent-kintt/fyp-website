@@ -2,17 +2,9 @@
 
 import { useState } from "react";
 import { FaCheck, FaTimes, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { formatDateCompact } from "@/lib/format";
 
 const t = (lang, zh, en) => lang === "zh" ? zh : en;
-
-function formatDate(dateTime, language) {
-  if (!dateTime) return language === "zh" ? "未設定" : "No date";
-  const d = new Date(dateTime);
-  if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return language === "zh" ? "未設定" : "No date";
-  return d.toLocaleDateString(language === "zh" ? "zh-TW" : "en-US", {
-    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
-  });
-}
 
 const STATUS_CONFIG = {
   pending:     { zh: "待辦",   en: "Pending",     color: "var(--text-muted)",  bg: "var(--glass-bg)" },
@@ -59,7 +51,7 @@ function ReminderRow({ reminder, language }) {
             {reminder.title || t(language, "未命名", "Untitled")}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5" style={{ color: "var(--modal-text-muted)", fontSize: "11px" }}>
-            <span>{formatDate(reminder.dateTime, language)}</span>
+            <span>{formatDateCompact(reminder.dateTime, language)}</span>
           </div>
         </div>
       </div>
@@ -230,7 +222,7 @@ function FindConflictsCard({ result, language }) {
             {result.suggestedTimes.map((time, i) => (
               <span key={i} className="rounded-full px-2 py-0.5"
                 style={{ fontSize: "10px", background: "var(--tool-success-bg)", border: "1px solid var(--tool-success-border)", color: "var(--success)" }}>
-                {formatDate(time, language)}
+                {formatDateCompact(time, language)}
               </span>
             ))}
           </div>

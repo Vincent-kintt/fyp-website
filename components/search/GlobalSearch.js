@@ -5,8 +5,8 @@ import { Command } from "cmdk";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaClock, FaPlay, FaCheck, FaPause, FaPlus, FaRobot } from "react-icons/fa";
-import { format } from "date-fns";
 import { getTagClasses } from "@/lib/utils";
+import { formatDateShort } from "@/lib/format";
 
 const CACHE_TTL = 30_000; // 30 seconds
 
@@ -100,14 +100,6 @@ export default function GlobalSearch() {
     },
     [router]
   );
-
-  const formatDate = (dateTime) => {
-    try {
-      return format(new Date(dateTime), "MMM dd, hh:mm a");
-    } catch {
-      return "";
-    }
-  };
 
   // Status-based grouping
   const upcoming = reminders.filter((r) => r.status !== "completed" && r.status !== "snoozed");
@@ -215,7 +207,7 @@ export default function GlobalSearch() {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                            {formatDate(r.dateTime)}
+                            {formatDateShort(r.dateTime)}
                           </span>
                           {r.tags?.slice(0, 2).map((tag) => (
                             <span
@@ -251,7 +243,7 @@ export default function GlobalSearch() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-purple-500">
-                          延後至 {formatDate(r.snoozedUntil)}
+                          延後至 {formatDateShort(r.snoozedUntil)}
                         </span>
                       </div>
                     </div>

@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { FaClock, FaTag, FaEdit, FaArrowLeft, FaTrash, FaHourglass, FaFlag, FaStickyNote, FaSync, FaPlay, FaCheck, FaPause, FaCheckCircle } from "react-icons/fa";
-import { format } from "date-fns";
 import { toast } from "sonner";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
 import { getStatusConfig, getTagClasses, formatDuration } from "@/lib/utils";
+import { getPriority } from "@/lib/taskConfig";
+import { formatDateFull } from "@/lib/format";
 
 export default function ReminderDetailPage() {
   const params = useParams();
@@ -68,21 +69,11 @@ export default function ReminderDetailPage() {
     toast.success("Reminder updated");
   };
 
-  const formatDateTime = (dateTime) => {
-    return format(new Date(dateTime), "MMMM dd, yyyy 'at' hh:mm a");
-  };
-
   const StatusIcon = {
     pending: FaClock,
     in_progress: FaPlay,
     completed: FaCheck,
     snoozed: FaPause,
-  };
-
-  const priorityConfig = {
-    high: { label: "High", color: "bg-red-500/10 text-red-500 border-red-500/30" },
-    medium: { label: "Medium", color: "bg-yellow-500/10 text-yellow-500 border-yellow-500/30" },
-    low: { label: "Low", color: "bg-green-500/10 text-green-500 border-green-500/30" },
   };
 
   if (loading) {
@@ -111,7 +102,7 @@ export default function ReminderDetailPage() {
   const StatusIconComponent = StatusIcon[status] || FaClock;
   const tags = reminder.tags?.length > 0 ? reminder.tags : [reminder.category || "personal"];
   const priority = reminder.priority || "medium";
-  const pConfig = priorityConfig[priority] || priorityConfig.medium;
+  const pConfig = getPriority(priority);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -140,7 +131,7 @@ export default function ReminderDetailPage() {
             </span>
 
             {/* Priority */}
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${pConfig.color}`}>
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${pConfig.badgeClass}`}>
               <FaFlag className="w-3 h-3" />
               {pConfig.label}
             </span>
@@ -166,7 +157,7 @@ export default function ReminderDetailPage() {
         {/* Date & Time */}
         <div className="mb-5 flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           <FaClock className="w-4 h-4 flex-shrink-0" />
-          <span>{formatDateTime(reminder.dateTime)}</span>
+          <span>{formatDateFull(reminder.dateTime)}</span>
         </div>
 
         {/* Tags */}

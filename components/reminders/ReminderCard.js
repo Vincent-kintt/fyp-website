@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { FaClock, FaTag, FaEdit, FaTrash, FaStickyNote, FaPlay, FaCheck, FaPause } from "react-icons/fa";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import Card from "../ui/Card";
 import EditReminderModal from "./EditReminderModal";
 import { getTagClasses, getStatusConfig, formatDuration } from "@/lib/utils";
+import { getCategoryColor } from "@/lib/taskConfig";
+import { formatDateFull } from "@/lib/format";
 
 export default function ReminderCard({ reminder, onDelete, onUpdate }) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -19,20 +20,6 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
     }
     toast.success("Reminder updated");
   };
-  const formatDateTime = (dateTime) => {
-    return format(new Date(dateTime), "MMM dd, yyyy 'at' hh:mm a");
-  };
-
-  const getCategoryColor = (category) => {
-    const colors = {
-      work: "bg-primary-light text-primary",
-      personal: "bg-success-light text-success",
-      health: "bg-danger-light text-danger",
-      other: "bg-background-tertiary text-text-secondary"
-    };
-    return colors[category] || colors.other;
-  };
-
   // Get tags or fallback to category
   const tags = currentReminder.tags?.length > 0 
     ? currentReminder.tags 
@@ -97,7 +84,7 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
           
           <div className="flex items-center space-x-1">
             <FaClock className="flex-shrink-0" />
-            <span>{formatDateTime(currentReminder.dateTime)}</span>
+            <span>{formatDateFull(currentReminder.dateTime)}</span>
           </div>
           
           {/* Tags Display */}

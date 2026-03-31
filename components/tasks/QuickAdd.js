@@ -3,14 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { FaPlus, FaCalendarAlt, FaTag, FaRobot, FaTimes, FaFlag, FaClock, FaSpinner } from "react-icons/fa";
 import { getTagClasses, formatDuration, DURATION_PRESETS } from "@/lib/utils";
+import { PRIORITY } from "@/lib/taskConfig";
 
 const DEBOUNCE_MS = 600;
-
-const PRIORITY_CONFIG = {
-  high: { label: "High", labelZh: "高", color: "bg-danger/15 text-danger border border-danger/30" },
-  medium: { label: "Medium", labelZh: "中", color: "bg-warning/15 text-warning border border-warning/30" },
-  low: { label: "Low", labelZh: "低", color: "bg-success/15 text-success border border-success/30" },
-};
 
 export default function QuickAdd({ 
   onAdd, 
@@ -343,12 +338,12 @@ export default function QuickAdd({
               {/* Priority chip */}
               {parsedData.priority && parsedData.priority !== "medium" && (
                 <span 
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${PRIORITY_CONFIG[parsedData.priority]?.color}`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${PRIORITY[parsedData.priority]?.badgeClass}`}
                   onClick={removePriority}
                   title={t.removePriority}
                 >
                   <FaFlag className="w-3 h-3" />
-                  {language === "zh" ? PRIORITY_CONFIG[parsedData.priority]?.labelZh : PRIORITY_CONFIG[parsedData.priority]?.label}
+                  {language === "zh" ? PRIORITY[parsedData.priority]?.labelZh : PRIORITY[parsedData.priority]?.label}
                   <FaTimes className="w-2.5 h-2.5 ml-0.5" />
                 </span>
               )}
