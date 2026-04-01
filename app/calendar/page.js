@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/hooks/useTasks";
@@ -23,16 +23,22 @@ import {
   isToday,
 } from "date-fns";
 import DayTimeline from "@/components/calendar/DayTimeline";
+import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 
 export default function CalendarPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { tasks, loading, toggleComplete, deleteTask } = useTasks();
+  const { tasks, loading, toggleComplete, deleteTask, refetch } = useTasks();
 
   // Initialize with null to prevent hydration mismatch
   const [currentMonth, setCurrentMonth] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [viewMode, setViewMode] = useState('month');
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
+
+  const handleEditTask = useCallback((taskId) => {
+    setSelectedTaskId(taskId);
+  }, []);
 
   useEffect(() => {
     setCurrentMonth(new Date());
@@ -269,15 +275,23 @@ export default function CalendarPage() {
               )}
             </div>
 
-            <DayTimeline 
+            <DayTimeline
               date={selectedDate}
               tasks={selectedDateTasks}
               onToggleComplete={toggleComplete}
               onDelete={deleteTask}
+              onEdit={handleEditTask}
             />
           </div>
         </div>
       </div>
+
+      <TaskDetailPanel
+        taskId={selectedTaskId}
+        tasks={tasks}
+        onClose={() => setSelectedTaskId(null)}
+        onSave={refetch}
+      />
     </div>
   );
 }
