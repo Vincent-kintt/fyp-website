@@ -5,7 +5,7 @@ import { format, differenceInMinutes, startOfDay } from "date-fns";
 import { FaClock } from "react-icons/fa";
 import { getCategoryColor } from "@/lib/taskConfig";
 
-export default function DayTimeline({ date, tasks, onToggleComplete, onDelete }) {
+export default function DayTimeline({ date, tasks, onToggleComplete, onDelete, onEdit }) {
   const [currentTime, setCurrentTime] = useState(null);
 
   // Update current time every minute
@@ -78,12 +78,23 @@ export default function DayTimeline({ date, tasks, onToggleComplete, onDelete })
               {blockTasks.map((task) => (
                 <div
                   key={task.id}
-                  onClick={() => onToggleComplete(task.id, !task.completed)}
                   className={`cursor-pointer rounded px-2 py-0.5 text-xs transition-all hover:brightness-95 flex items-center gap-1.5 max-w-full ${
                     task.completed ? "opacity-50 line-through" : ""
                   } ${getCategoryColor(task.category, { withBorder: true })}`}
                 >
-                  <span className="truncate font-medium">{task.title}</span>
+                  <input
+                    type="checkbox"
+                    checked={!!task.completed}
+                    onChange={() => onToggleComplete(task.id, !task.completed)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-3 h-3 rounded-sm flex-shrink-0 cursor-pointer accent-[var(--primary)]"
+                  />
+                  <span
+                    className="truncate font-medium flex-1"
+                    onClick={() => onEdit?.(task.id)}
+                  >
+                    {task.title}
+                  </span>
                   <span className="text-[10px] opacity-70 flex-shrink-0">
                     {format(new Date(task.dateTime), "h:mm")}
                   </span>
