@@ -205,6 +205,7 @@ export default function DashboardPage() {
       const taskDate = new Date(t.dateTime);
       return (
         isThisWeek(taskDate, { weekStartsOn: 1 }) &&
+        taskDate >= startOfDay(now) &&
         !isToday(taskDate) &&
         !isTomorrow(taskDate) &&
         isPending(t) &&
@@ -299,7 +300,7 @@ export default function DashboardPage() {
 
   const handleDragOver = useCallback(
     (event) => {
-      const { over } = event;
+      const { active, over } = event;
       if (!over) {
         setOverSectionId(null);
         clearTimeout(expandTimer.current);
@@ -307,6 +308,18 @@ export default function DashboardPage() {
       }
       // over.id can be a task ID or a section ID
       const section = taskToSection.get(over.id) || over.id;
+
+      // Suppress overlay on Overdue for cross-section drags (Overdue is not a drop target)
+      const activeSection = taskToSection.get(active.id);
+      if (
+        section === SECTION_IDS.OVERDUE &&
+        activeSection !== SECTION_IDS.OVERDUE
+      ) {
+        setOverSectionId(null);
+        clearTimeout(expandTimer.current);
+        return;
+      }
+
       setOverSectionId(section);
 
       // Auto-expand collapsed sections after 500ms hover (industry standard)
@@ -379,6 +392,9 @@ export default function DashboardPage() {
         ]);
         const isToStatus = STATUS_SECTIONS.has(targetSection);
         const isFromStatus = STATUS_SECTIONS.has(sourceSection);
+
+        // Block drag TO Overdue — it's a computed state, not a drop target
+        if (targetSection === SECTION_IDS.OVERDUE) return;
 
         // Block invalid transitions: COMPLETED ↔ SNOOZED
         if (isFromStatus && isToStatus) {
