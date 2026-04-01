@@ -9,17 +9,13 @@ import SortableTaskItem from "./SortableTaskItem";
 import EmptyState from "@/components/ui/EmptyState";
 import { getSectionDropColor } from "@/lib/dnd";
 
-// Thin wrapper that isolates useDroppable subscription from TaskSection
-// Without this, every TaskSection re-renders on every drag event
+// Visual wrapper for external drag-over feedback (no droppable — that lives in TaskListContent)
 const DroppableWrapper = memo(function DroppableWrapper({ sectionId, children, isExternalDragOver }) {
-  const { setNodeRef } = useDroppable({ id: sectionId });
   return (
     <div
-      ref={setNodeRef}
       className={`mb-6 rounded-lg transition-colors ${
         isExternalDragOver ? getSectionDropColor(sectionId) : ""
       }`}
-      style={{ minHeight: "48px" }}
     >
       {children}
     </div>
@@ -100,6 +96,9 @@ export default function TaskSection({
         <TaskListContent
           tasks={tasks}
           sortable={sortable}
+          sectionId={sectionId}
+          droppable={droppable}
+          isExternalDragOver={isExternalDragOver}
           onToggleComplete={onToggleComplete}
           onDelete={onDelete}
           onUpdate={onUpdate}
@@ -128,14 +127,22 @@ export default function TaskSection({
 }
 
 function TaskListContent({
-  tasks, sortable,
+  tasks, sortable, sectionId, droppable, isExternalDragOver,
   onToggleComplete, onDelete, onUpdate, onSnooze, onEdit, showDate, emptyAction, emptyMessage,
   completingIds,
 }) {
+  const { setNodeRef } = useDroppable({ id: sectionId || "default", disabled: !droppable });
   const ItemComponent = sortable ? SortableTaskItem : TaskItem;
 
   const content = (
-    <div className="space-y-2" aria-live="polite">
+    <div
+      ref={droppable ? setNodeRef : undefined}
+      className={`space-y-2 rounded-lg transition-colors ${
+        isExternalDragOver ? getSectionDropColor(sectionId) : ""
+      }`}
+      style={{ minHeight: droppable ? "48px" : undefined }}
+      aria-live="polite"
+    >
       {tasks.length > 0 ? (
         tasks.map((task, index) => (
           <ItemComponent

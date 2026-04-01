@@ -33,17 +33,12 @@ import {
   useDndSensors,
   computeSortOrders,
   reorderReminders,
-  patchReminderStatus,
   SECTION_IDS,
   getSectionTargetDate,
-  getSectionTargetStatus,
-  isStatusChangeNeeded,
   computeNewDateTime,
   getSectionLabel,
-  getDefaultSnoozeUntil,
   DROP_ANIMATION_CONFIG,
 } from "@/lib/dnd";
-import { isValidStatusTransition } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -359,83 +354,30 @@ export default function DashboardPage() {
           toast.error("Failed to reorder");
         }
       } else {
-        // Cross-section drag — handle status + date changes
+        // Cross-section drag — date-only moves (TODAY, TOMORROW, THIS_WEEK)
+        const targetDate = getSectionTargetDate(targetSection);
+        if (!targetDate) return; // OVERDUE/COMPLETED/SNOOZED not valid drop targets
+
         const draggedTask = tasks.find((t) => t.id === active.id);
         if (!draggedTask) return;
 
-        const needsStatus = isStatusChangeNeeded(sourceSection, targetSection);
-        const targetStatus = getSectionTargetStatus(targetSection);
-        const targetDate = getSectionTargetDate(targetSection);
-
-        // Validate status transition before any optimistic update
-        if (needsStatus) {
-          const currentStatus = draggedTask.status || "pending";
-          if (!isValidStatusTransition(currentStatus, targetStatus.status)) {
-            toast.error("無法執行此操作");
-            return;
-          }
-        }
-
-        // Build optimistic update
-        const optimistic = { ...draggedTask };
-
-        if (needsStatus) {
-          optimistic.status = targetStatus.status;
-          if (targetStatus.completed !== undefined) {
-            optimistic.completed = targetStatus.completed;
-          }
-          if (targetStatus.status === "completed") {
-            optimistic.completedAt = new Date().toISOString();
-            optimistic.snoozedUntil = null;
-          }
-          if (targetStatus.status === "snoozed") {
-            optimistic.snoozedUntil = getDefaultSnoozeUntil();
-            optimistic.completed = false;
-          }
-          if (targetStatus.status === "pending") {
-            optimistic.snoozedUntil = null;
-            optimistic.completed = false;
-          }
-        }
-
-        if (targetDate) {
-          optimistic.dateTime = computeNewDateTime(
-            draggedTask.dateTime,
-            targetDate,
-          );
-        }
+        const newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
 
         queryClient.setQueryData(
           ["tasks"],
-          tasks.map((t) => (t.id === active.id ? optimistic : t)),
+          tasks.map((t) =>
+            t.id === active.id ? { ...t, dateTime: newDateTime } : t,
+          ),
         );
 
         try {
-          if (needsStatus) {
-            // Use PATCH for status changes (handles all fields in one call)
-            const patchBody = { status: targetStatus.status };
-            if (targetStatus.status === "completed") {
-              patchBody.completed = true;
-            } else if (targetStatus.status === "pending") {
-              patchBody.completed = false;
-            }
-            if (targetStatus.status === "snoozed") {
-              patchBody.snoozedUntil = optimistic.snoozedUntil;
-            }
-            if (targetDate) {
-              patchBody.dateTime = optimistic.dateTime;
-            }
-            await patchReminderStatus(active.id, patchBody);
-          } else {
-            // Date-only move — use reorder API
-            await reorderReminders([
-              {
-                id: active.id,
-                sortOrder: draggedTask.sortOrder || 0,
-                dateTime: optimistic.dateTime,
-              },
-            ]);
-          }
+          await reorderReminders([
+            {
+              id: active.id,
+              sortOrder: draggedTask.sortOrder || 0,
+              dateTime: newDateTime,
+            },
+          ]);
           toast.success(`已移至${getSectionLabel(targetSection)}`);
         } catch {
           queryClient.setQueryData(["tasks"], originalTasks);
