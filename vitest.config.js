@@ -6,6 +6,17 @@ export default defineConfig({
     globals: true,
     testTimeout: 30000,
     hookTimeout: 30000,
+    pool: "forks",
+    poolOptions: {
+      forks: { singleFork: true },
+    },
+    coverage: {
+      provider: "v8",
+      include: ["lib/**", "app/api/**"],
+      exclude: ["lib/ai/provider.js", "lib/ai/middleware.js"],
+      reporter: ["text", "html"],
+      reportsDirectory: "./coverage",
+    },
   },
   resolve: {
     alias: {

@@ -60,3 +60,8 @@ overview.md
 docs/superpowers/
 .superpowers/
 
+# Test artifacts
+.playwright-auth/
+playwright-report/
+test-results/
+
