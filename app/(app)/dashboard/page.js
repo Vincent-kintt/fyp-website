@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { isToday, isTomorrow, isThisWeek, startOfDay } from "date-fns";
 import {
   DndContext,
-  closestCenter,
   DragOverlay,
   MeasuringStrategy,
 } from "@dnd-kit/core";
@@ -33,11 +32,15 @@ import {
   useDndSensors,
   computeSortOrders,
   reorderReminders,
+  patchReminderStatus,
   SECTION_IDS,
   getSectionTargetDate,
+  getSectionTargetStatus,
+  getDefaultSnoozeUntil,
   computeNewDateTime,
   getSectionLabel,
   DROP_ANIMATION_CONFIG,
+  createSectionAwareCollision,
 } from "@/lib/dnd";
 
 export default function DashboardPage() {
@@ -64,6 +67,8 @@ export default function DashboardPage() {
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const completingTimers = useRef(new Map());
   const expandTimer = useRef(null);
+  // Ref for collision detection (runs outside React render cycle)
+  const taskToSectionRef = useRef(new Map());
   const sensors = useDndSensors();
 
   useEffect(() => {
@@ -247,6 +252,17 @@ export default function DashboardPage() {
     snoozedTasks,
     completedToday,
   ]);
+
+  // Keep ref in sync for collision detection
+  useEffect(() => {
+    taskToSectionRef.current = taskToSection;
+  }, [taskToSection]);
+
+  // Stable collision detection — ref identity never changes
+  const collisionDetection = useMemo(
+    () => createSectionAwareCollision(taskToSectionRef),
+    [],
+  );
 
   const getSectionTasks = useCallback(
     (sectionId) => {
@@ -506,7 +522,7 @@ export default function DashboardPage() {
       {/* Drag-and-Drop Context for all sections */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={collisionDetection}
         measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
