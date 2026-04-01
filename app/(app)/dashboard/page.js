@@ -343,14 +343,13 @@ export default function DashboardPage() {
       const originalTasks = queryClient.getQueryData(["tasks"]);
 
       if (sourceSection === targetSection) {
-        // Within-section reorder
+        // Within-section reorder (unchanged)
         const sectionTasks = getSectionTasks(sourceSection);
         const oldIndex = sectionTasks.findIndex((t) => t.id === active.id);
         const newIndex = sectionTasks.findIndex((t) => t.id === over.id);
         if (oldIndex === -1 || newIndex === -1) return;
 
         const reordered = arrayMove(sectionTasks, oldIndex, newIndex);
-        // Apply new sortOrder values optimistically so sortByOrder() preserves the new order
         const reorderedWithOrder = reordered.map((task, index) => ({
           ...task,
           sortOrder: (index + 1) * 1000,
@@ -367,37 +366,120 @@ export default function DashboardPage() {
           await reorderReminders(sortUpdates);
         } catch {
           queryClient.setQueryData(["tasks"], originalTasks);
-          toast.error("Failed to reorder");
+          toast.error("排序失敗");
         }
       } else {
-        // Cross-section drag — date-only moves (TODAY, TOMORROW, THIS_WEEK)
-        const targetDate = getSectionTargetDate(targetSection);
-        if (!targetDate) return; // OVERDUE/COMPLETED/SNOOZED not valid drop targets
-
+        // Cross-section move
         const draggedTask = tasks.find((t) => t.id === active.id);
         if (!draggedTask) return;
 
-        const newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
+        const STATUS_SECTIONS = new Set([
+          SECTION_IDS.COMPLETED,
+          SECTION_IDS.SNOOZED,
+        ]);
+        const isToStatus = STATUS_SECTIONS.has(targetSection);
+        const isFromStatus = STATUS_SECTIONS.has(sourceSection);
 
-        queryClient.setQueryData(
-          ["tasks"],
-          tasks.map((t) =>
-            t.id === active.id ? { ...t, dateTime: newDateTime } : t,
-          ),
-        );
+        // Block invalid transitions: COMPLETED ↔ SNOOZED
+        if (isFromStatus && isToStatus) {
+          toast.warning("請先恢復任務再操作");
+          return;
+        }
 
-        try {
-          await reorderReminders([
-            {
-              id: active.id,
-              sortOrder: draggedTask.sortOrder || 0,
+        if (isToStatus) {
+          // Move TO a status section (COMPLETED or SNOOZED)
+          const statusBody = { ...getSectionTargetStatus(targetSection) };
+          let optimisticUpdate;
+
+          if (targetSection === SECTION_IDS.COMPLETED) {
+            optimisticUpdate = {
+              ...draggedTask,
+              status: "completed",
+              completed: true,
+              completedAt: new Date().toISOString(),
+            };
+          } else {
+            // SNOOZED — snoozedUntil is required by API
+            const snoozedUntil = getDefaultSnoozeUntil();
+            statusBody.snoozedUntil = snoozedUntil;
+            optimisticUpdate = {
+              ...draggedTask,
+              status: "snoozed",
+              snoozedUntil,
+            };
+          }
+
+          queryClient.setQueryData(
+            ["tasks"],
+            tasks.map((t) => (t.id === active.id ? optimisticUpdate : t)),
+          );
+
+          try {
+            await patchReminderStatus(active.id, statusBody);
+            toast.success(`已移至${getSectionLabel(targetSection)}`);
+          } catch {
+            queryClient.setQueryData(["tasks"], originalTasks);
+            toast.error("移動失敗");
+          }
+        } else {
+          // Move TO a date section (from any source)
+          const targetDate = getSectionTargetDate(targetSection);
+          if (!targetDate) return;
+
+          const newDateTime = computeNewDateTime(
+            draggedTask.dateTime,
+            targetDate,
+          );
+
+          if (isFromStatus) {
+            // From COMPLETED/SNOOZED → date section: status reset + date change
+            const statusBody = {
+              ...getSectionTargetStatus(targetSection),
               dateTime: newDateTime,
-            },
-          ]);
-          toast.success(`已移至${getSectionLabel(targetSection)}`);
-        } catch {
-          queryClient.setQueryData(["tasks"], originalTasks);
-          toast.error("移動失敗");
+            };
+            const optimisticUpdate = {
+              ...draggedTask,
+              status: "pending",
+              completed: false,
+              dateTime: newDateTime,
+              snoozedUntil: null,
+            };
+
+            queryClient.setQueryData(
+              ["tasks"],
+              tasks.map((t) => (t.id === active.id ? optimisticUpdate : t)),
+            );
+
+            try {
+              await patchReminderStatus(active.id, statusBody);
+              toast.success(`已移至${getSectionLabel(targetSection)}`);
+            } catch {
+              queryClient.setQueryData(["tasks"], originalTasks);
+              toast.error("移動失敗");
+            }
+          } else {
+            // Date → Date move (existing logic)
+            queryClient.setQueryData(
+              ["tasks"],
+              tasks.map((t) =>
+                t.id === active.id ? { ...t, dateTime: newDateTime } : t,
+              ),
+            );
+
+            try {
+              await reorderReminders([
+                {
+                  id: active.id,
+                  sortOrder: draggedTask.sortOrder || 0,
+                  dateTime: newDateTime,
+                },
+              ]);
+              toast.success(`已移至${getSectionLabel(targetSection)}`);
+            } catch {
+              queryClient.setQueryData(["tasks"], originalTasks);
+              toast.error("移動失敗");
+            }
+          }
         }
       }
     },
