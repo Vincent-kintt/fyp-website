@@ -577,50 +577,6 @@ body {
   }
 }
 
-/* Markdown content styling for better readability */
-.markdown-content strong,
-.markdown-content b,
-.markdown-content li strong,
-.markdown-content p strong,
-.markdown-content ul strong,
-.markdown-content ol strong {
-  color: #1f2937 !important;
-  font-weight: 600;
-  opacity: 1 !important;
-}
-
-.dark .markdown-content strong,
-.dark .markdown-content b,
-.dark .markdown-content li strong,
-.dark .markdown-content p strong,
-.dark .markdown-content ul strong,
-.dark .markdown-content ol strong {
-  color: #f3f4f6 !important;
-  font-weight: 600;
-  opacity: 1 !important;
-}
-
-.markdown-content p {
-  margin-bottom: 0.5em;
-}
-
-.markdown-content ul,
-.markdown-content ol {
-  padding-left: 1.2em;
-  margin-bottom: 0.5em;
-}
-
-.markdown-content li {
-  margin-bottom: 0.25em;
-}
-
-.markdown-content code {
-  background: var(--glass-bg);
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
-  font-size: 0.9em;
-}
-
 /* cmdk - Command Palette */
 [cmdk-overlay] {
   position: fixed;

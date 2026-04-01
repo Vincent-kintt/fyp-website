@@ -1707,7 +1707,7 @@ export default function AIReminderModal({
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   placeholder={t.placeholder}
                   rows="2"
                   disabled={isProcessing}

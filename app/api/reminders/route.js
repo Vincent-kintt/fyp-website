@@ -6,6 +6,7 @@ import {
   normalizeSubtasks,
   apiSuccess,
   apiError,
+  validateReminderFields,
 } from "@/lib/reminderUtils";
 
 // GET /api/reminders - Get all reminders for logged-in user
@@ -96,33 +97,8 @@ export async function POST(request) {
       return apiError("Missing required fields (title, dateTime)", 400);
     }
 
-    if (title && title.length > 200) {
-      return NextResponse.json(
-        { success: false, error: "Title must be 200 characters or less" },
-        { status: 400 },
-      );
-    }
-    if (description && description.length > 5000) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Description must be 5000 characters or less",
-        },
-        { status: 400 },
-      );
-    }
-    if (remark && remark.length > 2000) {
-      return NextResponse.json(
-        { success: false, error: "Remark must be 2000 characters or less" },
-        { status: 400 },
-      );
-    }
-    if (tags && (tags.length > 20 || tags.some((t) => t.length > 50))) {
-      return NextResponse.json(
-        { success: false, error: "Too many tags or tag too long" },
-        { status: 400 },
-      );
-    }
+    const fieldError = validateReminderFields({ title, description, remark, tags });
+    if (fieldError) return fieldError;
 
     // Validate duration if provided
     if (duration !== undefined && duration !== null) {

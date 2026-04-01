@@ -14,6 +14,7 @@ import {
   normalizeSubtasks,
   apiSuccess,
   apiError,
+  validateReminderFields,
 } from "@/lib/reminderUtils";
 
 // GET /api/reminders/[id] - Get a single reminder (must belong to user)
@@ -85,33 +86,8 @@ export async function PUT(request, { params }) {
       return apiError("Missing required fields (title, dateTime)", 400);
     }
 
-    if (title && title.length > 200) {
-      return NextResponse.json(
-        { success: false, error: "Title must be 200 characters or less" },
-        { status: 400 },
-      );
-    }
-    if (description && description.length > 5000) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Description must be 5000 characters or less",
-        },
-        { status: 400 },
-      );
-    }
-    if (remark && remark.length > 2000) {
-      return NextResponse.json(
-        { success: false, error: "Remark must be 2000 characters or less" },
-        { status: 400 },
-      );
-    }
-    if (tags && (tags.length > 20 || tags.some((t) => t.length > 50))) {
-      return NextResponse.json(
-        { success: false, error: "Too many tags or tag too long" },
-        { status: 400 },
-      );
-    }
+    const fieldError = validateReminderFields({ title, description, remark, tags });
+    if (fieldError) return fieldError;
 
     // Validate duration if provided
     if (duration !== undefined && duration !== null) {
@@ -251,7 +227,6 @@ export async function DELETE(request, { params }) {
       recurring: reminder.recurring,
       recurringType: reminder.recurringType,
       completed: reminder.completed || false,
-      username: reminder.username,
     };
 
     return apiSuccess(formattedReminder);
@@ -279,36 +254,8 @@ export async function PATCH(request, { params }) {
     }
 
     // Length validation (fail fast before any DB queries)
-    if (body.title && body.title.length > 200) {
-      return NextResponse.json(
-        { success: false, error: "Title must be 200 characters or less" },
-        { status: 400 },
-      );
-    }
-    if (body.description && body.description.length > 5000) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Description must be 5000 characters or less",
-        },
-        { status: 400 },
-      );
-    }
-    if (body.remark && body.remark.length > 2000) {
-      return NextResponse.json(
-        { success: false, error: "Remark must be 2000 characters or less" },
-        { status: 400 },
-      );
-    }
-    if (
-      body.tags &&
-      (body.tags.length > 20 || body.tags.some((t) => t.length > 50))
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Too many tags or tag too long" },
-        { status: 400 },
-      );
-    }
+    const fieldError = validateReminderFields(body);
+    if (fieldError) return fieldError;
 
     const remindersCollection = await getCollection("reminders");
 
@@ -327,38 +274,40 @@ export async function PATCH(request, { params }) {
         userId: session.user.id,
       });
 
-      if (currentReminder) {
-        const currentStatus = currentReminder.status || "pending";
-        if (!isValidStatusTransition(currentStatus, body.status)) {
-          return apiError(
-            `Invalid status transition from '${currentStatus}' to '${body.status}'`,
-            400,
-          );
-        }
+      if (!currentReminder) {
+        return apiError("Reminder not found", 404);
+      }
 
-        updateData.status = body.status;
-        updateData.completed = deriveCompletedFromStatus(body.status);
+      const currentStatus = currentReminder.status || "pending";
+      if (!isValidStatusTransition(currentStatus, body.status)) {
+        return apiError(
+          `Invalid status transition from '${currentStatus}' to '${body.status}'`,
+          400,
+        );
+      }
 
-        // Track status change timestamps
-        if (body.status === "in_progress" && currentStatus !== "in_progress") {
-          updateData.startedAt = new Date();
-        }
-        if (body.status === "completed" && currentStatus !== "completed") {
-          updateData.completedAt = new Date();
-        }
+      updateData.status = body.status;
+      updateData.completed = deriveCompletedFromStatus(body.status);
 
-        // Handle snooze: require snoozedUntil when snoozing
-        if (body.status === "snoozed") {
-          if (!body.snoozedUntil) {
-            return apiError("snoozedUntil is required when snoozing", 400);
-          }
-          updateData.snoozedUntil = new Date(body.snoozedUntil);
-        }
+      // Track status change timestamps
+      if (body.status === "in_progress" && currentStatus !== "in_progress") {
+        updateData.startedAt = new Date();
+      }
+      if (body.status === "completed" && currentStatus !== "completed") {
+        updateData.completedAt = new Date();
+      }
 
-        // Clear snoozedUntil when leaving snoozed state
-        if (currentStatus === "snoozed" && body.status !== "snoozed") {
-          updateData.snoozedUntil = null;
+      // Handle snooze: require snoozedUntil when snoozing
+      if (body.status === "snoozed") {
+        if (!body.snoozedUntil) {
+          return apiError("snoozedUntil is required when snoozing", 400);
         }
+        updateData.snoozedUntil = new Date(body.snoozedUntil);
+      }
+
+      // Clear snoozedUntil when leaving snoozed state
+      if (currentStatus === "snoozed" && body.status !== "snoozed") {
+        updateData.snoozedUntil = null;
       }
     } else if (typeof body.completed === "boolean") {
       // Backward compatibility: handle completed boolean
