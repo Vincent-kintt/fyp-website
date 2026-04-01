@@ -1,4 +1,5 @@
 import { FaSpinner } from "react-icons/fa";
+import Link from "next/link";
 
 export default function Button({
   children,
@@ -9,9 +10,10 @@ export default function Button({
   className = "",
   disabled = false,
   loading = false,
+  href,
   ...props
 }) {
-  const baseStyles = "inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+  const baseStyles = "inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
   const variants = {
     primary: "bg-primary text-text-inverted hover:bg-primary-hover",
@@ -28,12 +30,22 @@ export default function Button({
     lg: "py-3 px-6 text-lg gap-2.5",
   };
 
+  const classes = `${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`;
+
+  if (href) {
+    return (
+      <Link href={href} className={classes} {...props}>
+        {children}
+      </Link>
+    );
+  }
+
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={classes}
       {...props}
     >
       {loading && <FaSpinner className="animate-spin shrink-0" />}

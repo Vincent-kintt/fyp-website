@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+button,
+[role="button"],
+a[href] {
+  cursor: pointer;
+}
+
 @layer base {
   :root {
     /* Background colors */
