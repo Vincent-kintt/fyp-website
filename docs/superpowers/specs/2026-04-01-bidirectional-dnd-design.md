@@ -172,10 +172,52 @@ onDragEnd(active, over):
         optimistic update → reorderReminders([{ id, sortOrder, dateTime }]) → toast
 ```
 
+### Optimistic State Shape Per Move Type
+
+Each cross-section move must update the task object in `queryClient` so it immediately appears in the correct section.
+
+**→ COMPLETED:**
+```
+{ ...task, status: "completed", completed: true, completedAt: new Date().toISOString() }
+```
+
+**→ SNOOZED:**
+```
+{ ...task, status: "snoozed", snoozedUntil: getDefaultSnoozeUntil() }
+```
+
+**COMPLETED/SNOOZED → Date section:**
+```
+{ ...task, status: "pending", completed: false, dateTime: newDateTime, snoozedUntil: null }
+```
+
+**Date → Date:**
+```
+{ ...task, dateTime: newDateTime }
+```
+
+### taskToSectionRef Pattern
+
+The collision detection function runs outside React's render cycle, so it needs a ref (not a memo'd value) to access the current `taskToSection` map.
+
+```javascript
+// In DashboardPage component:
+const taskToSectionRef = useRef(new Map());
+useEffect(() => {
+  taskToSectionRef.current = taskToSection;
+}, [taskToSection]);
+
+// Pass to collision detection:
+const collisionDetection = useMemo(
+  () => createSectionAwareCollision(taskToSectionRef),
+  [] // stable — ref identity never changes
+);
+```
+
 ## Files Changed
 
 - **`lib/dnd.js`** — Add `createSectionAwareCollision()`, add imports (`pointerWithin`, `rectIntersection`, `getFirstCollision`)
-- **`app/(app)/dashboard/page.js`** — Replace `closestCenter` with custom collision, update `handleDragEnd` for status-based moves, restore imports (`patchReminderStatus`, `getSectionTargetStatus`, `getDefaultSnoozeUntil`), add `taskToSectionRef`
+- **`app/(app)/dashboard/page.js`** — Remove `closestCenter` import from `@dnd-kit/core`, add `createSectionAwareCollision` import from `lib/dnd`, restore imports (`patchReminderStatus`, `getSectionTargetStatus`, `getDefaultSnoozeUntil`), add `taskToSectionRef` ref + sync effect, replace collision prop, update `handleDragEnd`
 
 ## Files NOT Changed
 
