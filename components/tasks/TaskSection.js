@@ -92,7 +92,7 @@ export default function TaskSection({
       </button>
 
       {/* Task List */}
-      {!isCollapsed && (
+      {!isCollapsed ? (
         <TaskListContent
           tasks={tasks}
           sortable={sortable}
@@ -109,6 +109,10 @@ export default function TaskSection({
           emptyMessage={emptyMessage}
           completingIds={completingIds}
         />
+      ) : (
+        droppable && sectionId && (
+          <CollapsedDropZone sectionId={sectionId} isExternalDragOver={isExternalDragOver} />
+        )
       )}
     </>
   );
@@ -124,6 +128,20 @@ export default function TaskSection({
   }
 
   return <div className="mb-6">{inner}</div>;
+}
+
+// Minimal droppable zone for collapsed sections — keeps drag target active
+function CollapsedDropZone({ sectionId, isExternalDragOver }) {
+  const { setNodeRef } = useDroppable({ id: sectionId });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg transition-colors ${
+        isExternalDragOver ? getSectionDropColor(sectionId) : ""
+      }`}
+      style={{ minHeight: "8px" }}
+    />
+  );
 }
 
 function TaskListContent({
