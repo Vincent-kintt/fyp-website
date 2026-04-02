@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Command } from "cmdk";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "@/i18n/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { FaSearch, FaClock, FaPlay, FaCheck, FaPause, FaPlus, FaRobot } from "react-icons/fa";
 import { getTagClasses } from "@/lib/utils";
 import { formatDateShort } from "@/lib/format";
@@ -34,6 +34,7 @@ function HighlightText({ text, search }) {
 
 export default function GlobalSearch() {
   const router = useRouter();
+  const locale = useLocale();
   const t = useTranslations("search");
   const tNav = useTranslations("nav");
   const [open, setOpen] = useState(false);
@@ -212,7 +213,7 @@ export default function GlobalSearch() {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                            {formatDateShort(r.dateTime)}
+                            {formatDateShort(r.dateTime, locale)}
                           </span>
                           {r.tags?.slice(0, 2).map((tag) => (
                             <span
@@ -248,7 +249,7 @@ export default function GlobalSearch() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-purple-500">
-                          {t("snoozedUntil", { date: formatDateShort(r.snoozedUntil) })}
+                          {t("snoozedUntil", { date: formatDateShort(r.snoozedUntil, locale) })}
                         </span>
                       </div>
                     </div>

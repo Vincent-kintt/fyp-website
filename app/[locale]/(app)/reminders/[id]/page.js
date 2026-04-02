@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { FaClock, FaTag, FaEdit, FaArrowLeft, FaTrash, FaHourglass, FaFlag, FaStickyNote, FaSync, FaPlay, FaCheck, FaPause, FaCheckCircle } from "react-icons/fa";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -20,6 +20,7 @@ export default function ReminderDetailPage() {
   const tStatus = useTranslations("status");
   const tPriority = useTranslations("priority");
   const tCommon = useTranslations("common");
+  const locale = useLocale();
   const [reminder, setReminder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -163,7 +164,7 @@ export default function ReminderDetailPage() {
         {/* Date & Time */}
         <div className="mb-5 flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           <FaClock className="w-4 h-4 flex-shrink-0" />
-          <span>{formatDateFull(reminder.dateTime)}</span>
+          <span>{formatDateFull(reminder.dateTime, locale)}</span>
         </div>
 
         {/* Tags */}

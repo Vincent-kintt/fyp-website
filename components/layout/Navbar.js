@@ -4,8 +4,20 @@ import { Link } from "@/i18n/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { useTranslations, useLocale } from "next-intl";
-import { FaBell, FaUser, FaSignOutAlt, FaMoon, FaSun, FaHome, FaInbox, FaCalendarAlt, FaList } from "react-icons/fa";
+import {
+  FaBell,
+  FaUser,
+  FaSignOutAlt,
+  FaMoon,
+  FaSun,
+  FaHome,
+  FaInbox,
+  FaCalendarAlt,
+  FaList,
+  FaGlobe,
+} from "react-icons/fa";
 import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "@/i18n/navigation";
 import Button from "../ui/Button";
 import GlobalSearch from "../search/GlobalSearch";
 import NotificationBell from "./NotificationBell";
@@ -15,6 +27,8 @@ export default function Navbar() {
   const { theme, setTheme, systemTheme } = useTheme();
   const t = useTranslations("nav");
   const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -28,6 +42,11 @@ export default function Navbar() {
 
   const toggleTheme = () => {
     setTheme(currentTheme === "dark" ? "light" : "dark");
+  };
+
+  const switchLocale = () => {
+    const next = locale === "zh-TW" ? "en" : "zh-TW";
+    router.replace(pathname, { locale: next });
   };
 
   // Get current theme, accounting for system preference
@@ -127,6 +146,16 @@ export default function Navbar() {
                 {t("login")}
               </Link>
             )}
+
+            {/* Locale Switcher */}
+            <button
+              onClick={switchLocale}
+              className="p-2 rounded-lg bg-background-tertiary text-text-primary hover:bg-surface-active transition-colors flex items-center gap-1"
+              aria-label="Switch language"
+            >
+              <FaGlobe className="text-sm" />
+              <span className="text-xs font-medium">{locale === "zh-TW" ? "EN" : "中"}</span>
+            </button>
 
             {/* Theme Toggle */}
             <button

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FaClock, FaTag, FaEdit, FaTrash, FaStickyNote, FaPlay, FaCheck, FaPause } from "react-icons/fa";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import Card from "../ui/Card";
 import EditReminderModal from "./EditReminderModal";
@@ -13,6 +13,7 @@ import { formatDateMedium } from "@/lib/format";
 export default function ReminderCard({ reminder, onDelete, onUpdate }) {
   const t = useTranslations("reminders");
   const tStatus = useTranslations("status");
+  const locale = useLocale();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentReminder, setCurrentReminder] = useState(reminder);
 
@@ -87,7 +88,7 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
           
           <div className="flex items-center space-x-1">
             <FaClock className="flex-shrink-0" />
-            <span>{formatDateMedium(currentReminder.dateTime)}</span>
+            <span>{formatDateMedium(currentReminder.dateTime, locale)}</span>
           </div>
           
           {/* Tags Display */}
