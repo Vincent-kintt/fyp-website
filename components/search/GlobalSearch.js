@@ -5,11 +5,79 @@ import { Command } from "cmdk";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { FaSearch, FaClock, FaPlay, FaCheck, FaPause, FaPlus, FaRobot } from "react-icons/fa";
 import { getTagClasses } from "@/lib/utils";
 import { formatDateShort } from "@/lib/format";
 
 const CACHE_TTL = 30_000; // 30 seconds
+
+const STATUS_COLORS = {
+  pending: "#f59e0b",
+  in_progress: "#3b82f6",
+  completed: "#22c55e",
+  snoozed: "#a855f7",
+};
+
+function SearchIcon({ className, style }) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 15 15"
+      fill="none"
+      className={className}
+      style={style}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <circle cx="6.5" cy="6.5" r="5" />
+      <line x1="10" y1="10" x2="13.5" y2="13.5" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 13 13"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <line x1="6.5" y1="2" x2="6.5" y2="11" />
+      <line x1="2" y1="6.5" x2="11" y2="6.5" />
+    </svg>
+  );
+}
+
+function AiIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 13 13"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <rect x="2" y="2" width="9" height="9" rx="2" />
+      <line x1="5" y1="6.5" x2="8" y2="6.5" />
+    </svg>
+  );
+}
+
+function StatusDot({ status }) {
+  return (
+    <div
+      className="cmdk-status-dot"
+      style={{ backgroundColor: STATUS_COLORS[status] || STATUS_COLORS.pending }}
+    />
+  );
+}
 
 function HighlightText({ text, search }) {
   if (!search || !text) return text;
@@ -20,7 +88,10 @@ function HighlightText({ text, search }) {
     return parts.map((part, i) => {
       regex.lastIndex = 0;
       return regex.test(part) ? (
-        <mark key={i} className="bg-yellow-300/40 dark:bg-yellow-500/30 text-inherit rounded-sm px-0.5">
+        <mark
+          key={i}
+          className="bg-yellow-300/40 dark:bg-yellow-500/30 text-inherit rounded-sm px-0.5"
+        >
           {part}
         </mark>
       ) : (
@@ -43,19 +114,16 @@ export default function GlobalSearch() {
   const [searchValue, setSearchValue] = useState("");
   const cacheRef = useRef({ data: null, timestamp: 0 });
 
-  const StatusIcon = {
-    pending: FaClock,
-    in_progress: FaPlay,
-    completed: FaCheck,
-    snoozed: FaPause,
-  };
-
   // Ctrl+K / Cmd+K shortcut — skip inside inputs
   useEffect(() => {
     const down = (e) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         const tag = document.activeElement?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) {
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          document.activeElement?.isContentEditable
+        ) {
           return;
         }
         e.preventDefault();
@@ -103,13 +171,17 @@ export default function GlobalSearch() {
       setOpen(false);
       router.push(`/reminders/${id}`);
     },
-    [router]
+    [router],
   );
 
   // Status-based grouping
-  const upcoming = reminders.filter((r) => r.status !== "completed" && r.status !== "snoozed");
+  const upcoming = reminders.filter(
+    (r) => r.status !== "completed" && r.status !== "snoozed",
+  );
   const snoozed = reminders.filter((r) => r.status === "snoozed");
   const completed = reminders.filter((r) => r.status === "completed");
+
+  const isBrowsing = !searchValue;
 
   return (
     <>
@@ -120,7 +192,7 @@ export default function GlobalSearch() {
         aria-label="Search reminders (Ctrl+K)"
         aria-keyshortcuts="Meta+K"
       >
-        <FaSearch className="w-4 h-4" />
+        <SearchIcon className="w-4 h-4" />
         <span className="hidden sm:inline">{tNav("search")}</span>
       </button>
 
@@ -131,8 +203,8 @@ export default function GlobalSearch() {
         label={t("title")}
         loop
       >
-        {/* Accessible title (visually hidden for screen readers) */}
-        <DialogPrimitive.Title style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', borderWidth: 0 }}>
+        {/* Accessible title (visually hidden) */}
+        <DialogPrimitive.Title className="sr-only">
           {t("title")}
         </DialogPrimitive.Title>
         {/* Overlay */}
@@ -141,33 +213,41 @@ export default function GlobalSearch() {
         <div className="cmdk-panel">
           {/* Input */}
           <div className="cmdk-input-wrapper">
-            <FaSearch className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
+            <SearchIcon style={{ color: "var(--cmdk-text-muted)" }} />
             <Command.Input
               data-testid="global-search-input"
               placeholder={t("placeholder")}
               className="cmdk-input"
               onValueChange={setSearchValue}
             />
-            <kbd className="cmdk-kbd">ESC</kbd>
+            <kbd className="cmdk-kbd">⌘K</kbd>
           </div>
 
           {/* Results */}
           <Command.List className="cmdk-list">
             {loading && (
               <Command.Loading>
-                <div className="py-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-                  {t("loading")}
+                <div className="flex flex-col gap-1 p-1.5">
+                  <div className="cmdk-skeleton" />
+                  <div className="cmdk-skeleton" />
+                  <div className="cmdk-skeleton" />
                 </div>
               </Command.Loading>
             )}
 
             <Command.Empty>
-              <div className="py-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+              <div
+                className="py-6 text-center"
+                style={{
+                  color: "var(--cmdk-text-muted)",
+                  fontSize: "0.8125rem",
+                }}
+              >
                 {t("noResults")}
               </div>
             </Command.Empty>
 
-            {/* Quick Actions — always visible */}
+            {/* Quick Actions */}
             <Command.Group heading={t("quickActions")}>
               <Command.Item
                 value="create new reminder 建立新提醒"
@@ -177,8 +257,8 @@ export default function GlobalSearch() {
                 }}
                 className="cmdk-item"
               >
-                <FaPlus className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-                <span className="text-sm" style={{ color: "var(--text-primary)" }}>{t("createNew")}</span>
+                <PlusIcon />
+                <span className="cmdk-item-title">{t("createNew")}</span>
               </Command.Item>
               <Command.Item
                 value="open AI assistant AI 助手"
@@ -188,17 +268,52 @@ export default function GlobalSearch() {
                 }}
                 className="cmdk-item"
               >
-                <FaRobot className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-                <span className="text-sm" style={{ color: "var(--text-primary)" }}>{t("aiAssistant")}</span>
+                <AiIcon />
+                <span className="cmdk-item-title">{t("aiAssistant")}</span>
               </Command.Item>
             </Command.Group>
 
-            {/* Upcoming */}
+            {/* Divider between actions and reminders */}
+            {(upcoming.length > 0 ||
+              snoozed.length > 0 ||
+              completed.length > 0) && <div className="cmdk-divider" />}
+
+            {/* Upcoming / In Progress */}
             {upcoming.length > 0 && (
               <Command.Group heading={t("inProgress")}>
-                {upcoming.slice(0, 6).map((r) => {
-                  const Icon = StatusIcon[r.status] || FaClock;
-                  return (
+                {upcoming.slice(0, 6).map((r) => (
+                  <Command.Item
+                    key={r.id}
+                    value={`${r.title} ${r.description || ""} ${(r.tags || []).join(" ")}`}
+                    keywords={r.tags}
+                    onSelect={() => handleSelect(r.id)}
+                    className="cmdk-item"
+                  >
+                    <StatusDot status={r.status} />
+                    <span className="cmdk-item-title flex-1 min-w-0 truncate">
+                      <HighlightText text={r.title} search={searchValue} />
+                    </span>
+                    <span className="cmdk-item-date">
+                      {formatDateShort(r.dateTime, locale)}
+                    </span>
+                    {isBrowsing && r.tags?.[0] && (
+                      <span
+                        className={`px-1.5 py-0 rounded text-[10px] font-medium flex-shrink-0 ${getTagClasses(r.tags[0])}`}
+                      >
+                        {r.tags[0]}
+                      </span>
+                    )}
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {/* Snoozed */}
+            {snoozed.length > 0 && (
+              <>
+                {upcoming.length > 0 && <div className="cmdk-divider" />}
+                <Command.Group heading={t("snoozed")}>
+                  {snoozed.slice(0, 3).map((r) => (
                     <Command.Item
                       key={r.id}
                       value={`${r.title} ${r.description || ""} ${(r.tags || []).join(" ")}`}
@@ -206,80 +321,59 @@ export default function GlobalSearch() {
                       onSelect={() => handleSelect(r.id)}
                       className="cmdk-item"
                     >
-                      <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                          <HighlightText text={r.title} search={searchValue} />
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                            {formatDateShort(r.dateTime, locale)}
-                          </span>
-                          {r.tags?.slice(0, 2).map((tag) => (
-                            <span
-                              key={tag}
-                              className={`px-1.5 py-0 rounded text-[10px] font-medium ${getTagClasses(tag)}`}
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </Command.Item>
-                  );
-                })}
-              </Command.Group>
-            )}
-
-            {/* Snoozed */}
-            {snoozed.length > 0 && (
-              <Command.Group heading={t("snoozed")}>
-                {snoozed.slice(0, 3).map((r) => (
-                  <Command.Item
-                    key={r.id}
-                    value={`${r.title} ${r.description || ""} ${(r.tags || []).join(" ")}`}
-                    keywords={r.tags}
-                    onSelect={() => handleSelect(r.id)}
-                    className="cmdk-item"
-                  >
-                    <FaPause className="w-3.5 h-3.5 flex-shrink-0 text-purple-500" />
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                      <StatusDot status="snoozed" />
+                      <span className="cmdk-item-title flex-1 min-w-0 truncate">
                         <HighlightText text={r.title} search={searchValue} />
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-purple-500">
-                          {t("snoozedUntil", { date: formatDateShort(r.snoozedUntil, locale) })}
-                        </span>
-                      </div>
-                    </div>
-                  </Command.Item>
-                ))}
-              </Command.Group>
+                      </span>
+                      <span className="cmdk-item-date">
+                        {t("snoozedUntil", {
+                          date: formatDateShort(r.snoozedUntil, locale),
+                        })}
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              </>
             )}
 
             {/* Completed */}
             {completed.length > 0 && (
-              <Command.Group heading={t("completed")}>
-                {completed.slice(0, 4).map((r) => (
-                  <Command.Item
-                    key={r.id}
-                    value={`${r.title} ${r.description || ""} ${(r.tags || []).join(" ")}`}
-                    keywords={r.tags}
-                    onSelect={() => handleSelect(r.id)}
-                    className="cmdk-item"
-                  >
-                    <FaCheck className="w-3.5 h-3.5 flex-shrink-0 text-success" />
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate text-sm" style={{ color: "var(--text-muted)" }}>
+              <>
+                {(upcoming.length > 0 || snoozed.length > 0) && (
+                  <div className="cmdk-divider" />
+                )}
+                <Command.Group heading={t("completed")}>
+                  {completed.slice(0, 4).map((r) => (
+                    <Command.Item
+                      key={r.id}
+                      value={`${r.title} ${r.description || ""} ${(r.tags || []).join(" ")}`}
+                      keywords={r.tags}
+                      onSelect={() => handleSelect(r.id)}
+                      className="cmdk-item"
+                    >
+                      <StatusDot status="completed" />
+                      <span className="cmdk-item-title flex-1 min-w-0 truncate">
                         <HighlightText text={r.title} search={searchValue} />
-                      </div>
-                    </div>
-                  </Command.Item>
-                ))}
-              </Command.Group>
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              </>
             )}
           </Command.List>
+
+          {/* Footer with keyboard hints */}
+          <div className="cmdk-footer">
+            <span className="cmdk-footer-hint">
+              <kbd>↑↓</kbd> navigate
+            </span>
+            <span className="cmdk-footer-hint">
+              <kbd>↵</kbd> open
+            </span>
+            <span className="cmdk-footer-hint">
+              <kbd>esc</kbd> close
+            </span>
+          </div>
         </div>
       </Command.Dialog>
     </>
