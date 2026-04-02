@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useTasks } from "@/hooks/useTasks";
 import {
   FaCalendarAlt,
@@ -45,6 +46,7 @@ import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 export default function CalendarPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const t = useTranslations("calendar");
   const { tasks, loading, toggleComplete, deleteTask, refetch } = useTasks();
 
   // Initialize with null to prevent hydration mismatch
@@ -94,13 +96,13 @@ export default function CalendarPage() {
 
       try {
         await patchReminderStatus(active.id, { dateTime: newDateTime });
-        toast.success(`已移至 ${format(targetDate, "M/d")}`);
+        toast.success(t("movedTo", { date: format(targetDate, "M/d") }));
       } catch {
         queryClient.setQueryData(["tasks"], originalTasks);
-        toast.error("移動失敗");
+        toast.error(t("moveFailed"));
       }
     },
-    [tasks, queryClient]
+    [tasks, queryClient, t]
   );
 
   const handleCalendarDragCancel = useCallback(() => {
@@ -157,7 +159,7 @@ export default function CalendarPage() {
   };
 
   const renderDays = () => {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const days = [t("days.sun"), t("days.mon"), t("days.tue"), t("days.wed"), t("days.thu"), t("days.fri"), t("days.sat")];
     return (
       <div className="grid grid-cols-7 mb-2">
         {days.map((day) => (
@@ -299,10 +301,10 @@ export default function CalendarPage() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
             <FaCalendarAlt className="text-primary" />
-            Calendar
+            {t("title")}
           </h1>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Manage your schedule efficiently
+            {t("subtitle")}
           </p>
         </div>
         
@@ -316,7 +318,7 @@ export default function CalendarPage() {
                 : 'text-[var(--text-muted)] hover:bg-[var(--background)]'
             }`}
           >
-            Month
+            {t("month")}
           </button>
           <button
             onClick={() => setViewMode('timeline')}
@@ -326,7 +328,7 @@ export default function CalendarPage() {
                 : 'text-[var(--text-muted)] hover:bg-[var(--background)]'
             }`}
           >
-            Day View
+            {t("dayView")}
           </button>
         </div>
       </div>
@@ -353,15 +355,15 @@ export default function CalendarPage() {
 
             {/* Legend / Quick Stats */}
             <div className="mt-4 p-4 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)]">
-              <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Stats for {format(selectedDate, 'MMM d')}</h3>
+              <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{t("statsFor", { date: format(selectedDate, 'MMM d') })}</h3>
               <div className="flex gap-4 text-xs">
                  <div className="flex items-center gap-2">
                    <div className="w-2 h-2 rounded-full bg-primary"></div>
-                   <span style={{ color: "var(--text-secondary)" }}>{selectedDateTasks.filter(t => !t.completed).length} Pending</span>
+                   <span style={{ color: "var(--text-secondary)" }}>{selectedDateTasks.filter(t => !t.completed).length} {t("pending")}</span>
                  </div>
                  <div className="flex items-center gap-2">
                    <div className="w-2 h-2 rounded-full bg-success"></div>
-                   <span style={{ color: "var(--text-secondary)" }}>{selectedDateTasks.filter(t => t.completed).length} Done</span>
+                   <span style={{ color: "var(--text-secondary)" }}>{selectedDateTasks.filter(t => t.completed).length} {t("done")}</span>
                  </div>
               </div>
             </div>
@@ -376,7 +378,7 @@ export default function CalendarPage() {
               <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--card-border)]">
                 <div className="flex items-baseline gap-2">
                   <span className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-                    {isToday(selectedDate) ? "Today" : format(selectedDate, "EEE")}
+                    {isToday(selectedDate) ? t("today") : format(selectedDate, "EEE")}
                   </span>
                   <span className="text-sm" style={{ color: "var(--text-muted)" }}>
                     {format(selectedDate, "MMM d")}
