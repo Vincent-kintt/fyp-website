@@ -455,4 +455,21 @@ describe("PATCH /api/reminders/[id]", () => {
     const { status } = await parseResponse(res);
     expect(status).toBe(404);
   });
+
+  it("backward-compat: completed:false on snoozed reminder preserves snoozed status", async () => {
+    mockSession(TEST_USER);
+    const id = await insertReminder({
+      status: "snoozed",
+      completed: false,
+      snoozedUntil: new Date("2026-07-01T09:00:00Z"),
+    });
+    const req = createRequest("PATCH", `/api/reminders/${id}`, {
+      body: { completed: false },
+    });
+    const res = await PATCH(req, params({ id }));
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body.data.status).toBe("snoozed");
+    expect(body.data.completed).toBe(false);
+  });
 });

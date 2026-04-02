@@ -5,7 +5,7 @@ import { getModel } from "@/lib/ai/provider.js";
 import { generateText } from "ai";
 import * as chrono from "chrono-node";
 
-const PARSE_MODEL = "x-ai/grok-4.1-fast";
+const PARSE_MODEL = process.env.PARSE_TASK_MODEL || "x-ai/grok-4.1-fast";
 
 // Custom chrono parser with smart AM/PM inference
 // When time is ambiguous (no AM/PM), assume PM for hours 1-6 (people rarely schedule at 1-6 AM)

@@ -229,6 +229,45 @@ describe("listReminders", () => {
     expect(result.count).toBe(1);
     expect(result.reminders[0].title).toBe("Other user task");
   });
+
+  it("filter=today includes tasks from start of day (00:00)", async () => {
+    await getDb().collection("reminders").deleteMany({});
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+    const beforeToday = new Date(startOfToday.getTime() - 1);
+    await getDb()
+      .collection("reminders")
+      .insertMany([
+        {
+          title: "Midnight task",
+          dateTime: startOfToday,
+          userId: TEST_USER_ID,
+          status: "pending",
+          completed: false,
+          createdAt: now,
+        },
+        {
+          title: "Yesterday late",
+          dateTime: beforeToday,
+          userId: TEST_USER_ID,
+          status: "pending",
+          completed: false,
+          createdAt: now,
+        },
+      ]);
+
+    const result = await tools.listReminders.execute({ filter: "today" });
+    expect(result.reminders.map((r) => r.title)).toContain("Midnight task");
+    expect(result.reminders.map((r) => r.title)).not.toContain("Yesterday late");
+  });
 });
 
 // ============================================
