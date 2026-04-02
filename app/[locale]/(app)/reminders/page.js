@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { FaPlus } from "react-icons/fa";
 import ReminderList from "@/components/reminders/ReminderList";
 import ReminderFilter from "@/components/reminders/ReminderFilter";
@@ -9,6 +10,7 @@ import ExportButton from "@/components/reminders/ExportButton";
 import { useTasks } from "@/hooks/useTasks";
 
 export default function RemindersPage() {
+  const t = useTranslations("reminders");
   const { tasks: reminders, loading, deleteTask, refetch } = useTasks();
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [filters, setFilters] = useState({
@@ -92,10 +94,10 @@ export default function RemindersPage() {
             className="text-3xl font-bold mb-2"
             style={{ color: "var(--text-primary)" }}
           >
-            My Reminders
+            {t("title")}
           </h1>
           <p style={{ color: "var(--text-secondary)" }}>
-            Manage all your reminders in one place
+            {t("subtitle")}
           </p>
         </div>
         <ExportButton />
@@ -112,7 +114,7 @@ export default function RemindersPage() {
       <button
         onClick={() => setIsPanelOpen(true)}
         className="fixed bottom-8 right-8 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-110 z-30 flex items-center justify-center"
-        aria-label="Create new reminder"
+        aria-label={t("createNew")}
       >
         <FaPlus className="text-2xl" />
       </button>

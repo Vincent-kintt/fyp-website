@@ -27,13 +27,17 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
+
+      // Strip locale prefix (e.g. /en/dashboard -> /dashboard)
+      // Default locale (zh-TW) has no prefix thanks to localePrefix: "as-needed"
+      const pathname = nextUrl.pathname.replace(/^\/(en)(\/|$)/, "/");
+
       const isOnProtectedRoute =
-        nextUrl.pathname.startsWith("/reminders") ||
-        nextUrl.pathname.startsWith("/api/reminders") ||
-        nextUrl.pathname.startsWith("/dashboard") ||
-        nextUrl.pathname.startsWith("/inbox") ||
-        nextUrl.pathname.startsWith("/calendar");
-      
+        pathname.startsWith("/reminders") ||
+        pathname.startsWith("/dashboard") ||
+        pathname.startsWith("/inbox") ||
+        pathname.startsWith("/calendar");
+
       if (isOnProtectedRoute) {
         if (isLoggedIn) return true;
         return false; // Redirect to login
@@ -41,9 +45,11 @@ export const authConfig = {
 
       // Redirect logged-in users away from auth pages
       const isAuthPage =
-        nextUrl.pathname === "/login" || nextUrl.pathname === "/register";
+        pathname === "/login" || pathname === "/register";
       if (isAuthPage && isLoggedIn) {
-        return Response.redirect(new URL("/dashboard", nextUrl));
+        const localeMatch = nextUrl.pathname.match(/^\/(en)(\/|$)/);
+        const prefix = localeMatch ? `/${localeMatch[1]}` : "";
+        return Response.redirect(new URL(`${prefix}/dashboard`, nextUrl));
       }
 
       return true;

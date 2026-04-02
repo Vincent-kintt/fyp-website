@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations, useLocale } from "next-intl";
 import {
   FaSun,
   FaCalendarDay,
@@ -38,7 +39,7 @@ import {
   getSectionTargetStatus,
   getDefaultSnoozeUntil,
   computeNewDateTime,
-  getSectionLabel,
+  getSectionLabelKey,
   DROP_ANIMATION_CONFIG,
   createSectionAwareCollision,
 } from "@/lib/dnd";
@@ -46,6 +47,8 @@ import {
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const t = useTranslations("dashboard");
+  const locale = useLocale();
   const {
     tasks: rawTasks,
     loading,
@@ -379,7 +382,7 @@ export default function DashboardPage() {
           await reorderReminders(sortUpdates);
         } catch {
           queryClient.setQueryData(["tasks"], originalTasks);
-          toast.error("排序失敗");
+          toast.error(t("reorderFailed"));
         }
       } else {
         // Cross-section move
@@ -398,7 +401,7 @@ export default function DashboardPage() {
 
         // Block invalid transitions: COMPLETED ↔ SNOOZED
         if (isFromStatus && isToStatus) {
-          toast.warning("請先恢復任務再操作");
+          toast.warning(t("restoreFirst"));
           return;
         }
 
@@ -432,10 +435,10 @@ export default function DashboardPage() {
 
           try {
             await patchReminderStatus(active.id, statusBody);
-            toast.success(`已移至${getSectionLabel(targetSection)}`);
+            toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
           } catch {
             queryClient.setQueryData(["tasks"], originalTasks);
-            toast.error("移動失敗");
+            toast.error(t("moveFailed"));
           }
         } else {
           // Move TO a date section (from any source)
@@ -468,10 +471,10 @@ export default function DashboardPage() {
 
             try {
               await patchReminderStatus(active.id, statusBody);
-              toast.success(`已移至${getSectionLabel(targetSection)}`);
+              toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
             } catch {
               queryClient.setQueryData(["tasks"], originalTasks);
-              toast.error("移動失敗");
+              toast.error(t("moveFailed"));
             }
           } else {
             // Date → Date move (existing logic)
@@ -490,16 +493,16 @@ export default function DashboardPage() {
                   dateTime: newDateTime,
                 },
               ]);
-              toast.success(`已移至${getSectionLabel(targetSection)}`);
+              toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
             } catch {
               queryClient.setQueryData(["tasks"], originalTasks);
-              toast.error("移動失敗");
+              toast.error(t("moveFailed"));
             }
           }
         }
       }
     },
-    [tasks, taskToSection, getSectionTasks, queryClient],
+    [tasks, taskToSection, getSectionTasks, queryClient, t],
   );
 
   const handleDragCancel = useCallback(() => {
@@ -584,10 +587,10 @@ export default function DashboardPage() {
           style={{ color: "var(--text-primary)" }}
         >
           <FaSun className="text-yellow-500" />
-          Today
+          {t("title")}
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
-          {new Date().toLocaleDateString("en-US", {
+          {new Date().toLocaleDateString(locale === "zh-TW" ? "zh-TW" : "en-US", {
             weekday: "long",
             month: "long",
             day: "numeric",
@@ -602,7 +605,7 @@ export default function DashboardPage() {
       {nextTask && (
         <div className="mb-8">
           <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-text-muted">
-            Focus
+            {t("focus")}
           </h2>
           <NextTaskCard task={nextTask} onComplete={handleToggleComplete} />
         </div>
@@ -613,7 +616,7 @@ export default function DashboardPage() {
         <QuickAdd
           onAdd={handleQuickAdd}
           onOpenAI={handleOpenAIFromQuickAdd}
-          placeholder="What do you need to do today?"
+          placeholder={t("quickAddPlaceholder")}
         />
       </div>
 
@@ -630,7 +633,7 @@ export default function DashboardPage() {
         {/* Overdue Tasks */}
         {(overdueTasks.length > 0 || activeDragId) && (
           <TaskSection
-            title="Overdue"
+            title={t("overdue")}
             icon={<FaCalendarDay />}
             tasks={overdueTasks}
             onToggleComplete={handleToggleComplete}
@@ -639,7 +642,7 @@ export default function DashboardPage() {
             onSnooze={handleSnooze}
             onEdit={handleEditTask}
             accentColor="orange"
-            emptyMessage="No overdue tasks"
+            emptyMessage={t("noOverdue")}
             sortable
             sectionId={SECTION_IDS.OVERDUE}
             droppable
@@ -655,7 +658,7 @@ export default function DashboardPage() {
 
         {/* Today's Tasks */}
         <TaskSection
-          title="Today"
+          title={t("todaySection")}
           icon={<FaSun />}
           tasks={todayTasks}
           onToggleComplete={handleToggleComplete}
@@ -665,10 +668,10 @@ export default function DashboardPage() {
           onEdit={handleEditTask}
           accentColor="blue"
           showDate={false}
-          emptyMessage="No tasks for today."
+          emptyMessage={t("noToday")}
           emptyAction={{
-            text: "Plan my day with AI",
-            subtext: "Let AI organize your schedule",
+            text: t("planWithAI"),
+            subtext: t("planWithAISubtext"),
             onClick: () => setIsAIModalOpen(true),
           }}
           sortable
@@ -685,7 +688,7 @@ export default function DashboardPage() {
 
         {/* Tomorrow's Tasks */}
         <TaskSection
-          title="Tomorrow"
+          title={t("tomorrow")}
           icon={<FaCalendarDay />}
           tasks={tomorrowTasks}
           onToggleComplete={handleToggleComplete}
@@ -695,7 +698,7 @@ export default function DashboardPage() {
           onEdit={handleEditTask}
           accentColor="green"
           defaultCollapsed={todayTasks.length > 3}
-          emptyMessage="No tasks for tomorrow"
+          emptyMessage={t("noTomorrow")}
           sortable
           sectionId={SECTION_IDS.TOMORROW}
           droppable
@@ -711,7 +714,7 @@ export default function DashboardPage() {
         {/* This Week */}
         {(thisWeekTasks.length > 0 || activeDragId) && (
           <TaskSection
-            title="This Week"
+            title={t("thisWeek")}
             icon={<FaCalendarWeek />}
             tasks={thisWeekTasks}
             onToggleComplete={handleToggleComplete}
@@ -737,7 +740,7 @@ export default function DashboardPage() {
         {/* Snoozed Tasks */}
         {(snoozedTasks.length > 0 || activeDragId) && (
           <TaskSection
-            title="已延後"
+            title={t("snoozed")}
             icon={<FaMoon />}
             tasks={snoozedTasks}
             onToggleComplete={handleToggleComplete}
@@ -762,7 +765,7 @@ export default function DashboardPage() {
 
         {/* Completed Today — always visible */}
         <TaskSection
-          title="Completed Today"
+          title={t("completedToday")}
           icon={<FaCheckCircle />}
           tasks={completedToday}
           onToggleComplete={handleToggleComplete}

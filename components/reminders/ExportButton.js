@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { FaDownload, FaSpinner, FaFileCsv, FaFileCode } from "react-icons/fa";
 
 export default function ExportButton() {
+  const t = useTranslations("export");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const menuRef = useRef(null);
@@ -43,7 +45,7 @@ export default function ExportButton() {
         downloadBlob(blob, `reminders-export-${today}.csv`);
       }
     } catch {
-      alert("匯出失敗，請稍後再試");
+      alert(t("exportFailed"));
     } finally {
       setLoading(false);
     }
@@ -72,7 +74,7 @@ export default function ExportButton() {
         ) : (
           <FaDownload />
         )}
-        Export
+        {t("export")}
       </button>
 
       {open && (

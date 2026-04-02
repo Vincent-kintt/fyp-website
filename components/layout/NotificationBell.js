@@ -2,6 +2,7 @@
 
 import { FaBell, FaBellSlash } from "react-icons/fa";
 import { FaSpinner } from "react-icons/fa";
+import { useTranslations } from "next-intl";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { toast } from "sonner";
 
@@ -15,31 +16,31 @@ export default function NotificationBell() {
     unsubscribe,
   } = usePushNotification();
 
+  const t = useTranslations("notifications");
+
   if (!isSupported) return null;
 
   const handleClick = async () => {
     if (isLoading) return;
 
     if (isDenied) {
-      toast.error(
-        "Notifications are blocked. Please enable them in browser settings."
-      );
+      toast.error(t("blocked"));
       return;
     }
 
     if (isSubscribed) {
       const success = await unsubscribe();
       if (success) {
-        toast.success("Notifications disabled");
+        toast.success(t("disabled"));
       } else {
-        toast.error("Failed to disable notifications");
+        toast.error(t("disableFailed"));
       }
     } else {
       const success = await subscribe();
       if (success) {
-        toast.success("Notifications enabled!");
+        toast.success(t("enabled"));
       } else if (!isDenied) {
-        toast.error("Failed to enable notifications");
+        toast.error(t("enableFailed"));
       }
     }
   };
@@ -51,9 +52,9 @@ export default function NotificationBell() {
   };
 
   const getLabel = () => {
-    if (isDenied) return "Notifications blocked";
-    if (isSubscribed) return "Disable notifications";
-    return "Enable notifications";
+    if (isDenied) return t("blockedLabel");
+    if (isSubscribed) return t("disableLabel");
+    return t("enableLabel");
   };
 
   return (

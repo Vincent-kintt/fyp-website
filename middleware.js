@@ -1,19 +1,20 @@
+import createMiddleware from "next-intl/middleware";
 import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
+import { routing } from "./i18n/routing";
 
-export const { auth: middleware } = NextAuth(authConfig);
+const intlMiddleware = createMiddleware(routing);
+const { auth } = NextAuth(authConfig);
+
+export default auth((req) => {
+  // Auth callback already ran — `req.auth` is populated.
+  // Let next-intl handle locale negotiation & rewriting for every request.
+  return intlMiddleware(req);
+});
 
 export const config = {
   matcher: [
-    "/reminders/:path*",
-    "/api/reminders/:path*",
-    "/api/ai/:path*",
-    "/api/push/:path*",
-    "/api/account/:path*",
-    "/dashboard",
-    "/inbox",
-    "/calendar",
-    "/login",
-    "/register",
+    // Match all paths except static assets, _next internals, and API routes
+    "/((?!api|_next|.*\\..*).*)",
   ],
 };

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { FaClock, FaTag, FaEdit, FaArrowLeft, FaTrash, FaHourglass, FaFlag, FaStickyNote, FaSync, FaPlay, FaCheck, FaPause, FaCheckCircle } from "react-icons/fa";
+import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -14,6 +16,11 @@ import { formatDateFull } from "@/lib/format";
 export default function ReminderDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const t = useTranslations("reminders");
+  const tStatus = useTranslations("status");
+  const tPriority = useTranslations("priority");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
   const [reminder, setReminder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -28,21 +35,21 @@ export default function ReminderDetailPage() {
         if (data.success) {
           setReminder(data.data);
         } else {
-          setError("Reminder not found");
+          setError(t("notFound"));
         }
       } catch (err) {
         console.error("Error fetching reminder:", err);
-        setError("Failed to load reminder");
+        setError(t("failedToLoad"));
       } finally {
         setLoading(false);
       }
     };
 
     fetchReminder();
-  }, [params.id]);
+  }, [params.id, t]);
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this reminder?")) {
+    if (!confirm(t("confirmDelete"))) {
       return;
     }
 
@@ -52,21 +59,21 @@ export default function ReminderDetailPage() {
       });
 
       if (response.ok) {
-        toast.success("Reminder deleted");
+        toast.success(t("deleted"));
         router.push("/reminders");
         router.refresh();
       } else {
-        toast.error("Failed to delete reminder");
+        toast.error(t("deleteFailed"));
       }
     } catch (err) {
       console.error("Error deleting reminder:", err);
-      toast.error("Failed to delete reminder");
+      toast.error(t("deleteFailed"));
     }
   };
 
   const handleSave = (updatedReminder) => {
     setReminder(updatedReminder);
-    toast.success("Reminder updated");
+    toast.success(t("updated"));
   };
 
   const StatusIcon = {
@@ -81,7 +88,7 @@ export default function ReminderDetailPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p style={{ color: "var(--text-secondary)" }}>Loading reminder...</p>
+          <p style={{ color: "var(--text-secondary)" }}>{t("loading")}</p>
         </div>
       </div>
     );
@@ -91,7 +98,7 @@ export default function ReminderDetailPage() {
     return (
       <div className="max-w-3xl mx-auto">
         <div className="bg-danger-light border border-danger/30 text-danger px-4 py-3 rounded-lg">
-          {error || "Reminder not found"}
+          {error || t("notFound")}
         </div>
       </div>
     );
@@ -112,7 +119,7 @@ export default function ReminderDetailPage() {
         className="mb-6 flex items-center space-x-2"
       >
         <FaArrowLeft />
-        <span>Back to Reminders</span>
+        <span>{t("backToReminders")}</span>
       </Button>
 
       <Card>
@@ -127,13 +134,13 @@ export default function ReminderDetailPage() {
             {/* Status */}
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${statusConfig.color}`}>
               <StatusIconComponent className="w-3 h-3" />
-              {statusConfig.label}
+              {tStatus(status)}
             </span>
 
             {/* Priority */}
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${pConfig.badgeClass}`}>
               <FaFlag className="w-3 h-3" />
-              {pConfig.label}
+              {tPriority(priority)}
             </span>
 
             {/* Duration */}
@@ -157,7 +164,7 @@ export default function ReminderDetailPage() {
         {/* Date & Time */}
         <div className="mb-5 flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           <FaClock className="w-4 h-4 flex-shrink-0" />
-          <span>{formatDateFull(reminder.dateTime)}</span>
+          <span>{formatDateFull(reminder.dateTime, locale)}</span>
         </div>
 
         {/* Tags */}
@@ -179,7 +186,7 @@ export default function ReminderDetailPage() {
         {reminder.description && (
           <div className="mb-5">
             <h2 className="text-sm font-semibold mb-2 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Description
+              {t("description")}
             </h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
               {reminder.description}
@@ -237,11 +244,11 @@ export default function ReminderDetailPage() {
             className="flex items-center space-x-2"
           >
             <FaEdit />
-            <span>Edit</span>
+            <span>{t("edit")}</span>
           </Button>
           <Button variant="danger" onClick={handleDelete} className="flex items-center space-x-2">
             <FaTrash />
-            <span>Delete</span>
+            <span>{t("delete")}</span>
           </Button>
         </div>
       </Card>

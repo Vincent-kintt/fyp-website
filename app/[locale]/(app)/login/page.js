@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useRouter, Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { FaBell } from "react-icons/fa";
@@ -12,6 +13,7 @@ import ErrorState from "@/components/ui/ErrorState";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations("login");
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -47,7 +49,7 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch (error) {
-      setError("An error occurred. Please try again.");
+      setError(t("errorGeneric"));
       setIsLoading(false);
     }
   };
@@ -59,16 +61,16 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center">
           <FaBell className="mx-auto text-primary text-6xl mb-4" />
-          <h2 className="text-3xl font-bold text-text-primary">ReminderApp</h2>
+          <h2 className="text-3xl font-bold text-text-primary">{t("title")}</h2>
           <p className="mt-2 text-sm text-text-muted">
-            Sign in to your account
+            {t("subtitle")}
           </p>
         </div>
 
         {/* Registration success message */}
         {searchParams.get("registered") === "true" && (
           <div className="bg-success-light border border-success/30 text-success px-4 py-3 rounded-lg text-sm">
-            Registration successful! Please sign in.
+            {t("registrationSuccess")}
           </div>
         )}
 
@@ -77,22 +79,22 @@ export default function LoginPage() {
           {error && <ErrorState message={error} />}
 
           <Input
-            label="Username"
+            label={t("username")}
             type="text"
             name="username"
             value={formData.username}
             onChange={handleChange}
-            placeholder="Enter your username"
+            placeholder={t("usernamePlaceholder")}
             required
           />
 
           <Input
-            label="Password"
+            label={t("password")}
             type="password"
             name="password"
             value={formData.password}
             onChange={handleChange}
-            placeholder="Enter your password"
+            placeholder={t("passwordPlaceholder")}
             required
           />
 
@@ -102,22 +104,22 @@ export default function LoginPage() {
             className="w-full"
             loading={isLoading}
           >
-            Sign In
+            {t("signIn")}
           </Button>
 
           <p className="text-center text-sm text-text-muted">
-            Don&apos;t have an account?{" "}
+            {t("noAccount")}{" "}
             <Link href="/register" className="text-primary hover:underline font-medium">
-              Sign up
+              {t("signUp")}
             </Link>
           </p>
 
           {/* Demo Accounts Info */}
           <div className="mt-6 p-4 bg-info-light border border-info/30 rounded">
-            <p className="text-sm font-semibold text-info mb-2">Demo Accounts:</p>
+            <p className="text-sm font-semibold text-info mb-2">{t("demoTitle")}</p>
             <div className="text-sm text-info/80 space-y-1">
-              <p>Admin: username: <code className="bg-info/10 text-info px-2 py-1 rounded">admin</code> / password: <code className="bg-info/10 text-info px-2 py-1 rounded">admin</code></p>
-              <p>User: username: <code className="bg-info/10 text-info px-2 py-1 rounded">user</code> / password: <code className="bg-info/10 text-info px-2 py-1 rounded">user</code></p>
+              <p>{t("demoAdmin", { username: "admin", password: "admin" })}</p>
+              <p>{t("demoUser", { username: "user", password: "user" })}</p>
             </div>
           </div>
         </form>

@@ -1,5 +1,5 @@
 import { FaSpinner } from "react-icons/fa";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 
 export default function Button({
   children,

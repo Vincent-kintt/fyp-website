@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useRouter, Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { FaBell } from "react-icons/fa";
@@ -10,6 +10,7 @@ import ErrorState from "@/components/ui/ErrorState";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const t = useTranslations("register");
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -34,23 +35,23 @@ export default function RegisterPage() {
     // Client-side validation
     const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
     if (!usernameRegex.test(formData.username)) {
-      setError("Username must be 3-20 characters and contain only letters, numbers, and underscores.");
+      setError(t("errorUsername"));
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setError("Please provide a valid email address.");
+      setError(t("errorEmail"));
       return;
     }
 
     if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t("errorPasswordLength"));
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t("errorPasswordMismatch"));
       return;
     }
 
@@ -70,14 +71,14 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Registration failed. Please try again.");
+        setError(data.error || t("errorGeneric"));
         setIsLoading(false);
         return;
       }
 
       router.push("/login?registered=true");
     } catch {
-      setError("An error occurred. Please try again.");
+      setError(t("errorGeneric"));
       setIsLoading(false);
     }
   };
@@ -89,9 +90,9 @@ export default function RegisterPage() {
         {/* Logo */}
         <div className="text-center">
           <FaBell className="mx-auto text-primary text-6xl mb-4" />
-          <h2 className="text-3xl font-bold text-text-primary">ReminderApp</h2>
+          <h2 className="text-3xl font-bold text-text-primary">{t("title")}</h2>
           <p className="mt-2 text-sm text-text-muted">
-            Create your account
+            {t("subtitle")}
           </p>
         </div>
 
@@ -104,42 +105,42 @@ export default function RegisterPage() {
           {error && <ErrorState message={error} />}
 
           <Input
-            label="Username"
+            label={t("username")}
             type="text"
             name="username"
             value={formData.username}
             onChange={handleChange}
-            placeholder="3-20 characters, letters, numbers, underscores"
+            placeholder={t("usernamePlaceholder")}
             required
           />
 
           <Input
-            label="Email"
+            label={t("email")}
             type="email"
             name="email"
             value={formData.email}
             onChange={handleChange}
-            placeholder="Enter your email"
+            placeholder={t("emailPlaceholder")}
             required
           />
 
           <Input
-            label="Password"
+            label={t("password")}
             type="password"
             name="password"
             value={formData.password}
             onChange={handleChange}
-            placeholder="At least 8 characters"
+            placeholder={t("passwordPlaceholder")}
             required
           />
 
           <Input
-            label="Confirm Password"
+            label={t("confirmPassword")}
             type="password"
             name="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleChange}
-            placeholder="Re-enter your password"
+            placeholder={t("confirmPasswordPlaceholder")}
             required
           />
 
@@ -149,13 +150,13 @@ export default function RegisterPage() {
             className="w-full"
             loading={isLoading}
           >
-            Create Account
+            {t("createAccount")}
           </Button>
 
           <p className="text-center text-sm text-text-muted">
-            Already have an account?{" "}
+            {t("hasAccount")}{" "}
             <Link href="/login" className="text-primary hover:underline font-medium">
-              Sign in
+              {t("signIn")}
             </Link>
           </p>
         </form>

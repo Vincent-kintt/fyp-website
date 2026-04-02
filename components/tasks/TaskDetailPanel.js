@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { FaTimes } from "react-icons/fa";
+import { useTranslations } from "next-intl";
 import TaskEditForm from "./TaskEditForm";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { toast } from "sonner";
 
 export default function TaskDetailPanel({ taskId, tasks, onClose, onSave }) {
+  const t = useTranslations("editForm");
   const [shouldRender, setShouldRender] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [contentKey, setContentKey] = useState(taskId);
@@ -75,8 +77,8 @@ export default function TaskDetailPanel({ taskId, tasks, onClose, onSave }) {
 
   const handleFormSave = useCallback((updatedTask) => {
     onSave(updatedTask);
-    toast.success("已儲存");
-  }, [onSave]);
+    toast.success(t("saved"));
+  }, [onSave, t]);
 
   if (!shouldRender) return null;
 
@@ -90,7 +92,7 @@ export default function TaskDetailPanel({ taskId, tasks, onClose, onSave }) {
 
   const ariaProps = isMobile
     ? { role: "dialog", "aria-modal": true, "aria-labelledby": "panel-title" }
-    : { role: "complementary", "aria-label": "Task details" };
+    : { role: "complementary", "aria-label": t("taskDetails") };
 
   return (
     <>
@@ -115,7 +117,7 @@ export default function TaskDetailPanel({ taskId, tasks, onClose, onSave }) {
             className="text-lg font-semibold truncate"
             style={{ color: "var(--text-primary)" }}
           >
-            Task Details
+            {t("taskDetails")}
           </h2>
           <button
             onClick={onClose}

@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { FaClock } from "react-icons/fa";
 import { getSnoozePresets } from "@/lib/utils";
 
 export default function SnoozePopover({ taskId, onSnooze, onClose, anchorRef }) {
+  const t = useTranslations("snooze");
   const [showCustom, setShowCustom] = useState(false);
   const [customDate, setCustomDate] = useState("");
   const [customTime, setCustomTime] = useState("09:00");
@@ -111,19 +113,19 @@ export default function SnoozePopover({ taskId, onSnooze, onClose, anchorRef }) 
           className="px-3 py-2 text-xs font-semibold border-b"
           style={{ color: "var(--text-muted)", borderColor: "var(--border)" }}
         >
-          延後提醒
+          {t("title")}
         </div>
 
         {/* Preset options */}
         <div className="py-1">
           {presets.map((preset) => (
             <button
-              key={preset.label}
+              key={preset.labelKey}
               onClick={() => handlePresetClick(preset)}
               className="w-full flex items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-hover)]"
               style={{ color: "var(--text-primary)" }}
             >
-              <span>{preset.label}</span>
+              <span>{t(preset.labelKey)}</span>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                 {preset.sublabel}
               </span>
@@ -142,7 +144,7 @@ export default function SnoozePopover({ taskId, onSnooze, onClose, anchorRef }) 
             style={{ color: "var(--text-primary)" }}
           >
             <FaClock className="w-3 h-3" style={{ color: "var(--text-muted)" }} />
-            <span>自訂時間...</span>
+            <span>{t("customTime")}</span>
           </button>
 
           {showCustom && (
@@ -174,7 +176,7 @@ export default function SnoozePopover({ taskId, onSnooze, onClose, anchorRef }) 
                 onClick={handleCustomSubmit}
                 className="w-full py-1.5 text-sm font-medium rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors"
               >
-                確認
+                {t("confirm")}
               </button>
             </div>
           )}

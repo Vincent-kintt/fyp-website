@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { FaTimes } from "react-icons/fa";
+import { useTranslations } from "next-intl";
 import TaskEditForm from "@/components/tasks/TaskEditForm";
 
 export default function EditReminderModal({ isOpen, onClose, reminder, onSave }) {
+  const t = useTranslations("editForm");
   const [isClosing, setIsClosing] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
 
@@ -67,7 +69,7 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
         {/* Fixed Header */}
         <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-[var(--card-border)]">
           <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-            Edit Reminder
+            {t("editReminder")}
           </h2>
           <button
             onClick={handleAnimatedClose}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FaClock, FaTag, FaEdit, FaTrash, FaStickyNote, FaPlay, FaCheck, FaPause } from "react-icons/fa";
+import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import Card from "../ui/Card";
 import EditReminderModal from "./EditReminderModal";
@@ -10,6 +11,9 @@ import { getCategoryColor } from "@/lib/taskConfig";
 import { formatDateMedium } from "@/lib/format";
 
 export default function ReminderCard({ reminder, onDelete, onUpdate }) {
+  const t = useTranslations("reminders");
+  const tStatus = useTranslations("status");
+  const locale = useLocale();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentReminder, setCurrentReminder] = useState(reminder);
 
@@ -18,7 +22,7 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
     if (onUpdate) {
       onUpdate(updatedReminder);
     }
-    toast.success("Reminder updated");
+    toast.success(t("updated"));
   };
   // Get tags or fallback to category
   const tags = currentReminder.tags?.length > 0 
@@ -70,7 +74,7 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`inline-flex items-center gap-1 text-xs font-medium ${statusConfig.textColor}`}>
               <StatusIcon className="w-3 h-3" />
-              {statusConfig.label}
+              {tStatus(status)}
             </span>
             
             {/* Duration Badge */}
@@ -84,7 +88,7 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
           
           <div className="flex items-center space-x-1">
             <FaClock className="flex-shrink-0" />
-            <span>{formatDateMedium(currentReminder.dateTime)}</span>
+            <span>{formatDateMedium(currentReminder.dateTime, locale)}</span>
           </div>
           
           {/* Tags Display */}

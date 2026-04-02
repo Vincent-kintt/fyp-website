@@ -20,7 +20,7 @@ vi.mock("@dnd-kit/sortable", () => ({
 const {
   computeSortOrders,
   computeNewDateTime,
-  getSectionLabel,
+  getSectionLabelKey,
   getSectionTargetStatus,
   parseDayDropId,
   SECTION_IDS,
@@ -57,15 +57,15 @@ describe("computeNewDateTime", () => {
   });
 });
 
-describe("getSectionLabel", () => {
-  it("returns correct label for all section IDs", () => {
-    expect(getSectionLabel(SECTION_IDS.OVERDUE)).toBe("Today");
-    expect(getSectionLabel(SECTION_IDS.TODAY)).toBe("Today");
-    expect(getSectionLabel(SECTION_IDS.TOMORROW)).toBe("Tomorrow");
-    expect(getSectionLabel(SECTION_IDS.THIS_WEEK)).toBe("This Week");
-    expect(getSectionLabel(SECTION_IDS.COMPLETED)).toBe("Completed");
-    expect(getSectionLabel(SECTION_IDS.SNOOZED)).toBe("Snoozed");
-    expect(getSectionLabel("unknown-section")).toBe("");
+describe("getSectionLabelKey", () => {
+  it("returns correct i18n key for all section IDs", () => {
+    expect(getSectionLabelKey(SECTION_IDS.OVERDUE)).toBe("todaySection");
+    expect(getSectionLabelKey(SECTION_IDS.TODAY)).toBe("todaySection");
+    expect(getSectionLabelKey(SECTION_IDS.TOMORROW)).toBe("tomorrow");
+    expect(getSectionLabelKey(SECTION_IDS.THIS_WEEK)).toBe("thisWeek");
+    expect(getSectionLabelKey(SECTION_IDS.COMPLETED)).toBe("completedToday");
+    expect(getSectionLabelKey(SECTION_IDS.SNOOZED)).toBe("snoozed");
+    expect(getSectionLabelKey("unknown-section")).toBe("");
   });
 });
 
