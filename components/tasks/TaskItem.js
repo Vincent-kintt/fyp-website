@@ -9,8 +9,9 @@ import {
   FaChevronUp,
   FaMoon,
 } from "react-icons/fa";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
+import { zhTW } from "date-fns/locale";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
 import DragHandle from "@/components/ui/DragHandle";
 import SnoozePopover from "./SnoozePopover";
@@ -36,6 +37,7 @@ const TaskItem = memo(
     ref,
   ) {
     const t = useTranslations("taskItem");
+    const locale = useLocale();
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [currentTask, setCurrentTask] = useState(task);
     const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
@@ -55,13 +57,17 @@ const TaskItem = memo(
 
     const formatTaskDate = (dateTime) => {
       const date = new Date(dateTime);
+      const isZh = locale === "zh-TW";
+      const timeStr = format(date, isZh ? "HH:mm" : "h:mm a");
       if (isToday(date)) {
-        return t("todayAt", { time: format(date, "h:mm a") });
+        return t("todayAt", { time: timeStr });
       }
       if (isTomorrow(date)) {
-        return t("tomorrowAt", { time: format(date, "h:mm a") });
+        return t("tomorrowAt", { time: timeStr });
       }
-      return format(date, "MMM d 'at' h:mm a");
+      return isZh
+        ? format(date, "M月d日 HH:mm", { locale: zhTW })
+        : format(date, "MMM d 'at' h:mm a");
     };
 
     const subtasks = currentTask.subtasks || [];

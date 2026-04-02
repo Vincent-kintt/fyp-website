@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "@/i18n/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import {
   FaSun,
   FaCalendarDay,
@@ -48,6 +48,7 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const t = useTranslations("dashboard");
+  const locale = useLocale();
   const {
     tasks: rawTasks,
     loading,
@@ -589,7 +590,7 @@ export default function DashboardPage() {
           {t("title")}
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
-          {new Date().toLocaleDateString("en-US", {
+          {new Date().toLocaleDateString(locale === "zh-TW" ? "zh-TW" : "en-US", {
             weekday: "long",
             month: "long",
             day: "numeric",
