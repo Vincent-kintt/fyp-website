@@ -277,6 +277,17 @@
     "loading": "Loading...",
     "noTasks": "No tasks",
     "inMinutes": "in {minutes} min",
-    "inHoursMinutes": "in {hours}h {minutes}m"
+    "inHoursMinutes": "in {hours}h {minutes}m",
+    "updateFailed": "Update failed",
+    "completed": "Completed",
+    "undo": "Undo",
+    "deleteFailed": "Delete failed",
+    "deleted": "Deleted",
+    "snoozeFailed": "Snooze failed",
+    "cancelSnoozeFailed": "Cancel snooze failed",
+    "snoozed": "Snoozed",
+    "snoozeCancelled": "Snooze cancelled",
+    "taskAdded": "Task added",
+    "addFailed": "Add failed"
   }
 }

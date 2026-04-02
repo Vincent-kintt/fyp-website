@@ -1,8 +1,10 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { getTagClasses } from "@/lib/utils";
 
 export default function ReminderFilter({ filters, onFilterChange, availableTags = [] }) {
+  const t = useTranslations("reminders");
   return (
     <div 
       className="p-4 rounded-lg shadow-md mb-6"
@@ -17,7 +19,7 @@ export default function ReminderFilter({ filters, onFilterChange, availableTags 
         <div className="flex-1 min-w-[200px]">
           <input
             type="text"
-            placeholder="Search reminders..."
+            placeholder={t("searchPlaceholder")}
             value={filters.search || ""}
             onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
             className="w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
@@ -59,7 +61,7 @@ export default function ReminderFilter({ filters, onFilterChange, availableTags 
               onClick={() => onFilterChange({ ...filters, tag: null })}
               className="px-2 py-1 text-xs text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
             >
-              Clear
+              {t("clear")}
             </button>
           )}
         </div>
@@ -77,9 +79,9 @@ export default function ReminderFilter({ filters, onFilterChange, availableTags 
               color: "var(--text-primary)",
             }}
           >
-            <option value="all">All Types</option>
-            <option value="one-time">One-time</option>
-            <option value="recurring">Recurring</option>
+            <option value="all">{t("allTypes")}</option>
+            <option value="one-time">{t("oneTime")}</option>
+            <option value="recurring">{t("recurring")}</option>
           </select>
         </div>
       </div>

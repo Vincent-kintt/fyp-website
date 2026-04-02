@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useRef, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 const TASKS_KEY = ["tasks"];
@@ -18,6 +19,7 @@ async function fetchTasksFromApi() {
 export function useTasks() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const t = useTranslations("common");
   const wokenIdsRef = useRef(new Set());
   const deleteTimersRef = useRef(new Map());
 
@@ -88,13 +90,13 @@ export function useTasks() {
     onError: (_, __, context) => {
       if (context?.previous)
         queryClient.setQueryData(TASKS_KEY, context.previous);
-      toast.error("更新失敗");
+      toast.error(t("updateFailed"));
     },
     onSuccess: (_, { id, completed }) => {
       if (completed) {
-        toast.success("已完成", {
+        toast.success(t("completed"), {
           action: {
-            label: "撤銷",
+            label: t("undo"),
             onClick: () => toggleMutation.mutate({ id, completed: false }),
           },
           duration: 3000,
@@ -123,15 +125,15 @@ export function useTasks() {
           queryClient.invalidateQueries({ queryKey: TASKS_KEY });
         } catch {
           queryClient.setQueryData(TASKS_KEY, previous);
-          toast.error("刪除失敗");
+          toast.error(t("deleteFailed"));
         }
       }, 5000);
 
       deleteTimersRef.current.set(id, timer);
 
-      toast("已刪除", {
+      toast(t("deleted"), {
         action: {
-          label: "撤銷",
+          label: t("undo"),
           onClick: () => {
             clearTimeout(timer);
             deleteTimersRef.current.delete(id);
@@ -141,7 +143,7 @@ export function useTasks() {
         duration: 5000,
       });
     },
-    [queryClient]
+    [queryClient, t]
   );
 
   // ---- Update (no optimistic, invalidate on success) ----
@@ -157,7 +159,7 @@ export function useTasks() {
       }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
-    onError: () => toast.error("更新失敗"),
+    onError: () => toast.error(t("updateFailed")),
   });
 
   // ---- Snooze / cancel snooze (optimistic) ----
@@ -194,10 +196,10 @@ export function useTasks() {
     onError: (_, { snoozedUntil }, context) => {
       if (context?.previous)
         queryClient.setQueryData(TASKS_KEY, context.previous);
-      toast.error(snoozedUntil ? "延後失敗" : "取消延後失敗");
+      toast.error(snoozedUntil ? t("snoozeFailed") : t("cancelSnoozeFailed"));
     },
     onSuccess: (_, { snoozedUntil }) => {
-      toast.success(snoozedUntil ? "已延後提醒" : "已取消延後");
+      toast.success(snoozedUntil ? t("snoozed") : t("snoozeCancelled"));
     },
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
@@ -216,9 +218,9 @@ export function useTasks() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TASKS_KEY });
-      toast.success("Task added");
+      toast.success(t("taskAdded"));
     },
-    onError: () => toast.error("新增失敗"),
+    onError: () => toast.error(t("addFailed")),
   });
 
   // ---- Cleanup delete timers on unmount ----

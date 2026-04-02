@@ -277,6 +277,17 @@
     "loading": "載入中...",
     "noTasks": "沒有任務",
     "inMinutes": "{minutes} 分鐘後",
-    "inHoursMinutes": "{hours} 小時 {minutes} 分後"
+    "inHoursMinutes": "{hours} 小時 {minutes} 分後",
+    "updateFailed": "更新失敗",
+    "completed": "已完成",
+    "undo": "撤銷",
+    "deleteFailed": "刪除失敗",
+    "deleted": "已刪除",
+    "snoozeFailed": "延後失敗",
+    "cancelSnoozeFailed": "取消延後失敗",
+    "snoozed": "已延後提醒",
+    "snoozeCancelled": "已取消延後",
+    "taskAdded": "已新增任務",
+    "addFailed": "新增失敗"
   }
 }

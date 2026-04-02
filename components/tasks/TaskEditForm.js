@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { FaTimes, FaClock, FaSync, FaPlus, FaTrash, FaPlay, FaCheck, FaPause } from "react-icons/fa";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition, calculateEndTime } from "@/lib/utils";
 
 export default function TaskEditForm({ reminder, isActive, onSave, onCancel, variant = "modal", className = "" }) {
+  const t = useTranslations("editForm");
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -63,11 +65,11 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.title.trim()) {
-      setError("Title is required");
+      setError(t("titleRequired"));
       return;
     }
     if (!formData.dateTime) {
-      setError("Date & Time is required");
+      setError(t("dateRequired"));
       return;
     }
 
@@ -86,11 +88,11 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
       if (data.success) {
         onSave({ ...reminder, ...formData });
       } else {
-        toast.error(data.error || "Failed to update reminder");
+        toast.error(data.error || t("updateFailed"));
       }
     } catch (err) {
       console.error("Error updating reminder:", err);
-      toast.error("Failed to update reminder");
+      toast.error(t("updateFailed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -208,14 +210,14 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
 
         {/* ── CONTENT ── */}
         <div className="space-y-3">
-          <SectionLabel>Content</SectionLabel>
+          <SectionLabel>{t("content")}</SectionLabel>
           <input
             id="edit-title"
             name="title"
             type="text"
             value={formData.title}
             onChange={handleChange}
-            placeholder="Task name"
+            placeholder={t("titlePlaceholder")}
             className="w-full px-2 py-2 rounded-lg text-[16px] font-semibold bg-transparent border border-transparent outline-none transition-all focus:ring-2 focus:ring-blue-500/30 focus:border-[var(--card-border)] focus:bg-[var(--input-bg)]"
             style={{ color: "var(--text-primary)" }}
             autoFocus
@@ -225,7 +227,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
             name="description"
             value={formData.description}
             onChange={handleChange}
-            placeholder="Add notes..."
+            placeholder={t("notesPlaceholder")}
             rows="2"
             className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 resize-none text-[14px]"
             style={{
@@ -239,7 +241,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
             name="remark"
             value={formData.remark}
             onChange={handleChange}
-            placeholder="Remark (optional)..."
+            placeholder={t("remarkPlaceholder")}
             rows="2"
             className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 resize-none text-[14px]"
             style={{
@@ -252,7 +254,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
 
         {/* ── SCHEDULE ── */}
         <div className="space-y-3">
-          <SectionLabel>Schedule</SectionLabel>
+          <SectionLabel>{t("schedule")}</SectionLabel>
 
           {/* Date & Time */}
           <div>
@@ -262,7 +264,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
               style={{ color: "var(--text-secondary)" }}
             >
               <FaClock className="w-3.5 h-3.5" />
-              Date & Time <span className="text-red-500">*</span>
+              {t("dateTime")} <span className="text-red-500">*</span>
             </label>
             <input
               id="edit-dateTime"
@@ -283,7 +285,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
           <div>
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>
-                Duration
+                {t("duration")}
               </span>
               {formData.duration && (
                 <span className="text-[11px] bg-gray-500/20 px-1.5 py-0.5 rounded" style={{ color: "var(--text-muted)" }}>
@@ -326,7 +328,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
               />
               <span className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>
                 <FaSync className="w-3 h-3" />
-                Repeat
+                {t("repeat")}
               </span>
             </label>
             {formData.recurring && (
@@ -341,10 +343,10 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
                   color: "var(--text-primary)"
                 }}
               >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
+                <option value="daily">{t("daily")}</option>
+                <option value="weekly">{t("weekly")}</option>
+                <option value="monthly">{t("monthly")}</option>
+                <option value="yearly">{t("yearly")}</option>
               </select>
             )}
           </div>
@@ -352,11 +354,11 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
 
         {/* ── DETAILS ── */}
         <div className="space-y-3">
-          <SectionLabel>Details</SectionLabel>
+          <SectionLabel>{t("details")}</SectionLabel>
           <div className="grid grid-cols-2 gap-4">
             {/* Status */}
             <div>
-              <span className="text-[12px] font-medium mb-1.5 block" style={{ color: "var(--text-muted)" }}>Status</span>
+              <span className="text-[12px] font-medium mb-1.5 block" style={{ color: "var(--text-muted)" }}>{t("status")}</span>
               <div className="grid grid-cols-1 gap-1.5">
                 {REMINDER_STATUSES.map((s) => {
                   const config = getStatusConfig(s);
@@ -387,7 +389,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
 
             {/* Priority */}
             <div>
-              <span className="text-[12px] font-medium mb-1.5 block" style={{ color: "var(--text-muted)" }}>Priority</span>
+              <span className="text-[12px] font-medium mb-1.5 block" style={{ color: "var(--text-muted)" }}>{t("priority")}</span>
               <div className="flex flex-col gap-1.5">
                 {["high", "medium", "low"].map((p) => (
                   <button
@@ -413,7 +415,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
         {/* ── TAGS ── */}
         <div className="space-y-2">
           <SectionLabel>
-            Tags
+            {t("tags")}
           </SectionLabel>
 
           {/* Quick Category Tags */}
@@ -448,7 +450,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={handleTagKeyDown}
-              placeholder="Add custom tag..."
+              placeholder={t("addCustomTag")}
               className="flex-1 px-3 py-2 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-blue-500/50 text-[13px]"
               style={{
                 backgroundColor: "var(--input-bg)",
@@ -492,7 +494,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
         {showSubtasks ? (
           <div className="space-y-2">
             <SectionLabel>
-              Subtasks{formData.subtasks.length > 0 ? ` (${formData.subtasks.length})` : ""}
+              {t("subtasks")}{formData.subtasks.length > 0 ? ` (${formData.subtasks.length})` : ""}
             </SectionLabel>
 
             {/* Add Subtask Input */}
@@ -502,7 +504,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
                 value={newSubtask}
                 onChange={(e) => setNewSubtask(e.target.value)}
                 onKeyDown={handleSubtaskKeyDown}
-                placeholder="Add a subtask..."
+                placeholder={t("addSubtask")}
                 className="flex-1 px-3 py-2 rounded-lg border outline-none transition-all focus:ring-2 focus:ring-purple-500/50 text-[13px]"
                 style={{
                   backgroundColor: "var(--input-bg)",
@@ -554,7 +556,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
             }}
           >
             <FaPlus className="w-3 h-3" />
-            Add subtasks
+            {t("addSubtasks")}
           </button>
         )}
 
@@ -575,7 +577,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
             }}
             disabled={isSubmitting}
           >
-            Cancel
+            {t("cancel")}
           </button>
         )}
         <button
@@ -584,7 +586,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
           className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium transition-colors disabled:opacity-50"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Saving..." : "Save Changes"}
+          {isSubmitting ? t("saving") : t("save")}
         </button>
       </div>
     </>

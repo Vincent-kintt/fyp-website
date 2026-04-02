@@ -11,6 +11,7 @@ import {
   FaClock,
   FaSpinner,
 } from "react-icons/fa";
+import { useTranslations, useLocale } from "next-intl";
 import { getTagClasses, formatDuration, DURATION_PRESETS } from "@/lib/utils";
 import { PRIORITY } from "@/lib/taskConfig";
 
@@ -19,9 +20,11 @@ const DEBOUNCE_MS = 600;
 export default function QuickAdd({
   onAdd,
   onOpenAI,
-  placeholder = "Add a task...",
-  language = "zh",
+  placeholder,
 }) {
+  const t = useTranslations("quickAdd");
+  const locale = useLocale();
+  const language = locale === "zh-TW" ? "zh" : "en";
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputText, setInputText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,44 +41,6 @@ export default function QuickAdd({
   const debounceRef = useRef(null);
   const dismissTimerRef = useRef(null);
   const inputRef = useRef(null);
-
-  const t =
-    {
-      zh: {
-        placeholder: "快速新增任務...",
-        add: "新增",
-        adding: "新增中...",
-        cancel: "取消",
-        aiAssist: "AI 助手",
-        parsing: "AI 解析中...",
-        setDate: "設定日期",
-        setTag: "新增標籤",
-        removeTag: "移除標籤",
-        removePriority: "移除優先級",
-        removeDate: "移除日期",
-        tagPlaceholder: "輸入標籤...",
-        parsingHint: "等待解析完成可獲得更準確的結果",
-        today: "今天",
-        tomorrow: "明天",
-      },
-      en: {
-        placeholder: "Quick add task...",
-        add: "Add",
-        adding: "Adding...",
-        cancel: "Cancel",
-        aiAssist: "AI Assistant",
-        parsing: "AI parsing...",
-        setDate: "Set date",
-        setTag: "Add tag",
-        removeTag: "Remove tag",
-        removePriority: "Remove priority",
-        removeDate: "Remove date",
-        tagPlaceholder: "Enter tag...",
-        parsingHint: "Wait for parsing for better results",
-        today: "Today",
-        tomorrow: "Tomorrow",
-      },
-    }[language] || {};
 
   // Debounced NLP parsing
   const parseInput = useCallback(
@@ -307,15 +272,13 @@ export default function QuickAdd({
 
     // Relative date labels
     if (targetDate.getTime() === today.getTime()) {
-      return language === "zh" ? `今天 ${timeStr}` : `Today ${timeStr}`;
+      return `${t("today")} ${timeStr}`;
     }
     if (targetDate.getTime() === tomorrow.getTime()) {
-      return language === "zh" ? `明天 ${timeStr}` : `Tomorrow ${timeStr}`;
+      return `${t("tomorrow")} ${timeStr}`;
     }
     if (targetDate.getTime() === dayAfterTomorrow.getTime()) {
-      return language === "zh"
-        ? `後天 ${timeStr}`
-        : `Day after tomorrow ${timeStr}`;
+      return `${t("tomorrow")} +1 ${timeStr}`;
     }
 
     // Within a week - show day name
@@ -353,7 +316,7 @@ export default function QuickAdd({
           }}
         >
           <FaPlus className="w-4 h-4 group-hover:text-primary transition-colors" />
-          <span>{placeholder || t.placeholder}</span>
+          <span>{placeholder || t("placeholder")}</span>
         </button>
       ) : (
         <form
@@ -375,7 +338,7 @@ export default function QuickAdd({
               value={inputText}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={placeholder || t.placeholder}
+              placeholder={placeholder || t("placeholder")}
               autoFocus
               className="flex-1 bg-transparent border-none outline-none text-sm"
               style={{ color: "var(--text-primary)" }}
@@ -396,7 +359,7 @@ export default function QuickAdd({
                 <span
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/30 cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={removeDateTime}
-                  title={t.removeDate}
+                  title={t("removeDate")}
                 >
                   <FaCalendarAlt className="w-3 h-3" />
                   {formatDateTime(
@@ -413,7 +376,7 @@ export default function QuickAdd({
                 <span
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${PRIORITY[parsedData.priority]?.badgeClass}`}
                   onClick={removePriority}
-                  title={t.removePriority}
+                  title={t("removePriority")}
                 >
                   <FaFlag className="w-3 h-3" />
                   {language === "zh"
@@ -437,7 +400,7 @@ export default function QuickAdd({
                   key={tag}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${getTagClasses(tag)}`}
                   onClick={() => removeTag(tag)}
-                  title={t.removeTag}
+                  title={t("removeTag")}
                 >
                   #{tag}
                   <FaTimes className="w-2.5 h-2.5 ml-0.5" />
@@ -505,7 +468,7 @@ export default function QuickAdd({
                     addTag(newTag);
                   }
                 }}
-                placeholder={t.tagPlaceholder}
+                placeholder={t("tagPlaceholder")}
                 className="flex-1 text-xs px-2 py-1 rounded border bg-transparent"
                 style={{
                   borderColor: "var(--card-border)",
@@ -547,7 +510,7 @@ export default function QuickAdd({
                 style={{
                   color: showDatePicker ? undefined : "var(--text-muted)",
                 }}
-                title={t.setDate}
+                title={t("setDate")}
               >
                 <FaCalendarAlt className="w-4 h-4" />
               </button>
@@ -561,7 +524,7 @@ export default function QuickAdd({
                 style={{
                   color: showTagInput ? undefined : "var(--text-muted)",
                 }}
-                title={t.setTag}
+                title={t("setTag")}
               >
                 <FaTag className="w-4 h-4" />
               </button>
@@ -572,7 +535,7 @@ export default function QuickAdd({
                   type="button"
                   onClick={handleForwardToAI}
                   className="p-2 rounded transition-colors hover:bg-accent-light text-accent hover:text-accent-hover ml-1"
-                  title={t.aiAssist}
+                  title={t("aiAssist")}
                 >
                   <FaRobot className="w-4 h-4" />
                 </button>
@@ -585,10 +548,10 @@ export default function QuickAdd({
               {isParsing && (
                 <span
                   className="text-xs text-primary flex items-center gap-1"
-                  title={t.parsingHint}
+                  title={t("parsingHint")}
                 >
                   <FaSpinner className="w-3 h-3 animate-spin" />
-                  {t.parsing}
+                  {t("parsing")}
                 </span>
               )}
               <button
@@ -597,7 +560,7 @@ export default function QuickAdd({
                 className="px-3 py-1.5 text-sm rounded transition-colors hover:opacity-70"
                 style={{ color: "var(--text-secondary)" }}
               >
-                {t.cancel}
+                {t("cancel")}
               </button>
               <button
                 type="submit"
@@ -607,9 +570,9 @@ export default function QuickAdd({
                     ? "bg-primary/70 hover:bg-primary"
                     : "bg-primary hover:bg-primary-hover"
                 }`}
-                title={isParsing ? t.parsingHint : undefined}
+                title={isParsing ? t("parsingHint") : undefined}
               >
-                {isSubmitting ? t.adding : t.add}
+                {isSubmitting ? t("adding") : t("add")}
               </button>
             </div>
           </div>
@@ -641,9 +604,7 @@ export default function QuickAdd({
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 <span>
-                  {language === "zh"
-                    ? "這個請求可能需要 AI 對話來完成"
-                    : "This request may need an AI conversation"}
+                  {t("complexHint")}
                 </span>
               </div>
               <button
@@ -664,7 +625,7 @@ export default function QuickAdd({
                   <line x1="10" y1="14" x2="21" y2="3" />
                   <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
                 </svg>
-                {language === "zh" ? "開啟 AI 對話" : "Open in AI Chat"}
+                {t("openInAI")}
               </button>
             </div>
           )}
@@ -694,7 +655,7 @@ export default function QuickAdd({
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 <span>
-                  {language === "zh" ? "已建立 " : "Created "}
+                  {t("created")}
                   <span style={{ fontWeight: 500 }}>{inlineResult.title}</span>
                   {inlineResult.dateTime && (
                     <span
@@ -720,7 +681,7 @@ export default function QuickAdd({
                   background: "var(--surface-hover)",
                 }}
               >
-                {language === "zh" ? "關閉" : "Dismiss"}
+                {t("dismiss")}
               </button>
             </div>
           )}

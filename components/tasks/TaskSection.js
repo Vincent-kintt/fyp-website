@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, memo } from "react";
+import { useTranslations } from "next-intl";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
@@ -33,7 +34,7 @@ export default function TaskSection({
   onEdit,
   collapsible = true,
   defaultCollapsed = false,
-  emptyMessage = "No tasks",
+  emptyMessage,
   emptyAction = null,
   showDate = true,
   accentColor = "blue",
@@ -44,6 +45,8 @@ export default function TaskSection({
   completingIds = null,
   forceExpand = false,
 }) {
+  const tCommon = useTranslations("common");
+  const resolvedEmptyMessage = emptyMessage || tCommon("noTasks");
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   // Auto-expand when parent requests (drag hover)
@@ -106,7 +109,7 @@ export default function TaskSection({
           onEdit={onEdit}
           showDate={showDate}
           emptyAction={emptyAction}
-          emptyMessage={emptyMessage}
+          emptyMessage={resolvedEmptyMessage}
           completingIds={completingIds}
         />
       ) : (
@@ -189,7 +192,7 @@ function TaskListContent({
           </div>
         </div>
       ) : (
-        <EmptyState title={emptyMessage} />
+        <EmptyState title={resolvedEmptyMessage} />
       )}
     </div>
   );
