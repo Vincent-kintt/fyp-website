@@ -48,6 +48,7 @@ export default function NotesLayout({
         activeNoteId={activeNoteId}
         onCreateNote={onCreateNote}
         onDeleteNote={onDeleteNote}
+        onReorder={onReorder}
       />
 
       <main className="flex-1 overflow-y-auto">{children}</main>

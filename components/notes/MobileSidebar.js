@@ -12,6 +12,7 @@ export default function MobileSidebar({
   activeNoteId,
   onCreateNote,
   onDeleteNote,
+  onReorder,
 }) {
   const t = useTranslations("notes");
 
@@ -71,6 +72,7 @@ export default function MobileSidebar({
             activeNoteId={activeNoteId}
             onCreateNote={onCreateNote}
             onDeleteNote={onDeleteNote}
+            onReorder={onReorder}
           />
         </div>
       </aside>

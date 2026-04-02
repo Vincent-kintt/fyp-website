@@ -71,6 +71,7 @@ export async function PATCH(request, segmentData) {
     }
 
     if (content !== undefined) {
+      if (!Array.isArray(content)) return apiError("content must be an array", 400);
       updateData.content = content;
     }
 
@@ -94,6 +95,12 @@ export async function PATCH(request, segmentData) {
     }
 
     const notesCollection = await getNotesCollection();
+
+    if (updateData.parentId) {
+      const parentExists = await notesCollection.findOne({ _id: updateData.parentId, userId: session.user.id });
+      if (!parentExists) return apiError("Parent note not found", 404);
+    }
+
     const updated = await notesCollection.findOneAndUpdate(
       { _id: new ObjectId(noteId), userId: session.user.id },
       { $set: updateData },

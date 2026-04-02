@@ -59,6 +59,11 @@ export async function POST(request) {
       resolvedParentId = new ObjectId(parentId);
     }
 
+    if (resolvedParentId) {
+      const parentExists = await notesCollection.findOne({ _id: resolvedParentId, userId: session.user.id });
+      if (!parentExists) return apiError("Parent note not found", 404);
+    }
+
     // Auto-compute sortOrder: max sibling sortOrder + 1000, or 1000 if first
     const siblingQuery = { userId: session.user.id, parentId: resolvedParentId };
     const lastSibling = await notesCollection

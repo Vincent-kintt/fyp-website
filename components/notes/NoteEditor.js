@@ -47,7 +47,7 @@ export default function NoteEditor({ note, onSave }) {
       onSave?.({ content }).then(() => {
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus(null), 2000);
-      });
+      }).catch(() => setSaveStatus(null));
     }, 1000);
   }, [editor, onSave]);
 
@@ -79,6 +79,10 @@ export default function NoteEditor({ note, onSave }) {
           noteContext,
         }),
       });
+
+      if (!res.ok) {
+        throw new Error("AI request failed");
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -120,7 +124,7 @@ export default function NoteEditor({ note, onSave }) {
         onSave?.({ title: newTitle }).then(() => {
           setSaveStatus("saved");
           setTimeout(() => setSaveStatus(null), 2000);
-        });
+        }).catch(() => setSaveStatus(null));
       }, 1000);
     },
     [onSave],
