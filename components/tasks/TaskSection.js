@@ -192,7 +192,7 @@ function TaskListContent({
           </div>
         </div>
       ) : (
-        <EmptyState title={resolvedEmptyMessage} />
+        <EmptyState title={emptyMessage} />
       )}
     </div>
   );
