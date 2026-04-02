@@ -15,6 +15,7 @@ import {
   FaCalendarAlt,
   FaList,
   FaGlobe,
+  FaStickyNote,
 } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "@/i18n/navigation";
@@ -109,6 +110,13 @@ export default function Navbar() {
                 >
                   <FaList className="w-4 h-4" />
                   <span className="hidden sm:inline">{t("all")}</span>
+                </Link>
+                <Link
+                  href="/notes"
+                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
+                >
+                  <FaStickyNote className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t("notes")}</span>
                 </Link>
 
                 <GlobalSearch />
