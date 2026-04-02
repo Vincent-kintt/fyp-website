@@ -1,4 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -26,13 +28,16 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const messages = await getMessages();
+
   return (
     <html lang="zh-TW" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen bg-background`}
       >
         <ThemeProvider>
+          <NextIntlClientProvider messages={messages}>
           <Providers>
             <a href="#main-content" className="skip-to-content">
               Skip to content
@@ -43,6 +48,7 @@ export default function RootLayout({ children }) {
             </main>
             <Footer />
           </Providers>
+          </NextIntlClientProvider>
         </ThemeProvider>
       </body>
     </html>
