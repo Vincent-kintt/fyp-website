@@ -14,17 +14,18 @@ function HighlightText({ text, search }) {
   if (!search || !text) return text;
   try {
     const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`(${escaped})`, "i");
+    const regex = new RegExp(`(${escaped})`, "gi");
     const parts = text.split(regex);
-    return parts.map((part, i) =>
-      regex.test(part) ? (
+    return parts.map((part, i) => {
+      regex.lastIndex = 0;
+      return regex.test(part) ? (
         <mark key={i} className="bg-yellow-300/40 dark:bg-yellow-500/30 text-inherit rounded-sm px-0.5">
           {part}
         </mark>
       ) : (
         part
-      )
-    );
+      );
+    });
   } catch {
     return text;
   }
