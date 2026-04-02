@@ -113,8 +113,8 @@ test.describe("Task CRUD", () => {
       .last();
     await deleteBtn.click();
 
-    // Undo toast shows "已刪除" with "撤銷" action
-    const toast = page.locator("text=已刪除");
+    // Undo toast shows "已刪除" (zh-TW) or "Deleted" (en)
+    const toast = page.locator("text=/已刪除|Deleted/");
     await expect(toast).toBeVisible({ timeout: 5000 });
 
     // Wait for the deferred delete to complete (5s window)

@@ -10,7 +10,7 @@ setup("authenticate", async ({ page }) => {
   await page.fill('input[name="password"]', "admin");
   await page.click('button[type="submit"]');
 
-  await page.waitForURL("/dashboard", { timeout: 15000 });
+  await page.waitForURL(/\/(en\/)?dashboard/, { timeout: 15000 });
 
   const cookies = await page.context().cookies();
   const sessionCookie = cookies.find((c) => c.name.includes("authjs.session-token"));
