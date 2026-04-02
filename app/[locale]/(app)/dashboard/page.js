@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import {
   FaSun,
@@ -39,7 +39,7 @@ import {
   getSectionTargetStatus,
   getDefaultSnoozeUntil,
   computeNewDateTime,
-  getSectionLabel,
+  getSectionLabelKey,
   DROP_ANIMATION_CONFIG,
   createSectionAwareCollision,
 } from "@/lib/dnd";
@@ -434,7 +434,7 @@ export default function DashboardPage() {
 
           try {
             await patchReminderStatus(active.id, statusBody);
-            toast.success(t("movedTo", { section: getSectionLabel(targetSection) }));
+            toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
           } catch {
             queryClient.setQueryData(["tasks"], originalTasks);
             toast.error(t("moveFailed"));
@@ -470,7 +470,7 @@ export default function DashboardPage() {
 
             try {
               await patchReminderStatus(active.id, statusBody);
-              toast.success(t("movedTo", { section: getSectionLabel(targetSection) }));
+              toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
             } catch {
               queryClient.setQueryData(["tasks"], originalTasks);
               toast.error(t("moveFailed"));
@@ -492,7 +492,7 @@ export default function DashboardPage() {
                   dateTime: newDateTime,
                 },
               ]);
-              toast.success(t("movedTo", { section: getSectionLabel(targetSection) }));
+              toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
             } catch {
               queryClient.setQueryData(["tasks"], originalTasks);
               toast.error(t("moveFailed"));

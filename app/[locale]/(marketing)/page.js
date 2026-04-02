@@ -1,6 +1,6 @@
 import { DM_Serif_Display, Outfit } from "next/font/google";
 import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+import { redirect } from "@/i18n/navigation";
 import { getTranslations } from "next-intl/server";
 import ClientRedirect from "@/components/auth/ClientRedirect";
 import Button from "@/components/ui/Button";
