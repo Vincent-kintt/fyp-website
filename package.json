@@ -17,7 +17,8 @@
     "init-users": "node --env-file=.env.local scripts/initUsers.js",
     "migrate-userids": "node --env-file=.env.local scripts/migrateUserIds.js",
     "generate-vapid": "node scripts/generate-vapid.js",
-    "create-push-indexes": "node --env-file=.env.local scripts/createPushIndexes.js"
+    "create-push-indexes": "node --env-file=.env.local scripts/createPushIndexes.js",
+    "create-notes-indexes": "node scripts/create-notes-indexes.js"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.37",
