@@ -52,6 +52,18 @@ describe("formatDateMedium", () => {
     expect(result).toMatch(/2026/);
     expect(result).toMatch(/at/);
   });
+
+  it("returns empty string for null input", () => {
+    expect(formatDateMedium(null)).toBe("");
+  });
+
+  it("returns empty string for undefined input", () => {
+    expect(formatDateMedium(undefined)).toBe("");
+  });
+
+  it("returns empty string for invalid date string", () => {
+    expect(formatDateMedium("not-a-date")).toBe("");
+  });
 });
 
 describe("formatDateFull", () => {
@@ -60,5 +72,17 @@ describe("formatDateFull", () => {
 
     expect(result).toMatch(/June/);
     expect(result).toMatch(/2026/);
+  });
+
+  it("returns empty string for null input", () => {
+    expect(formatDateFull(null)).toBe("");
+  });
+
+  it("returns empty string for undefined input", () => {
+    expect(formatDateFull(undefined)).toBe("");
+  });
+
+  it("returns empty string for invalid date string", () => {
+    expect(formatDateFull("not-a-date")).toBe("");
   });
 });
