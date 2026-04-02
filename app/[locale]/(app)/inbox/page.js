@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { FaInbox, FaLightbulb } from "react-icons/fa";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ import {
 export default function InboxPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const t = useTranslations("inbox");
   const {
     tasks: rawTasks,
     loading,
@@ -120,10 +122,10 @@ export default function InboxPage() {
         await reorderReminders(sortUpdates);
       } catch {
         queryClient.setQueryData(["tasks"], previousTasks);
-        toast.error("Failed to reorder");
+        toast.error(t("reorderFailed"));
       }
     },
-    [queryClient],
+    [queryClient, t],
   );
 
   const handleDragCancel = useCallback(() => {
@@ -177,10 +179,10 @@ export default function InboxPage() {
           style={{ color: "var(--text-primary)" }}
         >
           <FaInbox className="text-primary" />
-          Inbox
+          {t("title")}
         </h1>
         <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
-          Capture your thoughts and tasks quickly
+          {t("subtitle")}
         </p>
       </div>
 
@@ -189,14 +191,14 @@ export default function InboxPage() {
         <QuickAdd
           onAdd={quickAdd}
           onOpenAI={handleOpenAIFromQuickAdd}
-          placeholder="Quick capture..."
+          placeholder={t("quickCapture")}
         />
         <button
           onClick={() => setIsAIModalOpen(true)}
           className="flex items-center justify-center gap-2 p-3 text-accent hover:bg-accent-light rounded-lg transition-colors border-2 border-dashed border-accent/30 hover:border-accent/50"
         >
           <FaLightbulb className="w-4 h-4" />
-          <span>AI Assistant</span>
+          <span>{t("aiAssistant")}</span>
         </button>
       </div>
 
@@ -231,8 +233,8 @@ export default function InboxPage() {
             ) : (
               <EmptyState
                 icon={<FaInbox className="w-full h-full" />}
-                title="Your inbox is empty"
-                description="Start capturing ideas and tasks quickly"
+                title={t("emptyTitle")}
+                description={t("emptyDescription")}
               />
             )}
           </div>
@@ -260,7 +262,7 @@ export default function InboxPage() {
             className="text-sm font-semibold mb-3"
             style={{ color: "var(--text-muted)" }}
           >
-            Completed ({completedTasks.length})
+            {t("completed")} ({completedTasks.length})
           </h2>
           <div className="space-y-2 opacity-60">
             {completedTasks.slice(0, 5).map((task) => (
@@ -281,7 +283,7 @@ export default function InboxPage() {
                 className="text-xs py-2 px-4"
                 style={{ color: "var(--text-muted)" }}
               >
-                +{completedTasks.length - 5} more completed
+                {t("moreCompleted", { count: completedTasks.length - 5 })}
               </p>
             )}
           </div>
