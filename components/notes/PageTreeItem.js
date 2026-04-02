@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { FaChevronRight, FaEllipsisH, FaPlus, FaTrash } from "react-icons/fa";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import useClickOutside from "@/hooks/useClickOutside";
+import { useClickOutside } from "@/hooks/useClickOutside";
 
 export default function PageTreeItem({
   note,
@@ -18,9 +18,7 @@ export default function PageTreeItem({
   const t = useTranslations("notes");
   const [expanded, setExpanded] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  useClickOutside(menuRef, () => setMenuOpen(false));
+  const menuRef = useClickOutside(() => setMenuOpen(false));
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: note.id });
