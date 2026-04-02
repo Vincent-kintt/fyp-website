@@ -117,6 +117,106 @@ describe("GET /api/reminders", () => {
     expect(body.data[0].title).toBe("Daily standup");
   });
 
+  it("paginates with page and limit params", async () => {
+    mockSession(TEST_USER);
+    const db = getDb();
+    const docs = Array.from({ length: 5 }, (_, i) => ({
+      title: `Task ${i + 1}`,
+      dateTime: new Date(Date.now() + i * 60000),
+      userId: TEST_USER.id,
+      tags: ["work"],
+      status: "pending",
+      completed: false,
+      createdAt: new Date(),
+    }));
+    await db.collection("reminders").insertMany(docs);
+
+    const req = createRequest("GET", "/api/reminders", {
+      searchParams: { page: "1", limit: "2" },
+    });
+    const res = await GET(req);
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveLength(2);
+    expect(body.pagination).toEqual({
+      page: 1,
+      limit: 2,
+      total: 5,
+      totalPages: 3,
+    });
+  });
+
+  it("returns second page correctly", async () => {
+    mockSession(TEST_USER);
+    const db = getDb();
+    const docs = Array.from({ length: 5 }, (_, i) => ({
+      title: `Task ${i + 1}`,
+      dateTime: new Date(Date.now() + i * 60000),
+      userId: TEST_USER.id,
+      tags: ["work"],
+      status: "pending",
+      completed: false,
+      createdAt: new Date(),
+    }));
+    await db.collection("reminders").insertMany(docs);
+
+    const req = createRequest("GET", "/api/reminders", {
+      searchParams: { page: "2", limit: "2" },
+    });
+    const res = await GET(req);
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0].title).toBe("Task 3");
+    expect(body.pagination.page).toBe(2);
+  });
+
+  it("returns all results without pagination params (backward compatible)", async () => {
+    mockSession(TEST_USER);
+    const db = getDb();
+    const docs = Array.from({ length: 3 }, (_, i) => ({
+      title: `Task ${i + 1}`,
+      dateTime: new Date(Date.now() + i * 60000),
+      userId: TEST_USER.id,
+      tags: ["work"],
+      status: "pending",
+      completed: false,
+      createdAt: new Date(),
+    }));
+    await db.collection("reminders").insertMany(docs);
+
+    const req = createRequest("GET", "/api/reminders");
+    const res = await GET(req);
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body.data).toHaveLength(3);
+    expect(body.pagination).toBeUndefined();
+  });
+
+  it("defaults invalid page/limit to sensible values", async () => {
+    mockSession(TEST_USER);
+    const db = getDb();
+    await db.collection("reminders").insertOne({
+      title: "Solo task",
+      dateTime: new Date(),
+      userId: TEST_USER.id,
+      tags: ["work"],
+      status: "pending",
+      completed: false,
+      createdAt: new Date(),
+    });
+
+    const req = createRequest("GET", "/api/reminders", {
+      searchParams: { page: "abc", limit: "-1" },
+    });
+    const res = await GET(req);
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body.pagination.page).toBe(1);
+    expect(body.pagination.limit).toBe(50);
+  });
+
   it("isolates reminders by user", async () => {
     mockSession(TEST_USER);
     const db = getDb();

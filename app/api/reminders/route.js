@@ -52,13 +52,45 @@ export async function GET(request) {
       filter.recurring = type === "recurring";
     }
 
-    // Fetch reminders from MongoDB
-    const reminders = await remindersCollection
-      .find(filter)
-      .sort({ dateTime: 1 })
-      .toArray();
+    // Pagination params
+    const pageParam = searchParams.get("page");
+    const limitParam = searchParams.get("limit");
+    const usePagination = pageParam !== null || limitParam !== null;
 
-    // Convert _id to id for frontend compatibility
+    let page = parseInt(pageParam, 10);
+    let limit = parseInt(limitParam, 10);
+
+    if (usePagination) {
+      // Validate: page must be integer >= 1
+      if (isNaN(page) || page < 1 || !Number.isInteger(page)) {
+        page = 1;
+      }
+      // Validate: limit must be integer >= 0
+      if (isNaN(limit) || limit < 0 || !Number.isInteger(limit)) {
+        limit = 50;
+      }
+    }
+
+    const cursor = remindersCollection.find(filter).sort({ dateTime: 1 });
+
+    if (usePagination && limit > 0) {
+      const total = await remindersCollection.countDocuments(filter);
+      const totalPages = Math.ceil(total / limit);
+      const skip = (page - 1) * limit;
+
+      const reminders = await cursor.skip(skip).limit(limit).toArray();
+      const formattedReminders = reminders.map(formatReminder);
+
+      return apiSuccess(formattedReminders, 200, {
+        page,
+        limit,
+        total,
+        totalPages,
+      });
+    }
+
+    // No pagination (backward compatible) — return all results
+    const reminders = await cursor.toArray();
     const formattedReminders = reminders.map(formatReminder);
 
     return apiSuccess(formattedReminders);

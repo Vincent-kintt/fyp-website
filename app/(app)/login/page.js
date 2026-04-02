@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { FaBell } from "react-icons/fa";
@@ -10,6 +11,7 @@ import ErrorState from "@/components/ui/ErrorState";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -63,6 +65,13 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {/* Registration success message */}
+        {searchParams.get("registered") === "true" && (
+          <div className="bg-success-light border border-success/30 text-success px-4 py-3 rounded-lg text-sm">
+            Registration successful! Please sign in.
+          </div>
+        )}
+
         {/* Login Form */}
         <form data-testid="login-form" className="mt-8 space-y-6 bg-surface border border-border p-8 rounded-lg shadow-lg" onSubmit={handleSubmit}>
           {error && <ErrorState message={error} />}
@@ -95,6 +104,13 @@ export default function LoginPage() {
           >
             Sign In
           </Button>
+
+          <p className="text-center text-sm text-text-muted">
+            Don&apos;t have an account?{" "}
+            <Link href="/register" className="text-primary hover:underline font-medium">
+              Sign up
+            </Link>
+          </p>
 
           {/* Demo Accounts Info */}
           <div className="mt-6 p-4 bg-info-light border border-info/30 rounded">

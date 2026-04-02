@@ -5,6 +5,7 @@ import { FaPlus } from "react-icons/fa";
 import ReminderList from "@/components/reminders/ReminderList";
 import ReminderFilter from "@/components/reminders/ReminderFilter";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
+import ExportButton from "@/components/reminders/ExportButton";
 import { useTasks } from "@/hooks/useTasks";
 
 export default function RemindersPage() {
@@ -85,16 +86,19 @@ export default function RemindersPage() {
 
   return (
     <div className="relative">
-      <div className="mb-8">
-        <h1
-          className="text-3xl font-bold mb-2"
-          style={{ color: "var(--text-primary)" }}
-        >
-          My Reminders
-        </h1>
-        <p style={{ color: "var(--text-secondary)" }}>
-          Manage all your reminders in one place
-        </p>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h1
+            className="text-3xl font-bold mb-2"
+            style={{ color: "var(--text-primary)" }}
+          >
+            My Reminders
+          </h1>
+          <p style={{ color: "var(--text-secondary)" }}>
+            Manage all your reminders in one place
+          </p>
+        </div>
+        <ExportButton />
       </div>
 
       <ReminderFilter filters={filters} onFilterChange={setFilters} />
