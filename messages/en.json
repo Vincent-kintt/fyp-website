@@ -14,7 +14,8 @@
     "logout": "Logout",
     "admin": "Admin",
     "toggleTheme": "Toggle theme",
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "notes": "Notes"
   },
   "footer": {
     "copyright": "ReminderApp",
@@ -267,6 +268,27 @@
     "somethingWrong": "Something went wrong",
     "unexpectedError": "An unexpected error occurred. Please try again.",
     "tryAgain": "Try again"
+  },
+  "notes": {
+    "title": "Notes",
+    "newPage": "New Page",
+    "untitled": "Untitled",
+    "delete": "Delete",
+    "rename": "Rename",
+    "addSubPage": "Add sub-page",
+    "duplicate": "Duplicate",
+    "emptyState": "No notes yet. Create your first page!",
+    "emptyStateAction": "New Page",
+    "aiCommand": "AI Command",
+    "aiGenerated": "AI generated",
+    "autoSaved": "Auto-saved",
+    "saving": "Saving...",
+    "deleteFailed": "Failed to delete note",
+    "saveFailed": "Failed to save note",
+    "confirmDelete": "Are you sure you want to delete this page and all its sub-pages?",
+    "pageTree": "Page tree",
+    "closeSidebar": "Close sidebar",
+    "openSidebar": "Open sidebar"
   },
   "common": {
     "save": "Save",
