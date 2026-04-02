@@ -96,7 +96,7 @@ export default function Navbar() {
                 <div className="flex items-center space-x-3 border-l border-border pl-6">
                   <div className="flex items-center space-x-2">
                     <FaUser className="text-text-secondary" />
-                    <span className="text-sm font-medium text-text-primary">
+                    <span className="text-sm font-medium text-text-primary" data-testid="navbar-username">
                       {session.user?.username}
                       {session.user?.role === "admin" && (
                         <span className="ml-2 text-xs bg-info-light text-info px-2 py-1 rounded font-semibold">

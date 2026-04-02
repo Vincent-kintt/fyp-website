@@ -138,6 +138,7 @@ export default function GlobalSearch() {
           <div className="cmdk-input-wrapper">
             <FaSearch className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
             <Command.Input
+              data-testid="global-search-input"
               placeholder="搜尋提醒事項..."
               className="cmdk-input"
               onValueChange={setSearchValue}

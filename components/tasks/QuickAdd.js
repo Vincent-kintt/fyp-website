@@ -340,6 +340,7 @@ export default function QuickAdd({
     <div className="relative">
       {!isExpanded ? (
         <button
+          data-testid="quick-add-trigger"
           onClick={() => {
             setIsExpanded(true);
             setTimeout(() => inputRef.current?.focus(), 50);
@@ -369,6 +370,7 @@ export default function QuickAdd({
           <div className="flex items-center gap-2">
             <input
               ref={inputRef}
+              data-testid="quick-add-input"
               type="text"
               value={inputText}
               onChange={handleInputChange}

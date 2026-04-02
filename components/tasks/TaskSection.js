@@ -122,12 +122,12 @@ export default function TaskSection({
   if (droppable && sectionId) {
     return (
       <DroppableWrapper sectionId={sectionId} isExternalDragOver={isExternalDragOver}>
-        {inner}
+        <div data-testid={`task-section-${sectionId}`}>{inner}</div>
       </DroppableWrapper>
     );
   }
 
-  return <div className="mb-6">{inner}</div>;
+  return <div className="mb-6" data-testid={sectionId ? `task-section-${sectionId}` : undefined}>{inner}</div>;
 }
 
 // Minimal droppable zone for collapsed sections — keeps drag target active

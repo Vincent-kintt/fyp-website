@@ -106,6 +106,7 @@ const TaskItem = memo(
       <>
         <div
           ref={ref}
+          data-testid={`task-item-${task.id}`}
           className={`group relative flex items-start gap-2 p-4 rounded-xl transition-opacity duration-200 hover:opacity-90 ${
             currentTask.completed ? "opacity-60" : ""
           } ${isDragging ? "opacity-50" : ""} ${animationClass || ""}`}

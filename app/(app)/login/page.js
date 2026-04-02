@@ -64,7 +64,7 @@ export default function LoginPage() {
         </div>
 
         {/* Login Form */}
-        <form className="mt-8 space-y-6 bg-surface border border-border p-8 rounded-lg shadow-lg" onSubmit={handleSubmit}>
+        <form data-testid="login-form" className="mt-8 space-y-6 bg-surface border border-border p-8 rounded-lg shadow-lg" onSubmit={handleSubmit}>
           {error && <ErrorState message={error} />}
 
           <Input

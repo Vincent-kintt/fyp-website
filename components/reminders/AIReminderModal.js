@@ -1705,6 +1705,7 @@ export default function AIReminderModal({
                 style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}
               >
                 <textarea
+                  data-testid="ai-modal-input"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
