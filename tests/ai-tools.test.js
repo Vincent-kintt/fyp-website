@@ -11,16 +11,12 @@ import {
   beforeEach,
   vi,
 } from "vitest";
-import { MongoMemoryServer } from "mongodb-memory-server";
-import { MongoClient, ObjectId } from "mongodb";
-
-let mongod;
-let client;
-let db;
+import { ObjectId } from "mongodb";
+import { startDb, stopDb, clearDb, getDb } from "./helpers/db.js";
 
 // Mock the db module to use in-memory MongoDB
 vi.mock("@/lib/db.js", () => ({
-  getCollection: async (name) => db.collection(name),
+  getCollection: async (name) => getDb().collection(name),
 }));
 
 // Import AFTER mock is set up
@@ -32,23 +28,16 @@ const OTHER_USER_ID = "user456";
 let tools;
 
 beforeAll(async () => {
-  mongod = await MongoMemoryServer.create();
-  client = new MongoClient(mongod.getUri());
-  await client.connect();
-  db = client.db("test_ai_tools");
+  await startDb("test_ai_tools");
   tools = createTools(TEST_USER_ID);
 });
 
 afterAll(async () => {
-  await client.close();
-  await mongod.stop();
+  await stopDb();
 });
 
 beforeEach(async () => {
-  const collections = await db.listCollections().toArray();
-  for (const col of collections) {
-    await db.collection(col.name).deleteMany({});
-  }
+  await clearDb();
 });
 
 // ============================================
@@ -74,7 +63,7 @@ describe("createReminder", () => {
       dateTime: "2024-06-01T09:00:00Z",
     });
 
-    const doc = await db
+    const doc = await getDb()
       .collection("reminders")
       .findOne({ _id: result.reminder._id });
     expect(doc).not.toBeNull();
@@ -140,7 +129,7 @@ describe("createReminder", () => {
 // ============================================
 describe("listReminders", () => {
   beforeEach(async () => {
-    const coll = db.collection("reminders");
+    const coll = getDb().collection("reminders");
     const now = new Date();
     await coll.insertMany([
       {
@@ -218,7 +207,7 @@ describe("listReminders", () => {
   });
 
   it("limits to 50 results", async () => {
-    await db.collection("reminders").deleteMany({});
+    await getDb().collection("reminders").deleteMany({});
     const docs = Array.from({ length: 60 }, (_, i) => ({
       title: `Task ${i}`,
       dateTime: new Date(),
@@ -227,7 +216,7 @@ describe("listReminders", () => {
       completed: false,
       createdAt: new Date(),
     }));
-    await db.collection("reminders").insertMany(docs);
+    await getDb().collection("reminders").insertMany(docs);
 
     const result = await tools.listReminders.execute({ filter: "all" });
     expect(result.count).toBe(50);
@@ -346,7 +335,7 @@ describe("deleteReminder", () => {
     const result = await tools.deleteReminder.execute({ reminderId });
     expect(result.success).toBe(true);
 
-    const doc = await db
+    const doc = await getDb()
       .collection("reminders")
       .findOne({ _id: new ObjectId(reminderId) });
     expect(doc).toBeNull();
@@ -364,7 +353,7 @@ describe("deleteReminder", () => {
     expect(result.success).toBe(false);
 
     // Should still exist
-    const doc = await db
+    const doc = await getDb()
       .collection("reminders")
       .findOne({ _id: new ObjectId(reminderId) });
     expect(doc).not.toBeNull();
@@ -454,7 +443,7 @@ describe("batchCreate", () => {
     expect(result.success).toBe(true);
     expect(result.count).toBe(2);
 
-    const docs = await db
+    const docs = await getDb()
       .collection("reminders")
       .find({ userId: TEST_USER_ID })
       .toArray();
@@ -477,7 +466,7 @@ describe("batchCreate", () => {
       reminders: [{ title: "Defaults", dateTime: "2024-06-01T09:00:00Z" }],
     });
 
-    const doc = await db.collection("reminders").findOne({ title: "Defaults" });
+    const doc = await getDb().collection("reminders").findOne({ title: "Defaults" });
     expect(doc.status).toBe("pending");
     expect(doc.completed).toBe(false);
     expect(doc.userId).toBe(TEST_USER_ID);
