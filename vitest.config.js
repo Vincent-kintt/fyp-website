@@ -6,6 +6,7 @@ export default defineConfig({
     globals: true,
     testTimeout: 30000,
     hookTimeout: 30000,
+    exclude: ["e2e/**", "node_modules/**"],
     sequence: {
       concurrent: false,
     },
