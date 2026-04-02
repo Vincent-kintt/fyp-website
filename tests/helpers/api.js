@@ -58,11 +58,12 @@ export function params(obj) {
 
 export async function parseResponse(response) {
   const status = response.status;
+  const text = await response.text();
   let body;
   try {
-    body = await response.json();
+    body = JSON.parse(text);
   } catch {
-    body = await response.text();
+    body = text;
   }
   return { status, body };
 }
