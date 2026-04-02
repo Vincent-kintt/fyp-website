@@ -47,7 +47,9 @@ export const authConfig = {
       const isAuthPage =
         pathname === "/login" || pathname === "/register";
       if (isAuthPage && isLoggedIn) {
-        return Response.redirect(new URL("/dashboard", nextUrl));
+        const localeMatch = nextUrl.pathname.match(/^\/(en)(\/|$)/);
+        const prefix = localeMatch ? `/${localeMatch[1]}` : "";
+        return Response.redirect(new URL(`${prefix}/dashboard`, nextUrl));
       }
 
       return true;
