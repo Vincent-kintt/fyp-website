@@ -14,7 +14,7 @@ function HighlightText({ text, search }) {
   if (!search || !text) return text;
   try {
     const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`(${escaped})`, "gi");
+    const regex = new RegExp(`(${escaped})`, "i");
     const parts = text.split(regex);
     return parts.map((part, i) =>
       regex.test(part) ? (
