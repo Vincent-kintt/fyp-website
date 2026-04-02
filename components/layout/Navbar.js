@@ -3,7 +3,7 @@
 import { Link } from "@/i18n/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { FaBell, FaUser, FaSignOutAlt, FaMoon, FaSun, FaHome, FaInbox, FaCalendarAlt, FaList } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import Button from "../ui/Button";
@@ -14,6 +14,7 @@ export default function Navbar() {
   const { data: session, status } = useSession();
   const { theme, setTheme, systemTheme } = useTheme();
   const t = useTranslations("nav");
+  const locale = useLocale();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -21,7 +22,8 @@ export default function Navbar() {
   }, []);
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/login" });
+    const prefix = locale === "zh-TW" ? "" : `/${locale}`;
+    await signOut({ callbackUrl: `${prefix}/login` });
   };
 
   const toggleTheme = () => {
