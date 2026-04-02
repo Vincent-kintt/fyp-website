@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { normalizeTags } from "@/lib/utils";
+import { getModel } from "@/lib/ai/provider.js";
+import { generateText } from "ai";
 import * as chrono from "chrono-node";
 
-const LLM_API_URL = process.env.LLM_API_URL;
-const LLM_API_KEY = process.env.LLM_API_KEY;
 const PARSE_MODEL = "x-ai/grok-4.1-fast";
 
 // Custom chrono parser with smart AM/PM inference
@@ -132,33 +132,13 @@ Examples:
 - "meeting tmr 2pm" -> {"title": "Meeting", "tags": ["work"], "priority": "medium", "date_expression": "tomorrow at 2:00 pm"}
 - "今天10點開會" -> {"title": "開會", "tags": ["work"], "priority": "medium", "date_expression": "today at 10:00 am/pm"} (pick based on current time)`;
 
-    const response = await fetch(LLM_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LLM_API_KEY}`,
-        "HTTP-Referer": process.env.NEXTAUTH_URL || "http://localhost:3000",
-        "X-Title": "QuickAddParser",
-      },
-      body: JSON.stringify({
-        model: PARSE_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: text },
-        ],
-        temperature: 0.2,
-        max_tokens: 300,
-      }),
+    const { text: content } = await generateText({
+      model: getModel(PARSE_MODEL),
+      system: systemPrompt,
+      prompt: text,
+      temperature: 0.2,
+      maxTokens: 300,
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[parse-task] LLM API error:", errorText);
-      throw new Error(`LLM API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    let content = data.choices?.[0]?.message?.content;
 
     if (!content) {
       throw new Error("No content in LLM response");

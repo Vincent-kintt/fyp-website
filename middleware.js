@@ -13,5 +13,7 @@ export const config = {
     "/dashboard",
     "/inbox",
     "/calendar",
+    "/login",
+    "/register",
   ],
 };

@@ -311,10 +311,36 @@ export async function PATCH(request, { params }) {
       }
     } else if (typeof body.completed === "boolean") {
       // Backward compatibility: handle completed boolean
+      // Must fetch current reminder to validate transition and restore correct status
+      const currentReminder = await remindersCollection.findOne({
+        _id: new ObjectId(id),
+        userId: session.user.id,
+      });
+
+      if (!currentReminder) {
+        return apiError("Reminder not found", 404);
+      }
+
+      const currentStatus = currentReminder.status || "pending";
+      const targetStatus = body.completed ? "completed" : currentStatus === "completed" ? "pending" : currentStatus;
+
+      if (!isValidStatusTransition(currentStatus, targetStatus)) {
+        return apiError(
+          `Invalid status transition from '${currentStatus}' to '${targetStatus}'`,
+          400,
+        );
+      }
+
       updateData.completed = body.completed;
-      updateData.status = body.completed ? "completed" : "pending";
+      updateData.status = targetStatus;
+
       if (body.completed) {
         updateData.completedAt = new Date();
+      }
+
+      // Clear snoozedUntil when transitioning away from snoozed
+      if (currentStatus === "snoozed" && targetStatus !== "snoozed") {
+        updateData.snoozedUntil = null;
       }
     }
 

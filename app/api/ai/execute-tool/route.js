@@ -5,6 +5,16 @@ import { createTools } from "@/lib/ai/tools.js";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Read-only tools safe for direct invocation
+const ALLOWED_TOOLS = new Set([
+  "listReminders",
+  "suggestReminders",
+  "findConflicts",
+  "analyzePatterns",
+  "summarizeUpcoming",
+  "exportReminders",
+]);
+
 export async function POST(request) {
   try {
     const session = await auth();
@@ -23,6 +33,13 @@ export async function POST(request) {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    if (!ALLOWED_TOOLS.has(toolName)) {
+      return new Response(
+        JSON.stringify({ error: `Tool not allowed: ${toolName}` }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     const tools = createTools(session.user.id);

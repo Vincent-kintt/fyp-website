@@ -38,6 +38,14 @@ export const authConfig = {
         if (isLoggedIn) return true;
         return false; // Redirect to login
       }
+
+      // Redirect logged-in users away from auth pages
+      const isAuthPage =
+        nextUrl.pathname === "/login" || nextUrl.pathname === "/register";
+      if (isAuthPage && isLoggedIn) {
+        return Response.redirect(new URL("/dashboard", nextUrl));
+      }
+
       return true;
     },
     async jwt({ token, user }) {
