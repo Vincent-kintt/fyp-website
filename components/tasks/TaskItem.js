@@ -9,6 +9,7 @@ import {
   FaChevronUp,
   FaMoon,
 } from "react-icons/fa";
+import { useTranslations } from "next-intl";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
 import DragHandle from "@/components/ui/DragHandle";
@@ -34,6 +35,7 @@ const TaskItem = memo(
     },
     ref,
   ) {
+    const t = useTranslations("taskItem");
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [currentTask, setCurrentTask] = useState(task);
     const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
@@ -54,10 +56,10 @@ const TaskItem = memo(
     const formatTaskDate = (dateTime) => {
       const date = new Date(dateTime);
       if (isToday(date)) {
-        return format(date, "'Today at' h:mm a");
+        return t("todayAt", { time: format(date, "h:mm a") });
       }
       if (isTomorrow(date)) {
-        return format(date, "'Tomorrow at' h:mm a");
+        return t("tomorrowAt", { time: format(date, "h:mm a") });
       }
       return format(date, "MMM d 'at' h:mm a");
     };
@@ -252,8 +254,7 @@ const TaskItem = memo(
               <div className="flex items-center gap-1 mt-1 text-xs text-accent">
                 <FaMoon className="w-3 h-3" />
                 <span>
-                  延後至{" "}
-                  {format(new Date(currentTask.snoozedUntil), "M/d HH:mm")}
+                  {t("snoozedUntil", { date: format(new Date(currentTask.snoozedUntil), "M/d HH:mm") })}
                 </span>
               </div>
             )}
@@ -271,9 +272,9 @@ const TaskItem = memo(
                     onSnooze(currentTask.id, null);
                   }}
                   className="px-1.5 py-0.5 text-[10px] text-accent hover:text-accent-hover hover:bg-accent/10 rounded transition-colors"
-                  title="取消延後"
+                  title={t("cancelSnooze")}
                 >
-                  取消延後
+                  {t("cancelSnooze")}
                 </button>
               ) : (
                 <>
@@ -285,7 +286,7 @@ const TaskItem = memo(
                     }}
                     className="p-2.5 hover:text-accent transition-colors"
                     style={{ color: "var(--text-muted)" }}
-                    title="延後提醒"
+                    title={t("snoozeReminder")}
                   >
                     <FaMoon className="w-3.5 h-3.5" />
                   </button>

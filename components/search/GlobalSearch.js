@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Command } from "cmdk";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { FaSearch, FaClock, FaPlay, FaCheck, FaPause, FaPlus, FaRobot } from "react-icons/fa";
 import { getTagClasses } from "@/lib/utils";
 import { formatDateShort } from "@/lib/format";
@@ -33,6 +34,8 @@ function HighlightText({ text, search }) {
 
 export default function GlobalSearch() {
   const router = useRouter();
+  const t = useTranslations("search");
+  const tNav = useTranslations("nav");
   const [open, setOpen] = useState(false);
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -117,19 +120,19 @@ export default function GlobalSearch() {
         aria-keyshortcuts="Meta+K"
       >
         <FaSearch className="w-4 h-4" />
-        <span className="hidden sm:inline">Search</span>
+        <span className="hidden sm:inline">{tNav("search")}</span>
       </button>
 
       {/* Command palette */}
       <Command.Dialog
         open={open}
         onOpenChange={setOpen}
-        label="Search reminders"
+        label={t("title")}
         loop
       >
         {/* Accessible title (visually hidden for screen readers) */}
         <DialogPrimitive.Title style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', borderWidth: 0 }}>
-          搜尋提醒事項
+          {t("title")}
         </DialogPrimitive.Title>
         {/* Overlay */}
         <div className="cmdk-overlay" onClick={() => setOpen(false)} />
@@ -140,7 +143,7 @@ export default function GlobalSearch() {
             <FaSearch className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
             <Command.Input
               data-testid="global-search-input"
-              placeholder="搜尋提醒事項..."
+              placeholder={t("placeholder")}
               className="cmdk-input"
               onValueChange={setSearchValue}
             />
@@ -152,19 +155,19 @@ export default function GlobalSearch() {
             {loading && (
               <Command.Loading>
                 <div className="py-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-                  Loading...
+                  {t("loading")}
                 </div>
               </Command.Loading>
             )}
 
             <Command.Empty>
               <div className="py-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
-                找不到符合的提醒事項
+                {t("noResults")}
               </div>
             </Command.Empty>
 
             {/* Quick Actions — always visible */}
-            <Command.Group heading="快速操作">
+            <Command.Group heading={t("quickActions")}>
               <Command.Item
                 value="create new reminder 建立新提醒"
                 onSelect={() => {
@@ -174,7 +177,7 @@ export default function GlobalSearch() {
                 className="cmdk-item"
               >
                 <FaPlus className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-                <span className="text-sm" style={{ color: "var(--text-primary)" }}>建立新提醒</span>
+                <span className="text-sm" style={{ color: "var(--text-primary)" }}>{t("createNew")}</span>
               </Command.Item>
               <Command.Item
                 value="open AI assistant AI 助手"
@@ -185,13 +188,13 @@ export default function GlobalSearch() {
                 className="cmdk-item"
               >
                 <FaRobot className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-                <span className="text-sm" style={{ color: "var(--text-primary)" }}>AI 助手</span>
+                <span className="text-sm" style={{ color: "var(--text-primary)" }}>{t("aiAssistant")}</span>
               </Command.Item>
             </Command.Group>
 
             {/* Upcoming */}
             {upcoming.length > 0 && (
-              <Command.Group heading="進行中">
+              <Command.Group heading={t("inProgress")}>
                 {upcoming.slice(0, 6).map((r) => {
                   const Icon = StatusIcon[r.status] || FaClock;
                   return (
@@ -229,7 +232,7 @@ export default function GlobalSearch() {
 
             {/* Snoozed */}
             {snoozed.length > 0 && (
-              <Command.Group heading="已延後">
+              <Command.Group heading={t("snoozed")}>
                 {snoozed.slice(0, 3).map((r) => (
                   <Command.Item
                     key={r.id}
@@ -245,7 +248,7 @@ export default function GlobalSearch() {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-purple-500">
-                          延後至 {formatDateShort(r.snoozedUntil)}
+                          {t("snoozedUntil", { date: formatDateShort(r.snoozedUntil) })}
                         </span>
                       </div>
                     </div>
@@ -256,7 +259,7 @@ export default function GlobalSearch() {
 
             {/* Completed */}
             {completed.length > 0 && (
-              <Command.Group heading="已完成">
+              <Command.Group heading={t("completed")}>
                 {completed.slice(0, 4).map((r) => (
                   <Command.Item
                     key={r.id}
