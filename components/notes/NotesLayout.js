@@ -25,6 +25,7 @@ export default function NotesLayout({
           activeNoteId={activeNoteId}
           onCreateNote={onCreateNote}
           onDeleteNote={onDeleteNote}
+          onReorder={onReorder}
         />
       </aside>
 

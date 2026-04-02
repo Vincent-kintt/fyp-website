@@ -4,6 +4,8 @@ import { useState, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { FaChevronRight, FaEllipsisH, FaPlus, FaTrash } from "react-icons/fa";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import useClickOutside from "@/hooks/useClickOutside";
 
 export default function PageTreeItem({
@@ -20,15 +22,21 @@ export default function PageTreeItem({
 
   useClickOutside(menuRef, () => setMenuOpen(false));
 
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: note.id });
+  const sortableStyle = { transform: CSS.Transform.toString(transform), transition };
+
   const hasChildren = note.children && note.children.length > 0;
   const isActive = note.id === activeNoteId;
 
   return (
-    <div>
+    <div ref={setNodeRef} style={sortableStyle} {...attributes}>
       <div
         className="notes-tree-item group"
         style={{ paddingLeft: `${8 + depth * 20}px` }}
         data-active={isActive}
+        data-dragging={isDragging}
+        {...listeners}
       >
         <button
           onClick={(e) => {

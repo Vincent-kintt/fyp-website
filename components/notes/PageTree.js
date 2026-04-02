@@ -1,8 +1,12 @@
 "use client";
 
+import { useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { FaPlus } from "react-icons/fa";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { buildTree } from "@/lib/notes/tree";
+import { useDndSensors, computeSortOrders } from "@/lib/dnd";
 import PageTreeItem from "./PageTreeItem";
 
 export default function PageTree({
@@ -10,9 +14,39 @@ export default function PageTree({
   activeNoteId,
   onCreateNote,
   onDeleteNote,
+  onReorder,
 }) {
   const t = useTranslations("notes");
   const tree = buildTree(notes);
+  const sensors = useDndSensors();
+  const flatIds = notes.map((n) => n.id);
+
+  const handleDragEnd = useCallback(
+    (event) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const activeNote = notes.find((n) => n.id === active.id);
+      const overNote = notes.find((n) => n.id === over.id);
+      if (!activeNote || !overNote) return;
+
+      const targetParentId = overNote.parentId;
+      const siblings = notes
+        .filter((n) => n.parentId === targetParentId && n.id !== active.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+
+      const overIndex = siblings.findIndex((n) => n.id === over.id);
+      siblings.splice(overIndex, 0, { ...activeNote, parentId: targetParentId });
+
+      const updates = computeSortOrders(siblings).map((s) => ({
+        ...s,
+        parentId: targetParentId,
+      }));
+
+      onReorder?.(updates);
+    },
+    [notes, onReorder]
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -51,15 +85,23 @@ export default function PageTree({
             </p>
           </div>
         ) : (
-          tree.map((note) => (
-            <PageTreeItem
-              key={note.id}
-              note={note}
-              activeNoteId={activeNoteId}
-              onCreateSubPage={(parentId) => onCreateNote?.(parentId)}
-              onDeleteNote={onDeleteNote}
-            />
-          ))
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={flatIds} strategy={verticalListSortingStrategy}>
+              {tree.map((note) => (
+                <PageTreeItem
+                  key={note.id}
+                  note={note}
+                  activeNoteId={activeNoteId}
+                  onCreateSubPage={(parentId) => onCreateNote?.(parentId)}
+                  onDeleteNote={onDeleteNote}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         )}
       </div>
     </div>
