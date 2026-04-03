@@ -266,7 +266,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange }) {
 
   return (
     <div
-      className="mx-auto px-6 md:px-24 pt-5 pb-[30vh]"
+      className="mx-auto px-6 md:px-24 pt-10 pb-[30vh]"
       style={{ maxWidth: "700px" }}
       onKeyDown={handleEditorKeyDown}
     >

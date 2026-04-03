@@ -66,7 +66,12 @@ export default function NotesLayout({
         onPermanentDelete={onPermanentDelete}
       />
 
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      <main
+        className="flex-1 overflow-y-auto"
+        style={{ background: "var(--surface)" }}
+      >
+        {children}
+      </main>
     </div>
   );
 }
