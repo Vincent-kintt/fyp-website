@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { FaChevronRight, FaEllipsisH, FaPlus, FaTrash, FaEdit, FaCopy } from "react-icons/fa";
+import { ChevronRight, MoreHorizontal, Plus, Trash2, Pencil, Copy, File, Folder, FolderOpen } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useClickOutside } from "@/hooks/useClickOutside";
@@ -52,16 +52,25 @@ export default function PageTreeItem({
           }}
           aria-label={expanded ? "Collapse" : "Expand"}
         >
-          <FaChevronRight
-            className="w-2.5 h-2.5"
+          <ChevronRight
+            size={12}
+            strokeWidth={1.5}
             style={{
               transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
-              transition: "transform 200ms ease",
+              transition: "transform 150ms ease",
             }}
           />
         </button>
 
-        <span className="flex-shrink-0 text-[13px] opacity-60">{note.icon || "📄"}</span>
+        <span className="flex-shrink-0 opacity-60" style={{ color: "var(--text-muted)" }}>
+          {note.icon ? (
+            <span className="text-[14px]">{note.icon}</span>
+          ) : hasChildren ? (
+            expanded ? <FolderOpen size={15} strokeWidth={1.5} /> : <Folder size={15} strokeWidth={1.5} />
+          ) : (
+            <File size={15} strokeWidth={1.5} />
+          )}
+        </span>
 
         {renaming ? (
           <input
@@ -100,22 +109,38 @@ export default function PageTreeItem({
         )}
 
         <div className="relative flex-shrink-0" ref={menuRef}>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              setMenuOpen((prev) => !prev);
-            }}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded"
-            style={{
-              color: "var(--text-muted)",
-              transition: "opacity 150ms ease",
-            }}
-            aria-label="Actions"
-            aria-haspopup="true"
-            aria-expanded={menuOpen}
-          >
-            <FaEllipsisH className="w-3 h-3" />
-          </button>
+          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100" style={{ transition: "opacity 150ms ease" }}>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setMenuOpen((prev) => !prev);
+              }}
+              className="p-1 rounded"
+              style={{ color: "var(--text-muted)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              aria-label="Actions"
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+            >
+              <MoreHorizontal size={14} strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCreateSubPage?.(note.id);
+              }}
+              className="p-1 rounded"
+              style={{ color: "var(--text-muted)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              aria-label={t("addSubPage")}
+            >
+              <Plus size={14} strokeWidth={1.5} />
+            </button>
+          </div>
 
           {menuOpen && (
             <div
@@ -141,7 +166,7 @@ export default function PageTreeItem({
                 }
                 role="menuitem"
               >
-                <FaPlus className="w-3 h-3" /> {t("addSubPage")}
+                <Plus size={14} strokeWidth={1.5} /> {t("addSubPage")}
               </button>
               <button
                 onClick={() => {
@@ -155,7 +180,7 @@ export default function PageTreeItem({
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 role="menuitem"
               >
-                <FaEdit className="w-3 h-3" /> {t("rename")}
+                <Pencil size={14} strokeWidth={1.5} /> {t("rename")}
               </button>
               <button
                 onClick={() => {
@@ -168,7 +193,7 @@ export default function PageTreeItem({
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 role="menuitem"
               >
-                <FaCopy className="w-3 h-3" /> {t("duplicate")}
+                <Copy size={14} strokeWidth={1.5} /> {t("duplicate")}
               </button>
               <button
                 onClick={() => {
@@ -185,7 +210,7 @@ export default function PageTreeItem({
                 }
                 role="menuitem"
               >
-                <FaTrash className="w-3 h-3" /> {t("delete")}
+                <Trash2 size={14} strokeWidth={1.5} /> {t("delete")}
               </button>
             </div>
           )}
