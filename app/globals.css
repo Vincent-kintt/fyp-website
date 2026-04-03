@@ -935,11 +935,10 @@ body:has(.notes-page) footer {
 }
 
 .notes-sidebar {
-  width: 240px;
-  min-width: 240px;
   background: var(--background-secondary);
   overflow-y: auto;
   overscroll-behavior: contain;
+  position: relative;
 }
 
 .notes-sidebar::-webkit-scrollbar {

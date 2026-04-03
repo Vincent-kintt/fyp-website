@@ -1,10 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Menu } from "lucide-react";
+import { ChevronsLeft, Menu, PanelLeft } from "lucide-react";
 import PageTree from "./PageTree";
 import MobileSidebar from "./MobileSidebar";
+
+const STORAGE_KEY_COLLAPSED = "notes-sidebar-collapsed";
+const STORAGE_KEY_WIDTH = "notes-sidebar-width";
+const DEFAULT_WIDTH = 240;
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 480;
+
+function getInitialCollapsed() {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(STORAGE_KEY_COLLAPSED) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function getInitialWidth() {
+  if (typeof window === "undefined") return DEFAULT_WIDTH;
+  try {
+    const saved = parseInt(localStorage.getItem(STORAGE_KEY_WIDTH), 10);
+    return saved >= MIN_WIDTH && saved <= MAX_WIDTH ? saved : DEFAULT_WIDTH;
+  } catch {
+    return DEFAULT_WIDTH;
+  }
+}
 
 export default function NotesLayout({
   notes,
@@ -21,24 +46,114 @@ export default function NotesLayout({
 }) {
   const t = useTranslations("notes");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(getInitialCollapsed);
+  const [sidebarWidth, setSidebarWidth] = useState(getInitialWidth);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_COLLAPSED, String(collapsed));
+    } catch {
+      /* ignore */
+    }
+  }, [collapsed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_WIDTH, String(sidebarWidth));
+    } catch {
+      /* ignore */
+    }
+  }, [sidebarWidth]);
+
+  const toggleCollapse = useCallback(() => {
+    setCollapsed((prev) => !prev);
+  }, []);
+
+  const treeProps = {
+    notes,
+    activeNoteId,
+    onCreateNote,
+    onDeleteNote,
+    onReorder,
+    onRename,
+    onDuplicate,
+    trashedNotes,
+    onRestore,
+    onPermanentDelete,
+  };
 
   return (
     <div className="flex h-full">
-      <aside className="notes-sidebar hidden md:flex flex-col" style={{ boxShadow: "1px 0 0 0 var(--border)" }}>
-        <PageTree
-          notes={notes}
-          activeNoteId={activeNoteId}
-          onCreateNote={onCreateNote}
-          onDeleteNote={onDeleteNote}
-          onReorder={onReorder}
-          onRename={onRename}
-          onDuplicate={onDuplicate}
-          trashedNotes={trashedNotes}
-          onRestore={onRestore}
-          onPermanentDelete={onPermanentDelete}
-        />
+      {/* Desktop sidebar */}
+      <aside
+        className="notes-sidebar hidden md:flex flex-col"
+        style={{
+          width: collapsed ? 0 : sidebarWidth,
+          minWidth: collapsed ? 0 : sidebarWidth,
+          boxShadow: collapsed ? "none" : "1px 0 0 0 var(--border)",
+          overflow: "hidden",
+          transition: "width 200ms ease-out, min-width 200ms ease-out",
+        }}
+      >
+        {/* Sidebar header with collapse button */}
+        <div
+          className="flex items-center justify-between px-2 pt-2 pb-0"
+          style={{ minWidth: sidebarWidth }}
+        >
+          <span
+            className="text-xs font-medium px-1"
+            style={{ color: "var(--text-muted)", opacity: 0.6 }}
+          >
+            {t("title")}
+          </span>
+          <button
+            onClick={toggleCollapse}
+            className="p-1 rounded"
+            style={{ color: "var(--text-muted)" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "var(--surface-hover)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "transparent")
+            }
+            aria-label={t("collapseSidebar")}
+          >
+            <ChevronsLeft size={14} strokeWidth={1.5} />
+          </button>
+        </div>
+        <div
+          style={{ minWidth: sidebarWidth }}
+          className="flex-1 flex flex-col overflow-hidden"
+        >
+          <PageTree {...treeProps} />
+        </div>
       </aside>
 
+      {/* Expand button (desktop, when collapsed) */}
+      {collapsed && (
+        <button
+          onClick={toggleCollapse}
+          className="hidden md:flex fixed z-30 p-2 rounded-lg items-center justify-center"
+          style={{
+            top: "4.75rem",
+            left: "0.75rem",
+            color: "var(--text-muted)",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+          }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.background = "var(--surface-hover)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.background = "var(--surface)")
+          }
+          aria-label={t("expandSidebar")}
+        >
+          <PanelLeft size={16} strokeWidth={1.5} />
+        </button>
+      )}
+
+      {/* Mobile menu button */}
       <button
         className="md:hidden fixed top-[4.5rem] left-4 z-30 p-2 rounded-lg"
         style={{
@@ -48,22 +163,17 @@ export default function NotesLayout({
         onClick={() => setDrawerOpen(true)}
         aria-label={t("openSidebar")}
       >
-        <Menu size={16} strokeWidth={1.5} style={{ color: "var(--text-secondary)" }} />
+        <Menu
+          size={16}
+          strokeWidth={1.5}
+          style={{ color: "var(--text-secondary)" }}
+        />
       </button>
 
       <MobileSidebar
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        notes={notes}
-        activeNoteId={activeNoteId}
-        onCreateNote={onCreateNote}
-        onDeleteNote={onDeleteNote}
-        onReorder={onReorder}
-        onRename={onRename}
-        onDuplicate={onDuplicate}
-        trashedNotes={trashedNotes}
-        onRestore={onRestore}
-        onPermanentDelete={onPermanentDelete}
+        {...treeProps}
       />
 
       <main
