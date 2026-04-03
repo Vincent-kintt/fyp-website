@@ -47,6 +47,7 @@ export async function POST(request) {
           filter: {
             _id: new ObjectId(item.id),
             userId: session.user.id,
+            deletedAt: null,
           },
           update: {
             $set: {

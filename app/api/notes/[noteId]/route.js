@@ -26,6 +26,7 @@ export async function GET(request, segmentData) {
     const note = await notesCollection.findOne({
       _id: new ObjectId(noteId),
       userId: session.user.id,
+      deletedAt: null,
     });
 
     if (!note) {
@@ -146,21 +147,35 @@ export async function DELETE(request, segmentData) {
       return apiError("Note not found", 404);
     }
 
-    // Find all descendant IDs for cascade delete
-    const descendantIds = await findDescendantIds(
-      notesCollection,
-      session.user.id,
-      noteObjectId,
-    );
-
-    const allIds = [noteObjectId, ...descendantIds];
-
-    const result = await notesCollection.deleteMany({
-      _id: { $in: allIds },
-      userId: session.user.id,
-    });
-
-    return apiSuccess({ deleted: result.deletedCount });
+    // Check if note is already in trash
+    if (note.deletedAt) {
+      // Permanent delete — already trashed
+      const descendantIds = await findDescendantIds(
+        notesCollection,
+        session.user.id,
+        noteObjectId,
+      );
+      const allIds = [noteObjectId, ...descendantIds];
+      const result = await notesCollection.deleteMany({
+        _id: { $in: allIds },
+        userId: session.user.id,
+      });
+      return apiSuccess({ deleted: result.deletedCount });
+    } else {
+      // Soft delete — set deletedAt on note + descendants
+      const descendantIds = await findDescendantIds(
+        notesCollection,
+        session.user.id,
+        noteObjectId,
+      );
+      const allIds = [noteObjectId, ...descendantIds];
+      const now = new Date();
+      const result = await notesCollection.updateMany(
+        { _id: { $in: allIds }, userId: session.user.id },
+        { $set: { deletedAt: now } },
+      );
+      return apiSuccess({ deleted: result.modifiedCount });
+    }
   } catch (error) {
     console.error("DELETE /api/notes/[noteId] error:", error);
     return apiError("Internal server error", 500);

@@ -188,7 +188,7 @@ describe("DELETE /api/notes/[noteId]", () => {
     expect(body.success).toBe(false);
   });
 
-  it("cascades delete to children and grandchildren", async () => {
+  it("cascades soft-delete to children and grandchildren", async () => {
     mockSession(TEST_USER);
     const db = getDb();
     const now = new Date();
@@ -217,7 +217,7 @@ describe("DELETE /api/notes/[noteId]", () => {
     });
     const childId = childResult.insertedId;
 
-    await db.collection("notes").insertOne({
+    const grandchildResult = await db.collection("notes").insertOne({
       userId: TEST_USER.id,
       title: "Grandchild",
       parentId: childId,
@@ -236,9 +236,19 @@ describe("DELETE /api/notes/[noteId]", () => {
     expect(body.success).toBe(true);
     expect(body.data.deleted).toBe(3);
 
-    // Verify all 3 notes are gone
-    const remaining = await db.collection("notes").countDocuments({});
-    expect(remaining).toBe(0);
+    // Verify all 3 notes still exist but have deletedAt set
+    const parent = await db
+      .collection("notes")
+      .findOne({ _id: parentId });
+    const child = await db
+      .collection("notes")
+      .findOne({ _id: childId });
+    const grandchild = await db
+      .collection("notes")
+      .findOne({ _id: grandchildResult.insertedId });
+    expect(parent.deletedAt).toBeInstanceOf(Date);
+    expect(child.deletedAt).toBeInstanceOf(Date);
+    expect(grandchild.deletedAt).toBeInstanceOf(Date);
   });
 
   it("returns 404 when note does not exist", async () => {
@@ -249,5 +259,81 @@ describe("DELETE /api/notes/[noteId]", () => {
     const { status, body } = await parseResponse(res);
     expect(status).toBe(404);
     expect(body.success).toBe(false);
+  });
+});
+
+describe("DELETE /api/notes/[noteId] - soft delete", () => {
+  it("soft deletes a note by setting deletedAt", async () => {
+    mockSession(TEST_USER);
+    const id = await insertNote({ title: "To Soft Delete" });
+
+    const noteId = id.toString();
+    const res = await DELETE(
+      createRequest("DELETE", `/api/notes/${noteId}`),
+      params({ noteId }),
+    );
+    const body = await parseResponse(res);
+
+    expect(body.status).toBe(200);
+    expect(body.body.success).toBe(true);
+
+    // Verify note still exists in DB but has deletedAt set
+    const db = getDb();
+    const note = await db.collection("notes").findOne({ _id: id });
+    expect(note).not.toBeNull();
+    expect(note.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it("soft deletes descendants when deleting parent", async () => {
+    mockSession(TEST_USER);
+    const parentId = await insertNote({ title: "Parent" });
+    const childId = await insertNote({
+      title: "Child",
+      parentId: parentId,
+    });
+
+    const noteId = parentId.toString();
+    await DELETE(
+      createRequest("DELETE", `/api/notes/${noteId}`),
+      params({ noteId }),
+    );
+
+    const db = getDb();
+    const parent = await db.collection("notes").findOne({ _id: parentId });
+    const child = await db.collection("notes").findOne({ _id: childId });
+    expect(parent.deletedAt).toBeInstanceOf(Date);
+    expect(child.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it("permanently deletes a note that is already in trash", async () => {
+    mockSession(TEST_USER);
+    const id = await insertNote({ title: "In Trash", deletedAt: new Date() });
+
+    const noteId = id.toString();
+    const res = await DELETE(
+      createRequest("DELETE", `/api/notes/${noteId}`),
+      params({ noteId }),
+    );
+    const body = await parseResponse(res);
+
+    expect(body.status).toBe(200);
+    expect(body.body.success).toBe(true);
+
+    const db = getDb();
+    const note = await db.collection("notes").findOne({ _id: id });
+    expect(note).toBeNull();
+  });
+
+  it("GET excludes soft-deleted notes", async () => {
+    mockSession(TEST_USER);
+    await insertNote({ title: "Active" });
+    await insertNote({ title: "Deleted", deletedAt: new Date() });
+
+    const { GET: listGET } = await import("@/app/api/notes/route.js");
+    const res = await listGET();
+    const body = await parseResponse(res);
+
+    expect(body.body.data).toHaveLength(1);
+    expect(body.body.data[0].title).toBe("Active");
   });
 });
