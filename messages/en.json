@@ -304,7 +304,17 @@
     "deletePermanently": "Delete permanently",
     "confirmPermanentDelete": "This will permanently delete this page and all its sub-pages. This cannot be undone.",
     "editedAgo": "Edited {time}",
-    "saved": "Saved"
+    "saved": "Saved",
+    "addIcon": "Add icon",
+    "searchIcons": "Search icons...",
+    "removeIcon": "Remove icon",
+    "iconDocuments": "Documents",
+    "iconWork": "Work",
+    "iconGeneral": "General",
+    "noPages": "No pages yet",
+    "editorPlaceholder": "Enter text or type '/' for commands",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar"
   },
   "common": {
     "save": "Save",

@@ -1021,7 +1021,7 @@ body:has(.notes-page) footer {
   border: none;
   outline: none;
   width: 100%;
-  padding: 0;
+  padding: 0 54px;
   line-height: 1.2;
   letter-spacing: -0.02em;
   caret-color: var(--text-primary);
