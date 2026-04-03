@@ -1331,3 +1331,20 @@ body:has(.notes-page) footer {
 div[style*="maxWidth"]:hover .notes-add-icon-hint {
   opacity: 1;
 }
+
+/* Sidebar resize handle */
+.notes-sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background 150ms ease;
+}
+
+.notes-sidebar-resize-handle:hover,
+.notes-sidebar-resize-handle[data-resizing="true"] {
+  background: var(--border);
+}

@@ -48,6 +48,7 @@ export default function NotesLayout({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
   const [sidebarWidth, setSidebarWidth] = useState(getInitialWidth);
+  const [isResizing, setIsResizing] = useState(false);
 
   useEffect(() => {
     try {
@@ -67,6 +68,36 @@ export default function NotesLayout({
 
   const toggleCollapse = useCallback(() => {
     setCollapsed((prev) => !prev);
+  }, []);
+
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    setIsResizing(true);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+
+    const onMouseMove = (moveEvent) => {
+      const newWidth = Math.min(
+        MAX_WIDTH,
+        Math.max(MIN_WIDTH, moveEvent.clientX),
+      );
+      setSidebarWidth(newWidth);
+    };
+
+    const onMouseUp = () => {
+      setIsResizing(false);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
+
+  const handleResizeDoubleClick = useCallback(() => {
+    setSidebarWidth(DEFAULT_WIDTH);
   }, []);
 
   const treeProps = {
@@ -92,7 +123,9 @@ export default function NotesLayout({
           minWidth: collapsed ? 0 : sidebarWidth,
           boxShadow: collapsed ? "none" : "1px 0 0 0 var(--border)",
           overflow: "hidden",
-          transition: "width 200ms ease-out, min-width 200ms ease-out",
+          transition: isResizing
+            ? "none"
+            : "width 200ms ease-out, min-width 200ms ease-out",
         }}
       >
         {/* Sidebar header with collapse button */}
@@ -127,6 +160,15 @@ export default function NotesLayout({
         >
           <PageTree {...treeProps} />
         </div>
+        {/* Resize handle */}
+        {!collapsed && (
+          <div
+            className="notes-sidebar-resize-handle"
+            onMouseDown={handleResizeStart}
+            onDoubleClick={handleResizeDoubleClick}
+            data-resizing={isResizing}
+          />
+        )}
       </aside>
 
       {/* Expand button (desktop, when collapsed) */}
