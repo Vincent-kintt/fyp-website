@@ -11,9 +11,9 @@ import {
 } from "@blocknote/react";
 import { filterSuggestionItems } from "@blocknote/core";
 import "@blocknote/mantine/style.css";
-import { FaMagic } from "react-icons/fa";
+import { Sparkles } from "lucide-react";
 
-export default function NoteEditor({ note, onSave }) {
+export default function NoteEditor({ note, onSave, onSaveStatusChange }) {
   const t = useTranslations("notes");
   const { theme } = useTheme();
   const [title, setTitle] = useState(note?.title || "");
@@ -174,7 +174,7 @@ export default function NoteEditor({ note, onSave }) {
           subtext: t("askAiSubtext"),
           aliases: ["ask", "ai", "question"],
           group: "AI",
-          icon: <FaMagic style={{ color: "var(--accent)" }} />,
+          icon: <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
         },
         {
           title: t("summarize"),
@@ -184,7 +184,7 @@ export default function NoteEditor({ note, onSave }) {
           subtext: t("summarizeSubtext"),
           aliases: ["summarize", "summary"],
           group: "AI",
-          icon: <FaMagic style={{ color: "var(--accent)" }} />,
+          icon: <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
         },
         {
           title: t("digestLabel"),
@@ -194,7 +194,7 @@ export default function NoteEditor({ note, onSave }) {
           subtext: t("digestSubtext"),
           aliases: ["digest", "overview"],
           group: "AI",
-          icon: <FaMagic style={{ color: "var(--accent)" }} />,
+          icon: <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
         },
       ];
 
@@ -254,6 +254,10 @@ export default function NoteEditor({ note, onSave }) {
   );
 
   useEffect(() => {
+    onSaveStatusChange?.(saveStatus);
+  }, [saveStatus, onSaveStatusChange]);
+
+  useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       if (titleTimerRef.current) clearTimeout(titleTimerRef.current);
@@ -261,15 +265,11 @@ export default function NoteEditor({ note, onSave }) {
   }, []);
 
   return (
-    <div className="max-w-3xl mx-auto px-6 sm:px-16 pt-12 pb-24" onKeyDown={handleEditorKeyDown}>
-      <div className="flex justify-end mb-2 h-5">
-        {saveStatus && (
-          <span className="notes-save-status">
-            {saveStatus === "saving" ? t("saving") : t("autoSaved")}
-          </span>
-        )}
-      </div>
-
+    <div
+      className="mx-auto px-6 md:px-24 pt-5 pb-[30vh]"
+      style={{ maxWidth: "700px" }}
+      onKeyDown={handleEditorKeyDown}
+    >
       <input
         className="notes-title-input mb-4"
         value={title}

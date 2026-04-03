@@ -4,16 +4,21 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import { useLocale } from "next-intl";
 import { toast } from "sonner";
 import NotesLayout from "@/components/notes/NotesLayout";
 import NoteEditor from "@/components/notes/NoteEditor";
+import NoteTopBar from "@/components/notes/NoteTopBar";
+import { findAncestors } from "@/lib/notes/tree";
 
 export default function NotePage() {
   const { noteId } = useParams();
   const router = useRouter();
   const t = useTranslations("notes");
+  const locale = useLocale();
   const [notes, setNotes] = useState([]);
   const [currentNote, setCurrentNote] = useState(null);
+  const [editorSaveStatus, setEditorSaveStatus] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchNotes = useCallback(async () => {
@@ -184,6 +189,13 @@ export default function NotePage() {
     [notes, fetchNotes, router, t],
   );
 
+  const ancestors = currentNote
+    ? findAncestors(notes, currentNote.id)
+        .reverse()
+        .map((id) => notes.find((n) => n.id === id))
+        .filter(Boolean)
+    : [];
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -203,7 +215,26 @@ export default function NotePage() {
       onDuplicate={handleDuplicate}
     >
       {currentNote && (
-        <NoteEditor key={currentNote.id} note={currentNote} onSave={handleSave} />
+        <>
+          <NoteTopBar
+            note={currentNote}
+            ancestors={ancestors}
+            saveStatus={editorSaveStatus}
+            locale={locale}
+            onRename={() => {
+              const newTitle = prompt(t("rename"), currentNote.title);
+              if (newTitle?.trim()) handleRename(currentNote.id, newTitle.trim());
+            }}
+            onDuplicate={() => handleDuplicate(currentNote.id)}
+            onDelete={() => handleDeleteNote(currentNote.id)}
+          />
+          <NoteEditor
+            key={currentNote.id}
+            note={currentNote}
+            onSave={handleSave}
+            onSaveStatusChange={setEditorSaveStatus}
+          />
+        </>
       )}
     </NotesLayout>
   );
