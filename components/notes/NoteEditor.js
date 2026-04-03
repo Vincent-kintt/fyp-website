@@ -8,6 +8,7 @@ import {
   useCreateBlockNote,
   SuggestionMenuController,
   getDefaultReactSlashMenuItems,
+  filterSuggestionItems,
 } from "@blocknote/react";
 import "@blocknote/mantine/style.css";
 import { FaMagic } from "react-icons/fa";
@@ -19,6 +20,7 @@ export default function NoteEditor({ note, onSave }) {
   const [saveStatus, setSaveStatus] = useState(null);
   const saveTimerRef = useRef(null);
   const titleTimerRef = useRef(null);
+  const pendingAskRef = useRef(null);
 
   useEffect(() => {
     setTitle(note?.title || "");
@@ -52,32 +54,36 @@ export default function NoteEditor({ note, onSave }) {
   }, [editor, onSave]);
 
   const executeAiCommand = useCallback(
-    async (type, input) => {
+    async (type, input, afterBlockId) => {
       const blocks = editor.document;
       const noteContext = blocks
         .map((b) => b.content?.map((c) => c.text || "").join("") || "")
         .filter(Boolean)
         .join("\n");
 
-      const currentBlock = editor.getTextCursorPosition().block;
-
-      const commandText = `/${type}${input ? " " + input : ""}`;
-      const [commandBlock] = editor.insertBlocks(
-        [
-          {
-            type: "paragraph",
-            content: [
-              {
-                type: "text",
-                text: commandText,
-                styles: { italic: true, textColor: "purple" },
-              },
-            ],
-          },
-        ],
-        currentBlock,
-        "after",
-      );
+      let commandBlock;
+      if (afterBlockId) {
+        commandBlock = editor.getBlock(afterBlockId);
+      } else {
+        const currentBlock = editor.getTextCursorPosition().block;
+        const commandText = `/${type}${input ? " " + input : ""}`;
+        [commandBlock] = editor.insertBlocks(
+          [
+            {
+              type: "paragraph",
+              content: [
+                {
+                  type: "text",
+                  text: commandText,
+                  styles: { italic: true, textColor: "purple" },
+                },
+              ],
+            },
+          ],
+          currentBlock,
+          "after",
+        );
+      }
 
       const [loadingBlock] = editor.insertBlocks(
         [
@@ -154,32 +160,38 @@ export default function NoteEditor({ note, onSave }) {
 
       const aiItems = [
         {
-          title: "Ask AI",
+          title: t("askAi"),
           onItemClick: () => {
-            const question = window.prompt("What would you like to ask?");
-            if (question) executeAiCommand("ask", question);
+            const currentBlock = editorInstance.getTextCursorPosition().block;
+            const [promptBlock] = editorInstance.insertBlocks(
+              [{ type: "paragraph", content: [] }],
+              currentBlock,
+              "after",
+            );
+            editorInstance.setTextCursorPosition(promptBlock, "end");
+            pendingAskRef.current = promptBlock.id;
           },
-          subtext: "Ask AI a question about anything",
+          subtext: t("askAiSubtext"),
           aliases: ["ask", "ai", "question"],
           group: "AI",
           icon: <FaMagic style={{ color: "var(--accent)" }} />,
         },
         {
-          title: "Summarize",
+          title: t("summarize"),
           onItemClick: () => {
             executeAiCommand("summarize", "");
           },
-          subtext: "Summarize the current page content",
+          subtext: t("summarizeSubtext"),
           aliases: ["summarize", "summary"],
           group: "AI",
           icon: <FaMagic style={{ color: "var(--accent)" }} />,
         },
         {
-          title: "Digest",
+          title: t("digestLabel"),
           onItemClick: () => {
             executeAiCommand("digest", "");
           },
-          subtext: "Generate a structured digest",
+          subtext: t("digestSubtext"),
           aliases: ["digest", "overview"],
           group: "AI",
           icon: <FaMagic style={{ color: "var(--accent)" }} />,
@@ -188,7 +200,42 @@ export default function NoteEditor({ note, onSave }) {
 
       return [...defaultItems, ...aiItems];
     },
-    [executeAiCommand],
+    [executeAiCommand, t],
+  );
+
+  const handleEditorKeyDown = useCallback(
+    (e) => {
+      if (e.key === "Enter" && !e.shiftKey && pendingAskRef.current) {
+        const blockId = pendingAskRef.current;
+        const block = editor.getBlock(blockId);
+        if (!block) {
+          pendingAskRef.current = null;
+          return;
+        }
+        const question = block.content
+          ?.map((c) => c.text || "")
+          .join("")
+          .trim();
+        if (!question) return;
+
+        e.preventDefault();
+        pendingAskRef.current = null;
+
+        editor.updateBlock(blockId, {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: `/ask ${question}`,
+              styles: { italic: true, textColor: "purple" },
+            },
+          ],
+        });
+
+        executeAiCommand("ask", question, blockId);
+      }
+    },
+    [editor, executeAiCommand],
   );
 
   const handleTitleChange = useCallback(
@@ -214,7 +261,7 @@ export default function NoteEditor({ note, onSave }) {
   }, []);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8">
+    <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8" onKeyDown={handleEditorKeyDown}>
       <div className="flex justify-end mb-2 h-5">
         {saveStatus && (
           <span className="notes-save-status">
@@ -240,14 +287,7 @@ export default function NoteEditor({ note, onSave }) {
         <SuggestionMenuController
           triggerCharacter="/"
           getItems={async (query) =>
-            getSlashMenuItems(editor).filter(
-              (item) =>
-                item.title.toLowerCase().includes(query.toLowerCase()) ||
-                (item.aliases &&
-                  item.aliases.some((alias) =>
-                    alias.toLowerCase().includes(query.toLowerCase()),
-                  )),
-            )
+            filterSuggestionItems(getSlashMenuItems(editor), query)
           }
         />
       </BlockNoteView>

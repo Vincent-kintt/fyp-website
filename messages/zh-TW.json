@@ -288,7 +288,14 @@
     "confirmDelete": "確定要刪除這個頁面及其所有子頁面嗎？",
     "pageTree": "頁面樹",
     "closeSidebar": "關閉側邊欄",
-    "openSidebar": "開啟側邊欄"
+    "openSidebar": "開啟側邊欄",
+    "askAi": "詢問 AI",
+    "askAiSubtext": "針對此筆記提問",
+    "askAiPlaceholder": "輸入問題後按 Enter...",
+    "summarize": "摘要",
+    "summarizeSubtext": "摘要整頁內容",
+    "digestLabel": "摘要整理",
+    "digestSubtext": "產生結構化摘要"
   },
   "common": {
     "save": "儲存",

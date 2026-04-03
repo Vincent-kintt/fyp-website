@@ -288,7 +288,14 @@
     "confirmDelete": "Are you sure you want to delete this page and all its sub-pages?",
     "pageTree": "Page tree",
     "closeSidebar": "Close sidebar",
-    "openSidebar": "Open sidebar"
+    "openSidebar": "Open sidebar",
+    "askAi": "Ask AI",
+    "askAiSubtext": "Ask a question about this note",
+    "askAiPlaceholder": "Type your question, then press Enter...",
+    "summarize": "Summarize",
+    "summarizeSubtext": "Summarize the current page",
+    "digestLabel": "Digest",
+    "digestSubtext": "Generate a structured digest"
   },
   "common": {
     "save": "Save",
