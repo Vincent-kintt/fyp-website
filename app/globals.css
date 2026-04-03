@@ -1053,6 +1053,24 @@ body:has(.notes-page) footer {
   border: none !important;
 }
 
+/* Force text color with higher specificity — BlockNote's own stylesheet
+   sets --bn-colors-editor-text on the same selector, and source order
+   means their value can win. Target .bn-editor directly to guarantee. */
+.bn-container[data-color-scheme="dark"] .bn-editor {
+  color: var(--text-primary) !important;
+  caret-color: var(--text-primary);
+}
+
+/* Notion-style placeholder: only show on the first empty block,
+   hide when the editor is focused so user sees a clean cursor. */
+.bn-editor .bn-block-outer:not(:first-child) .bn-inline-content:has(> .ProseMirror-trailingBreak)::before {
+  content: none !important;
+}
+
+.bn-editor:focus-within .bn-inline-content:has(> .ProseMirror-trailingBreak)::before {
+  content: none !important;
+}
+
 .bn-container[data-color-scheme="dark"] {
   --bn-colors-editor-background: transparent;
   --bn-colors-editor-text: var(--text-primary);
