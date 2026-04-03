@@ -1055,12 +1055,28 @@ body:has(.notes-page) footer {
 
 .bn-container[data-color-scheme="dark"] {
   --bn-colors-editor-background: transparent;
-  --bn-colors-editor-text: #e0e0e0;
+  --bn-colors-editor-text: var(--text-primary);
+  --bn-colors-menu-background: var(--surface);
+  --bn-colors-menu-text: var(--text-primary);
+  --bn-colors-hovered-background: var(--surface-hover);
+  --bn-colors-hovered-text: var(--text-primary);
+  --bn-colors-selected-background: var(--surface-active);
+  --bn-colors-selected-text: var(--text-primary);
+  --bn-colors-side-menu: var(--text-muted);
+  --bn-colors-border: var(--border);
 }
 
 .bn-container[data-color-scheme="light"] {
   --bn-colors-editor-background: transparent;
   --bn-colors-editor-text: #37352f;
+  --bn-colors-menu-background: var(--surface);
+  --bn-colors-menu-text: var(--text-primary);
+  --bn-colors-hovered-background: var(--surface-hover);
+  --bn-colors-hovered-text: var(--text-primary);
+  --bn-colors-selected-background: var(--surface-active);
+  --bn-colors-selected-text: var(--text-primary);
+  --bn-colors-side-menu: var(--text-muted);
+  --bn-colors-border: var(--border);
 }
 
 .notes-topbar {
