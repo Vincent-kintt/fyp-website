@@ -44,15 +44,11 @@ export default function MobileSidebar({
         className="notes-drawer-enter fixed top-16 left-0 bottom-0 w-[280px] z-50 flex flex-col md:hidden"
         style={{
           background: "var(--background-secondary)",
-          borderRight: "1px solid var(--border)",
         }}
         role="dialog"
         aria-label={t("pageTree")}
       >
-        <div
-          className="flex items-center justify-between px-3 py-2"
-          style={{ borderBottom: "1px solid var(--border)" }}
-        >
+        <div className="flex items-center justify-between px-3 py-2">
           <span
             className="text-sm font-medium"
             style={{ color: "var(--text-primary)" }}
