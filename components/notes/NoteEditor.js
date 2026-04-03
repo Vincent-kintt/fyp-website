@@ -4,11 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { BlockNoteView } from "@blocknote/mantine";
-import { useCreateBlockNote } from "@blocknote/react";
+import {
+  useCreateBlockNote,
+  SuggestionMenuController,
+  getDefaultReactSlashMenuItems,
+} from "@blocknote/react";
 import "@blocknote/mantine/style.css";
+import { FaMagic } from "react-icons/fa";
 import { parseCommand } from "@/lib/notes/commands";
-import CommandBlock from "./CommandBlock";
-import ResponseBlock from "./ResponseBlock";
 
 export default function NoteEditor({ note, onSave }) {
   const t = useTranslations("notes");
@@ -16,7 +19,6 @@ export default function NoteEditor({ note, onSave }) {
   const [title, setTitle] = useState(note?.title || "");
   const [saveStatus, setSaveStatus] = useState(null);
   const [commandInput, setCommandInput] = useState("");
-  const [aiResponses, setAiResponses] = useState([]);
   const saveTimerRef = useRef(null);
   const titleTimerRef = useRef(null);
 
@@ -51,69 +53,152 @@ export default function NoteEditor({ note, onSave }) {
     }, 1000);
   }, [editor, onSave]);
 
-  const handleCommand = useCallback(async () => {
-    const parsed = parseCommand(commandInput);
-    if (!parsed) return;
-
-    const responseId = Date.now().toString();
-    setAiResponses((prev) => [
-      ...prev,
-      { id: responseId, ...parsed, content: "", loading: true },
-    ]);
-    setCommandInput("");
-
-    try {
+  const executeAiCommand = useCallback(
+    async (type, input) => {
       const blocks = editor.document;
       const noteContext = blocks
         .map((b) => b.content?.map((c) => c.text || "").join("") || "")
         .filter(Boolean)
         .join("\n");
 
-      const res = await fetch("/api/ai/notes-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          command: parsed.type,
-          input: parsed.input || noteContext,
-          noteTitle: title,
-          noteContext,
-        }),
-      });
+      const currentBlock = editor.getTextCursorPosition().block;
 
-      if (!res.ok) {
-        throw new Error("AI request failed");
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-        setAiResponses((prev) =>
-          prev.map((r) =>
-            r.id === responseId ? { ...r, content: accumulated } : r,
-          ),
-        );
-      }
-
-      setAiResponses((prev) =>
-        prev.map((r) =>
-          r.id === responseId ? { ...r, loading: false } : r,
-        ),
+      const commandText = `/${type}${input ? " " + input : ""}`;
+      const [commandBlock] = editor.insertBlocks(
+        [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "text",
+                text: commandText,
+                styles: { italic: true, textColor: "purple" },
+              },
+            ],
+          },
+        ],
+        currentBlock,
+        "after",
       );
-    } catch {
-      setAiResponses((prev) =>
-        prev.map((r) =>
-          r.id === responseId
-            ? { ...r, content: "Error: Failed to get AI response.", loading: false }
-            : r,
-        ),
+
+      const [loadingBlock] = editor.insertBlocks(
+        [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "text",
+                text: "⏳ Generating...",
+                styles: { italic: true },
+              },
+            ],
+          },
+        ],
+        commandBlock,
+        "after",
       );
-    }
-  }, [commandInput, editor, title]);
+
+      try {
+        const res = await fetch("/api/ai/notes-agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            command: type,
+            input: input || noteContext,
+            noteTitle: title,
+            noteContext,
+          }),
+        });
+
+        if (!res.ok) throw new Error("AI request failed");
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulated += decoder.decode(value, { stream: true });
+          editor.updateBlock(loadingBlock, {
+            type: "paragraph",
+            content: [
+              { type: "text", text: accumulated, styles: { italic: true } },
+            ],
+          });
+        }
+
+        const parsedBlocks = await editor.tryParseMarkdownToBlocks(accumulated);
+        editor.removeBlocks([loadingBlock]);
+
+        if (parsedBlocks.length > 0) {
+          editor.insertBlocks(parsedBlocks, commandBlock, "after");
+        }
+      } catch {
+        editor.updateBlock(loadingBlock, {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "❌ Failed to get AI response.",
+              styles: { italic: true },
+            },
+          ],
+        });
+      }
+    },
+    [editor, title],
+  );
+
+  const handleCommand = useCallback(async () => {
+    const parsed = parseCommand(commandInput);
+    if (!parsed) return;
+    setCommandInput("");
+    executeAiCommand(parsed.type, parsed.input);
+  }, [commandInput, executeAiCommand]);
+
+  const getSlashMenuItems = useCallback(
+    (editorInstance) => {
+      const defaultItems = getDefaultReactSlashMenuItems(editorInstance);
+
+      const aiItems = [
+        {
+          title: "Ask AI",
+          onItemClick: () => {
+            const question = window.prompt("What would you like to ask?");
+            if (question) executeAiCommand("ask", question);
+          },
+          subtext: "Ask AI a question about anything",
+          aliases: ["ask", "ai", "question"],
+          group: "AI",
+          icon: <FaMagic style={{ color: "var(--accent)" }} />,
+        },
+        {
+          title: "Summarize",
+          onItemClick: () => {
+            executeAiCommand("summarize", "");
+          },
+          subtext: "Summarize the current page content",
+          aliases: ["summarize", "summary"],
+          group: "AI",
+          icon: <FaMagic style={{ color: "var(--accent)" }} />,
+        },
+        {
+          title: "Digest",
+          onItemClick: () => {
+            executeAiCommand("digest", "");
+          },
+          subtext: "Generate a structured digest",
+          aliases: ["digest", "overview"],
+          group: "AI",
+          icon: <FaMagic style={{ color: "var(--accent)" }} />,
+        },
+      ];
+
+      return [...defaultItems, ...aiItems];
+    },
+    [executeAiCommand],
+  );
 
   const handleTitleChange = useCallback(
     (newTitle) => {
@@ -159,14 +244,22 @@ export default function NoteEditor({ note, onSave }) {
         editor={editor}
         theme={theme === "dark" ? "dark" : "light"}
         onChange={handleContentChange}
-      />
-
-      {aiResponses.map((r) => (
-        <div key={r.id} className="mt-4">
-          <CommandBlock command={r.type} input={r.input} />
-          <ResponseBlock content={r.content} loading={r.loading} />
-        </div>
-      ))}
+        slashMenu={false}
+      >
+        <SuggestionMenuController
+          triggerCharacter="/"
+          getItems={async (query) =>
+            getSlashMenuItems(editor).filter(
+              (item) =>
+                item.title.toLowerCase().includes(query.toLowerCase()) ||
+                (item.aliases &&
+                  item.aliases.some((alias) =>
+                    alias.toLowerCase().includes(query.toLowerCase()),
+                  )),
+            )
+          }
+        />
+      </BlockNoteView>
 
       <div className="mt-6 flex gap-2">
         <input
