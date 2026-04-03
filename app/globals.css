@@ -1313,3 +1313,22 @@ body:has(.notes-page) footer {
 .notes-icon-picker-icon[data-selected="true"] {
   background: var(--surface-active);
 }
+
+/* Add icon hover hint */
+.notes-add-icon-hint {
+  opacity: 0;
+  color: var(--text-muted);
+  transition: opacity 150ms ease;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.notes-add-icon-hint:hover {
+  background: var(--surface-hover);
+}
+
+/* Show hint when hovering the editor content area */
+div[style*="maxWidth"]:hover .notes-add-icon-hint {
+  opacity: 1;
+}

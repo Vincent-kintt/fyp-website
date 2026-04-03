@@ -87,6 +87,28 @@ export default function NotePage() {
     [noteId, t],
   );
 
+  const handleIconChange = useCallback(
+    async (icon) => {
+      try {
+        const res = await fetch(`/api/notes/${noteId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ icon }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setCurrentNote((prev) => (prev ? { ...prev, icon } : prev));
+          setNotes((prev) =>
+            prev.map((n) => (n.id === noteId ? { ...n, icon } : n)),
+          );
+        }
+      } catch {
+        toast.error(t("saveFailed"));
+      }
+    },
+    [noteId, t],
+  );
+
   const handleCreateNote = useCallback(
     async (parentId) => {
       try {
@@ -280,6 +302,7 @@ export default function NotePage() {
             note={currentNote}
             onSave={handleSave}
             onSaveStatusChange={setEditorSaveStatus}
+            onIconChange={handleIconChange}
           />
         </>
       )}
