@@ -32,6 +32,11 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
 
   const editor = useCreateBlockNote({
     initialContent: note?.content?.length > 0 ? note.content : undefined,
+    dictionary: {
+      placeholders: {
+        default: t("editorPlaceholder"),
+      },
+    },
   });
 
   useEffect(() => {

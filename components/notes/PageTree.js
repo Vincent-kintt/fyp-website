@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronRight, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronRight, File, Plus, Search, Trash2 } from "lucide-react";
 import TrashSection from "./TrashSection";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -91,9 +91,10 @@ export default function PageTree({
 
       <div className="flex-1 overflow-y-auto py-1 px-1">
         {tree.length === 0 ? (
-          <div className="px-3 py-8 text-center">
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {t("emptyState")}
+          <div className="flex flex-col items-center px-3 py-10 text-center gap-2">
+            <File size={32} strokeWidth={1} style={{ color: "var(--text-muted)", opacity: 0.15 }} />
+            <p className="text-xs" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
+              {t("noPages")}
             </p>
           </div>
         ) : (
