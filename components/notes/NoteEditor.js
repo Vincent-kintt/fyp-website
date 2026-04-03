@@ -8,8 +8,8 @@ import {
   useCreateBlockNote,
   SuggestionMenuController,
   getDefaultReactSlashMenuItems,
-  filterSuggestionItems,
 } from "@blocknote/react";
+import { filterSuggestionItems } from "@blocknote/core";
 import "@blocknote/mantine/style.css";
 import { FaMagic } from "react-icons/fa";
 
