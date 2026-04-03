@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { ChevronRight, MoreHorizontal, File, Pencil, Copy, Trash2 } from "lucide-react";
+import { ChevronRight, MoreHorizontal, Pencil, Copy, Trash2 } from "lucide-react";
+import NoteIcon from "./NoteIcon";
 import { formatDistanceToNow } from "date-fns";
 import { zhTW, enUS } from "date-fns/locale";
 import { useClickOutside } from "@/hooks/useClickOutside";
@@ -52,7 +53,10 @@ export default function NoteTopBar({
                     style={{ color: "var(--text-muted)", flexShrink: 0 }}
                   />
                 )}
-                <Link href={`/notes/${ancestor.id}`}>{ancestor.title || t("untitled")}</Link>
+                <Link href={`/notes/${ancestor.id}`} className="flex items-center gap-1">
+                  <NoteIcon icon={ancestor.icon} hasChildren={false} expanded={false} size={12} fallbackOpacity={0.4} />
+                  {ancestor.title || t("untitled")}
+                </Link>
               </span>
             ))}
             <ChevronRight
@@ -64,7 +68,7 @@ export default function NoteTopBar({
           </>
         ) : (
           <span className="current flex items-center gap-1.5">
-            <File size={12} strokeWidth={1.5} />
+            <NoteIcon icon={note?.icon} hasChildren={false} expanded={false} size={14} fallbackOpacity={0.5} />
             {note?.title || t("untitled")}
           </span>
         )}
