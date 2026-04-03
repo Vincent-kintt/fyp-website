@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronsLeft, Menu, PanelLeft } from "lucide-react";
 import PageTree from "./PageTree";
@@ -49,6 +49,9 @@ export default function NotesLayout({
   const [collapsed, setCollapsed] = useState(getInitialCollapsed);
   const [sidebarWidth, setSidebarWidth] = useState(getInitialWidth);
   const [isResizing, setIsResizing] = useState(false);
+  const [peekVisible, setPeekVisible] = useState(false);
+  const peekTimerRef = useRef(null);
+  const hideTimerRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -98,6 +101,33 @@ export default function NotesLayout({
 
   const handleResizeDoubleClick = useCallback(() => {
     setSidebarWidth(DEFAULT_WIDTH);
+  }, []);
+
+  const showPeek = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+    peekTimerRef.current = setTimeout(() => setPeekVisible(true), 200);
+  }, []);
+
+  const hidePeek = useCallback(() => {
+    if (peekTimerRef.current) {
+      clearTimeout(peekTimerRef.current);
+      peekTimerRef.current = null;
+    }
+    hideTimerRef.current = setTimeout(() => setPeekVisible(false), 300);
+  }, []);
+
+  const handlePeekNoteClick = useCallback(() => {
+    setPeekVisible(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (peekTimerRef.current) clearTimeout(peekTimerRef.current);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
   }, []);
 
   const treeProps = {
@@ -193,6 +223,41 @@ export default function NotesLayout({
         >
           <PanelLeft size={16} strokeWidth={1.5} />
         </button>
+      )}
+
+      {/* Hover peek trigger zone (desktop, when collapsed) */}
+      {collapsed && !peekVisible && (
+        <div
+          className="hidden md:block fixed top-16 left-0 bottom-0 z-20"
+          style={{ width: "12px" }}
+          onMouseEnter={showPeek}
+        />
+      )}
+
+      {/* Peek overlay (desktop, when collapsed) */}
+      {collapsed && peekVisible && (
+        <>
+          <div
+            className="notes-drawer-backdrop hidden md:block"
+            onClick={() => setPeekVisible(false)}
+            aria-hidden="true"
+          />
+          <aside
+            className="notes-peek-overlay hidden md:flex flex-col"
+            style={{ width: sidebarWidth }}
+            onMouseLeave={hidePeek}
+            onMouseEnter={() => {
+              if (hideTimerRef.current) {
+                clearTimeout(hideTimerRef.current);
+                hideTimerRef.current = null;
+              }
+            }}
+          >
+            <div onClick={handlePeekNoteClick}>
+              <PageTree {...treeProps} />
+            </div>
+          </aside>
+        </>
       )}
 
       {/* Mobile menu button */}

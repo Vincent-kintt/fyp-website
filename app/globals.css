@@ -1348,3 +1348,20 @@ div[style*="maxWidth"]:hover .notes-add-icon-hint {
 .notes-sidebar-resize-handle[data-resizing="true"] {
   background: var(--border);
 }
+
+/* Sidebar peek overlay */
+.notes-peek-overlay {
+  position: fixed;
+  top: 4rem;
+  left: 0;
+  bottom: 0;
+  z-index: 41;
+  background: var(--background-secondary);
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.12);
+  overflow-y: auto;
+  animation: slideFromLeft 150ms ease-out both;
+}
+
+.dark .notes-peek-overlay {
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.4);
+}
