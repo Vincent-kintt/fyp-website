@@ -9,7 +9,7 @@ import {
   SuggestionMenuController,
   getDefaultReactSlashMenuItems,
 } from "@blocknote/react";
-import { filterSuggestionItems } from "@blocknote/core";
+import { filterSuggestionItems, en as bnEn } from "@blocknote/core";
 import "@blocknote/mantine/style.css";
 import { Sparkles } from "lucide-react";
 import NoteIcon from "./NoteIcon";
@@ -33,7 +33,9 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   const editor = useCreateBlockNote({
     initialContent: note?.content?.length > 0 ? note.content : undefined,
     dictionary: {
+      ...bnEn,
       placeholders: {
+        ...bnEn.placeholders,
         default: t("editorPlaceholder"),
       },
     },
