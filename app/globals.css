@@ -957,43 +957,6 @@ body {
   opacity: 0.5;
 }
 
-.notes-command-block {
-  border-left: 3px solid var(--accent);
-  background: var(--accent-light);
-  padding: 8px 12px;
-  border-radius: 0 6px 6px 0;
-  margin: 4px 0;
-}
-
-.notes-command-block .command-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-bottom: 4px;
-}
-
-.notes-command-block .command-text {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-.notes-response-block {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 8px;
-  padding: 12px;
-  margin: 4px 0;
-}
-
-.notes-response-block .response-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 8px;
-}
-
 .notes-drawer-backdrop {
   position: fixed;
   inset: 0;

@@ -11,14 +11,12 @@ import {
 } from "@blocknote/react";
 import "@blocknote/mantine/style.css";
 import { FaMagic } from "react-icons/fa";
-import { parseCommand } from "@/lib/notes/commands";
 
 export default function NoteEditor({ note, onSave }) {
   const t = useTranslations("notes");
   const { theme } = useTheme();
   const [title, setTitle] = useState(note?.title || "");
   const [saveStatus, setSaveStatus] = useState(null);
-  const [commandInput, setCommandInput] = useState("");
   const saveTimerRef = useRef(null);
   const titleTimerRef = useRef(null);
 
@@ -150,13 +148,6 @@ export default function NoteEditor({ note, onSave }) {
     [editor, title],
   );
 
-  const handleCommand = useCallback(async () => {
-    const parsed = parseCommand(commandInput);
-    if (!parsed) return;
-    setCommandInput("");
-    executeAiCommand(parsed.type, parsed.input);
-  }, [commandInput, executeAiCommand]);
-
   const getSlashMenuItems = useCallback(
     (editorInstance) => {
       const defaultItems = getDefaultReactSlashMenuItems(editorInstance);
@@ -260,27 +251,6 @@ export default function NoteEditor({ note, onSave }) {
           }
         />
       </BlockNoteView>
-
-      <div className="mt-6 flex gap-2">
-        <input
-          type="text"
-          value={commandInput}
-          onChange={(e) => setCommandInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && commandInput.startsWith("/")) {
-              e.preventDefault();
-              handleCommand();
-            }
-          }}
-          placeholder="/ask, /summarize, /digest..."
-          className="flex-1 px-3 py-2 rounded-lg text-sm"
-          style={{
-            background: "var(--input-bg)",
-            border: "1px solid var(--input-border)",
-            color: "var(--text-primary)",
-          }}
-        />
-      </div>
     </div>
   );
 }
