@@ -261,7 +261,7 @@ export default function NoteEditor({ note, onSave }) {
   }, []);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8" onKeyDown={handleEditorKeyDown}>
+    <div className="max-w-3xl mx-auto px-6 sm:px-16 pt-12 pb-24" onKeyDown={handleEditorKeyDown}>
       <div className="flex justify-end mb-2 h-5">
         {saveStatus && (
           <span className="notes-save-status">
