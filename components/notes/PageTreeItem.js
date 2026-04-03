@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { ChevronRight, MoreHorizontal, Plus, Trash2, Pencil, Copy, File, Folder, FolderOpen } from "lucide-react";
+import { ChevronRight, MoreHorizontal, Plus, Trash2, Pencil, Copy } from "lucide-react";
+import NoteIcon from "./NoteIcon";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useClickOutside } from "@/hooks/useClickOutside";
@@ -62,15 +63,12 @@ export default function PageTreeItem({
           />
         </button>
 
-        <span className="flex-shrink-0 opacity-60" style={{ color: "var(--text-muted)" }}>
-          {note.icon ? (
-            <span className="text-[14px]">{note.icon}</span>
-          ) : hasChildren ? (
-            expanded ? <FolderOpen size={15} strokeWidth={1.5} /> : <Folder size={15} strokeWidth={1.5} />
-          ) : (
-            <File size={15} strokeWidth={1.5} />
-          )}
-        </span>
+        <NoteIcon
+          icon={note.icon}
+          hasChildren={hasChildren}
+          expanded={expanded}
+          size={15}
+        />
 
         {renaming ? (
           <input
