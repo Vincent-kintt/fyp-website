@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { FaBars } from "react-icons/fa";
+import { Menu } from "lucide-react";
 import PageTree from "./PageTree";
 import MobileSidebar from "./MobileSidebar";
 
@@ -42,7 +42,7 @@ export default function NotesLayout({
         onClick={() => setDrawerOpen(true)}
         aria-label={t("openSidebar")}
       >
-        <FaBars className="w-4 h-4" style={{ color: "var(--text-secondary)" }} />
+        <Menu size={16} strokeWidth={1.5} style={{ color: "var(--text-secondary)" }} />
       </button>
 
       <MobileSidebar

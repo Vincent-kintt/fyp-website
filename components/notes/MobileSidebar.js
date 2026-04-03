@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { FaTimes } from "react-icons/fa";
+import { X } from "lucide-react";
 import PageTree from "./PageTree";
 
 export default function MobileSidebar({
@@ -61,7 +61,7 @@ export default function MobileSidebar({
             style={{ color: "var(--text-muted)" }}
             aria-label={t("closeSidebar")}
           >
-            <FaTimes className="w-4 h-4" />
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">

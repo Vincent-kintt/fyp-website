@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { FaStickyNote, FaPlus } from "react-icons/fa";
+import { FileText, Plus } from "lucide-react";
 
 export default function NotesPage() {
   const t = useTranslations("notes");
@@ -33,7 +33,7 @@ export default function NotesPage() {
 
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
-      <FaStickyNote className="w-12 h-12" style={{ color: "var(--text-muted)" }} />
+      <FileText size={48} strokeWidth={1} style={{ color: "var(--text-muted)" }} />
       <p style={{ color: "var(--text-muted)" }} className="text-base">
         {t("emptyState")}
       </p>
@@ -52,7 +52,7 @@ export default function NotesPage() {
         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         style={{ background: "var(--primary)", color: "var(--text-inverted)" }}
       >
-        <FaPlus className="w-3 h-3" />
+        <Plus size={14} strokeWidth={1.5} />
         {t("emptyStateAction")}
       </button>
     </div>
