@@ -107,7 +107,8 @@ const TaskItem = memo(
     };
 
     const formatTimeOnly = (dateTime) => {
-      return format(new Date(dateTime), "h:mm a");
+      const isZh = locale === "zh-TW";
+      return format(new Date(dateTime), isZh ? "HH:mm" : "h:mm a");
     };
 
     return (
@@ -138,7 +139,8 @@ const TaskItem = memo(
           {/* Checkbox — border color encodes priority (high=red, others=gray) */}
           <button
             onClick={handleToggle}
-            className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-[border-color,background-color] duration-200 ${
+            aria-label={t(currentTask.completed ? "markIncomplete" : "markComplete")}
+            className={`flex-shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full border-2 transition-[border-color,background-color] duration-200 ${
               currentTask.completed
                 ? "bg-success border-success"
                 : "hover:border-primary"
@@ -310,14 +312,16 @@ const TaskItem = memo(
               onClick={() =>
                 onEdit ? onEdit(currentTask.id) : setIsEditModalOpen(true)
               }
-              className="p-2.5 hover:text-primary transition-colors"
+              aria-label={t("editReminder")}
+              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center hover:text-primary transition-colors"
               style={{ color: "var(--text-muted)" }}
             >
               <FaEdit className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => onDelete(currentTask.id)}
-              className="p-2.5 hover:text-danger transition-colors"
+              aria-label={t("deleteReminder")}
+              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center hover:text-danger transition-colors"
               style={{ color: "var(--text-muted)" }}
             >
               <FaTrash className="w-3.5 h-3.5" />

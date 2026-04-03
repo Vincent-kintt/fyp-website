@@ -260,9 +260,9 @@ a[href] {
     --cmdk-divider: #141414;
     --cmdk-text-primary: #cccccc;
     --cmdk-text-secondary: #999999;
-    --cmdk-text-muted: #555555;
-    --cmdk-text-faint: #333333;
-    --cmdk-date: #333333;
+    --cmdk-text-muted: #777777;
+    --cmdk-text-faint: #666666;
+    --cmdk-date: #666666;
     --cmdk-kbd-bg: transparent;
     --cmdk-kbd-border: #222222;
     --cmdk-overlay: rgba(0, 0, 0, 0.6);
@@ -353,6 +353,11 @@ body {
   left: 1rem;
   top: 1rem;
   position: fixed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }
 
 /* ── Motion Design Tokens (Material Design 3) ── */
@@ -1314,7 +1319,6 @@ body:has(.notes-page) footer {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
-  opacity: 0.5;
   margin-bottom: 6px;
   margin-top: 4px;
 }
@@ -1361,8 +1365,10 @@ body:has(.notes-page) footer {
   background: var(--surface-hover);
 }
 
-/* Show hint when hovering the editor content area */
-div[style*="maxWidth"]:hover .notes-add-icon-hint {
+/* Show hint when hovering or focusing the editor content area */
+div[style*="maxWidth"]:hover .notes-add-icon-hint,
+div[style*="maxWidth"]:focus-within .notes-add-icon-hint,
+.notes-add-icon-hint:focus-visible {
   opacity: 1;
 }
 

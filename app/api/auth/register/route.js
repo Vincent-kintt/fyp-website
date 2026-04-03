@@ -24,9 +24,10 @@ export async function POST(request) {
       );
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // Validate email: HTML5-spec regex (rejects <>"' etc.) + RFC 5321 length limit
+    const emailRegex =
+      /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    if (email.length > 254 || !emailRegex.test(email)) {
       return NextResponse.json(
         { error: "Please provide a valid email address." },
         { status: 400 }

@@ -85,37 +85,42 @@ export default function Navbar() {
               <>
                 <Link
                   href="/dashboard"
-                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
+                  aria-label={t("today")}
+                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
                 >
-                  <FaHome className="w-4 h-4" />
+                  <FaHome className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{t("today")}</span>
                 </Link>
                 <Link
                   href="/inbox"
-                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
+                  aria-label={t("inbox")}
+                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
                 >
-                  <FaInbox className="w-4 h-4" />
+                  <FaInbox className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{t("inbox")}</span>
                 </Link>
                 <Link
                   href="/calendar"
-                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
+                  aria-label={t("calendar")}
+                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
                 >
-                  <FaCalendarAlt className="w-4 h-4" />
+                  <FaCalendarAlt className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{t("calendar")}</span>
                 </Link>
                 <Link
                   href="/reminders"
-                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
+                  aria-label={t("all")}
+                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
                 >
-                  <FaList className="w-4 h-4" />
+                  <FaList className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{t("all")}</span>
                 </Link>
                 <Link
                   href="/notes"
-                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
+                  aria-label={t("notes")}
+                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
                 >
-                  <FaStickyNote className="w-4 h-4" />
+                  <FaStickyNote className="w-4 h-4" aria-hidden="true" />
                   <span className="hidden sm:inline">{t("notes")}</span>
                 </Link>
 
@@ -147,12 +152,20 @@ export default function Navbar() {
                 </div>
               </>
             ) : (
-              <Link
-                href="/login"
-                className="bg-primary text-text-inverted px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors font-medium"
-              >
-                {t("login")}
-              </Link>
+              <>
+                <Link
+                  href="/login"
+                  className="text-text-secondary hover:text-primary transition-colors font-medium"
+                >
+                  {t("login")}
+                </Link>
+                <Link
+                  href="/register"
+                  className="bg-primary text-text-inverted px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors font-medium"
+                >
+                  {t("register")}
+                </Link>
+              </>
             )}
 
             {/* Locale Switcher */}

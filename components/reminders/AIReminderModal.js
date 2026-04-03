@@ -1711,6 +1711,7 @@ export default function AIReminderModal({
                   onKeyDown={handleKeyPress}
                   placeholder={t.placeholder}
                   rows="2"
+                  maxLength={2000}
                   disabled={isProcessing}
                   style={{
                     flex: 1,

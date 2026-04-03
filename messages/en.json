@@ -15,7 +15,8 @@
     "admin": "Admin",
     "toggleTheme": "Toggle theme",
     "skipToContent": "Skip to content",
-    "notes": "Notes"
+    "notes": "Notes",
+    "register": "Sign Up"
   },
   "footer": {
     "copyright": "ReminderApp",
@@ -50,7 +51,9 @@
     "demoTitle": "Demo Accounts:",
     "demoAdmin": "Admin: username: {username} / password: {password}",
     "demoUser": "User: username: {username} / password: {password}",
-    "errorGeneric": "An error occurred. Please try again."
+    "errorGeneric": "An error occurred. Please try again.",
+    "invalidCredentials": "Incorrect username or password.",
+    "tooManyAttempts": "Too many login attempts. Please try again later."
   },
   "register": {
     "title": "ReminderApp",
@@ -147,14 +150,19 @@
     "backToReminders": "Back to Reminders",
     "description": "Description",
     "edit": "Edit",
-    "delete": "Delete"
+    "delete": "Delete",
+    "noReminders": "No reminders found. Create your first reminder!"
   },
   "taskItem": {
     "todayAt": "Today at {time}",
     "tomorrowAt": "Tomorrow at {time}",
     "cancelSnooze": "Cancel snooze",
     "snoozeReminder": "Snooze reminder",
-    "snoozedUntil": "Snoozed until {date}"
+    "snoozedUntil": "Snoozed until {date}",
+    "markComplete": "Mark as complete",
+    "markIncomplete": "Mark as incomplete",
+    "editReminder": "Edit reminder",
+    "deleteReminder": "Delete reminder"
   },
   "snooze": {
     "title": "Snooze reminder",
@@ -314,7 +322,8 @@
     "noPages": "No pages yet",
     "editorPlaceholder": "Enter text or type '/' for commands",
     "collapseSidebar": "Collapse sidebar",
-    "expandSidebar": "Expand sidebar"
+    "expandSidebar": "Expand sidebar",
+    "resizeSidebar": "Resize sidebar"
   },
   "common": {
     "save": "Save",

@@ -1,8 +1,10 @@
 import { Link } from "@/i18n/navigation";
 import { getTranslations } from "next-intl/server";
+import { auth } from "@/auth";
 
 export default async function Footer() {
   const t = await getTranslations("footer");
+  const session = await auth();
   return (
     <footer className="mt-auto">
       <div
@@ -18,13 +20,17 @@ export default async function Footer() {
             © {new Date().getFullYear()} {t("copyright")}
           </p>
           <div className="flex items-center gap-3 text-xs text-text-muted">
-            <Link
-              href="/login"
-              className="hover:text-primary transition-colors"
-            >
-              {t("login")}
-            </Link>
-            <span className="text-border">·</span>
+            {!session && (
+              <>
+                <Link
+                  href="/login"
+                  className="hover:text-primary transition-colors"
+                >
+                  {t("login")}
+                </Link>
+                <span className="text-border">·</span>
+              </>
+            )}
             <Link
               href="#"
               className="hover:text-primary transition-colors"

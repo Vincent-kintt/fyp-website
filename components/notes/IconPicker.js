@@ -57,6 +57,7 @@ export default function IconPicker({ currentIcon, onSelect, onClose }) {
             data-selected={color === selectedColor}
             style={{ backgroundColor: getIconColor(color, resolvedTheme) }}
             onClick={() => setSelectedColor(color)}
+            aria-label={color.charAt(0).toUpperCase() + color.slice(1)}
           />
         ))}
       </div>

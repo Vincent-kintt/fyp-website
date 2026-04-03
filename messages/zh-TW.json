@@ -15,7 +15,8 @@
     "admin": "管理員",
     "toggleTheme": "切換主題",
     "skipToContent": "跳至內容",
-    "notes": "筆記"
+    "notes": "筆記",
+    "register": "註冊"
   },
   "footer": {
     "copyright": "ReminderApp",
@@ -50,7 +51,9 @@
     "demoTitle": "展示帳號：",
     "demoAdmin": "管理員：帳號 {username} / 密碼 {password}",
     "demoUser": "使用者：帳號 {username} / 密碼 {password}",
-    "errorGeneric": "發生錯誤，請稍後再試。"
+    "errorGeneric": "發生錯誤，請稍後再試。",
+    "invalidCredentials": "使用者名稱或密碼錯誤。",
+    "tooManyAttempts": "登入嘗試次數過多，請稍後再試。"
   },
   "register": {
     "title": "ReminderApp",
@@ -147,14 +150,19 @@
     "backToReminders": "返回提醒列表",
     "description": "說明",
     "edit": "編輯",
-    "delete": "刪除"
+    "delete": "刪除",
+    "noReminders": "還沒有提醒事項，建立你的第一個提醒吧！"
   },
   "taskItem": {
     "todayAt": "今天 {time}",
     "tomorrowAt": "明天 {time}",
     "cancelSnooze": "取消延後",
     "snoozeReminder": "延後提醒",
-    "snoozedUntil": "延後至 {date}"
+    "snoozedUntil": "延後至 {date}",
+    "markComplete": "標記為完成",
+    "markIncomplete": "取消完成",
+    "editReminder": "編輯提醒",
+    "deleteReminder": "刪除提醒"
   },
   "snooze": {
     "title": "延後提醒",
@@ -314,7 +322,8 @@
     "noPages": "還沒有頁面",
     "editorPlaceholder": "輸入文字或輸入 '/' 使用指令",
     "collapseSidebar": "收合側邊欄",
-    "expandSidebar": "展開側邊欄"
+    "expandSidebar": "展開側邊欄",
+    "resizeSidebar": "調整側邊欄寬度"
   },
   "common": {
     "save": "儲存",

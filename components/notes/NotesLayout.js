@@ -193,9 +193,17 @@ export default function NotesLayout({
         {/* Resize handle */}
         {!collapsed && (
           <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("resizeSidebar")}
+            tabIndex={0}
             className="notes-sidebar-resize-handle"
             onMouseDown={handleResizeStart}
             onDoubleClick={handleResizeDoubleClick}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight") setSidebarWidth((w) => Math.min(MAX_WIDTH, w + 16));
+              if (e.key === "ArrowLeft") setSidebarWidth((w) => Math.max(MIN_WIDTH, w - 16));
+            }}
             data-resizing={isResizing}
           />
         )}

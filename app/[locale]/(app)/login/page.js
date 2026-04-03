@@ -42,11 +42,13 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError(result.error);
+        const errorMessages = {
+          CredentialsSignin: t("invalidCredentials"),
+        };
+        setError(errorMessages[result.error] || t("errorGeneric"));
         setIsLoading(false);
       } else if (result?.ok) {
         router.push("/dashboard");
-        router.refresh();
       }
     } catch (error) {
       setError(t("errorGeneric"));

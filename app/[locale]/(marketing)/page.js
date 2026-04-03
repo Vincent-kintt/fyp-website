@@ -74,7 +74,7 @@ export default async function Home() {
         <p className="text-base md:text-lg leading-relaxed font-light max-w-md mb-8 text-[#78716c] dark:text-[#71717a]">
           {t("subheadline")}
         </p>
-        <Button href="/login" variant="primary" className="text-sm md:text-base px-6 py-3">
+        <Button href="/register" variant="primary" className="text-sm md:text-base px-6 py-3">
           {t("cta")} <span className="ml-1">→</span>
         </Button>
       </section>

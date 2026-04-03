@@ -92,6 +92,13 @@ export async function POST(request) {
       );
     }
 
+    if (text.length > 2000) {
+      return NextResponse.json(
+        { success: false, error: "Input too long" },
+        { status: 400 },
+      );
+    }
+
     const now = new Date();
 
     // HYBRID APPROACH: LLM Normalization + Deterministic Parsing

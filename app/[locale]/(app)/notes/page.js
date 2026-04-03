@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { FileText, Plus } from "lucide-react";
@@ -9,19 +9,27 @@ export default function NotesPage() {
   const t = useTranslations("notes");
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
     fetch("/api/notes")
       .then((res) => res.json())
       .then((data) => {
+        if (!mountedRef.current) return;
         if (data.success && data.data.length > 0) {
           router.replace(`/notes/${data.data[0].id}`);
         } else {
           setLoading(false);
         }
       })
-      .catch(() => setLoading(false));
-  }, [router]);
+      .catch(() => {
+        if (mountedRef.current) setLoading(false);
+      });
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (

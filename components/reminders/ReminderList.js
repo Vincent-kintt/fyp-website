@@ -1,12 +1,15 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import ReminderCard from "./ReminderCard";
 
 export default function ReminderList({ reminders, onDelete, onUpdate }) {
+  const t = useTranslations("reminders");
+
   if (!reminders || reminders.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-lg" style={{ color: "var(--text-muted)" }}>No reminders found. Create your first reminder!</p>
+        <p className="text-lg" style={{ color: "var(--text-muted)" }}>{t("noReminders")}</p>
       </div>
     );
   }

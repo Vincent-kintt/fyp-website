@@ -26,7 +26,6 @@ import TaskSection from "@/components/tasks/TaskSection";
 import QuickAdd from "@/components/tasks/QuickAdd";
 import NextTaskCard from "@/components/dashboard/NextTaskCard";
 import StatsOverview from "@/components/dashboard/StatsOverview";
-import FloatingActionButton from "@/components/ui/FloatingActionButton";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 import {
@@ -807,8 +806,6 @@ export default function DashboardPage() {
         onClose={() => setSelectedTaskId(null)}
         onSave={handleUpdate}
       />
-
-      <FloatingActionButton onClick={() => setIsAIModalOpen(true)} />
 
       <AIReminderModal
         isOpen={isAIModalOpen}

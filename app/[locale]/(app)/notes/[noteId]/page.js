@@ -79,6 +79,9 @@ export default function NotePage() {
               n.id === noteId ? { ...n, title: updates.title } : n,
             ),
           );
+          setCurrentNote((prev) =>
+            prev ? { ...prev, title: updates.title } : prev,
+          );
         }
       } catch {
         toast.error(t("saveFailed"));
