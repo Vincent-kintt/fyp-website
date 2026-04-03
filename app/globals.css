@@ -1023,6 +1023,29 @@ body {
   transition: opacity var(--duration-fast) var(--ease-standard);
 }
 
+/* Override BlockNote default card appearance for borderless Notion-style editor */
+.bn-container {
+  --bn-border: none;
+  --bn-shadow-medium: none;
+  --bn-border-radius: 0px;
+  --bn-border-radius-large: 0px;
+}
+
+.bn-editor {
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.bn-container[data-color-scheme="dark"] {
+  --bn-colors-editor-background: transparent;
+}
+
+.bn-container[data-color-scheme="light"] {
+  --bn-colors-editor-background: transparent;
+}
+
 .notes-topbar {
   display: flex;
   align-items: center;
