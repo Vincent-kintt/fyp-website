@@ -295,7 +295,16 @@
     "summarize": "Summarize",
     "summarizeSubtext": "Summarize the current page",
     "digestLabel": "Digest",
-    "digestSubtext": "Generate a structured digest"
+    "digestSubtext": "Generate a structured digest",
+    "pages": "Pages",
+    "search": "Search…",
+    "trash": "Trash",
+    "trashEmpty": "Trash is empty",
+    "restore": "Restore",
+    "deletePermanently": "Delete permanently",
+    "confirmPermanentDelete": "This will permanently delete this page and all its sub-pages. This cannot be undone.",
+    "editedAgo": "Edited {time}",
+    "saved": "Saved"
   },
   "common": {
     "save": "Save",
