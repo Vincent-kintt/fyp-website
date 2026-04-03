@@ -921,40 +921,51 @@ body {
 .notes-sidebar {
   width: 240px;
   min-width: 240px;
-  border-right: 1px solid var(--border);
   background: var(--background-secondary);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
+.notes-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.notes-sidebar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.notes-sidebar:hover::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  opacity: 0.3;
+}
+
 .notes-tree-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 4px;
+  padding: 3px 8px;
+  margin: 1px 4px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard),
-              color var(--duration-fast) var(--ease-standard);
-  min-height: 32px;
+  transition: background 150ms ease;
+  min-height: 30px;
   user-select: none;
 }
 
 .notes-tree-item:hover {
   background: var(--surface-hover);
-  color: var(--text-primary);
 }
 
 .notes-tree-item[data-active="true"] {
   background: var(--surface-active);
   color: var(--text-primary);
-  font-weight: 500;
 }
 
 .notes-tree-item[data-dragging="true"] {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .notes-drawer-backdrop {

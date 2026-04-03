@@ -52,25 +52,22 @@ export default function PageTree({
 
   return (
     <div className="flex flex-col h-full">
-      <div
-        className="flex items-center justify-between px-3 py-2"
-        style={{ borderBottom: "1px solid var(--border)" }}
-      >
+      <div className="flex items-center justify-between px-3 py-2">
         <span
-          className="text-xs font-semibold uppercase tracking-wide"
+          className="text-[11px] font-semibold uppercase tracking-wider"
           style={{ color: "var(--text-muted)" }}
         >
           {t("title")}
         </span>
         <button
           onClick={() => onCreateNote?.()}
-          className="p-1.5 rounded-md transition-colors"
+          className="p-1 rounded transition-colors"
           style={{ color: "var(--text-muted)" }}
           onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "var(--surface-hover)")
+            (e.currentTarget.style.color = "var(--text-primary)")
           }
           onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "transparent")
+            (e.currentTarget.style.color = "var(--text-muted)")
           }
           aria-label={t("newPage")}
           title={t("newPage")}

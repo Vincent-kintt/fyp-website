@@ -35,7 +35,7 @@ export default function PageTreeItem({
     <div ref={setNodeRef} style={sortableStyle} {...attributes}>
       <div
         className="notes-tree-item group"
-        style={{ paddingLeft: `${8 + depth * 20}px` }}
+        style={{ paddingLeft: `${12 + depth * 16}px` }}
         data-active={isActive}
         data-dragging={isDragging}
         {...listeners}
@@ -53,12 +53,15 @@ export default function PageTreeItem({
           aria-label={expanded ? "Collapse" : "Expand"}
         >
           <FaChevronRight
-            className="w-2.5 h-2.5 transition-transform"
-            style={{ transform: expanded ? "rotate(90deg)" : "none" }}
+            className="w-2.5 h-2.5"
+            style={{
+              transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 200ms ease",
+            }}
           />
         </button>
 
-        <span className="flex-shrink-0 text-sm">{note.icon || "📄"}</span>
+        <span className="flex-shrink-0 text-[13px] opacity-60">{note.icon || "📄"}</span>
 
         {renaming ? (
           <input
@@ -102,8 +105,11 @@ export default function PageTreeItem({
               e.preventDefault();
               setMenuOpen((prev) => !prev);
             }}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity"
-            style={{ color: "var(--text-muted)" }}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded"
+            style={{
+              color: "var(--text-muted)",
+              transition: "opacity 150ms ease",
+            }}
             aria-label="Actions"
             aria-haspopup="true"
             aria-expanded={menuOpen}

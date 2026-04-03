@@ -21,7 +21,7 @@ export default function NotesLayout({
 
   return (
     <div className="flex h-full">
-      <aside className="notes-sidebar hidden md:flex flex-col">
+      <aside className="notes-sidebar hidden md:flex flex-col" style={{ boxShadow: "1px 0 0 0 var(--border)" }}>
         <PageTree
           notes={notes}
           activeNoteId={activeNoteId}
