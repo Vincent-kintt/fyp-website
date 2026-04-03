@@ -9,7 +9,8 @@ import {
   SuggestionMenuController,
   getDefaultReactSlashMenuItems,
 } from "@blocknote/react";
-import { filterSuggestionItems, en as bnEn } from "@blocknote/core";
+import { filterSuggestionItems } from "@blocknote/core";
+import { en as bnEn } from "@blocknote/core/locales";
 import "@blocknote/mantine/style.css";
 import { Sparkles } from "lucide-react";
 import NoteIcon from "./NoteIcon";
