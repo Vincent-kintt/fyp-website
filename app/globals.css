@@ -1056,10 +1056,12 @@ body:has(.notes-page) footer {
 
 .bn-container[data-color-scheme="dark"] {
   --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: #e0e0e0;
 }
 
 .bn-container[data-color-scheme="light"] {
   --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: #37352f;
 }
 
 .notes-topbar {
