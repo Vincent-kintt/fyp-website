@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, Search } from "lucide-react";
+import { ChevronRight, Plus, Search, Trash2 } from "lucide-react";
+import TrashSection from "./TrashSection";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { buildTree } from "@/lib/notes/tree";
@@ -17,8 +18,12 @@ export default function PageTree({
   onReorder,
   onRename,
   onDuplicate,
+  trashedNotes,
+  onRestore,
+  onPermanentDelete,
 }) {
   const t = useTranslations("notes");
+  const [trashOpen, setTrashOpen] = useState(false);
   const tree = buildTree(notes);
   const sensors = useDndSensors();
   const flatIds = notes.map((n) => n.id);
@@ -131,6 +136,48 @@ export default function PageTree({
         <Plus size={14} strokeWidth={1.5} />
         {t("newPage")}
       </button>
+
+      {/* Trash section — pinned to bottom */}
+      <div style={{ marginTop: "auto", borderTop: "1px solid var(--border)" }}>
+        <button
+          onClick={() => setTrashOpen((prev) => !prev)}
+          className="flex items-center gap-2 w-full px-3 py-2 text-[12.5px]"
+          style={{ color: "var(--text-muted)" }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.background = "var(--surface-hover)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.background = "transparent")
+          }
+        >
+          <Trash2 size={14} strokeWidth={1.5} />
+          {t("trash")}
+          {trashedNotes?.length > 0 && (
+            <span
+              className="ml-auto text-[10px]"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {trashedNotes.length}
+            </span>
+          )}
+          <ChevronRight
+            size={10}
+            strokeWidth={1.5}
+            style={{
+              transform: trashOpen ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 150ms ease",
+              marginLeft: trashedNotes?.length > 0 ? "4px" : "auto",
+            }}
+          />
+        </button>
+        {trashOpen && (
+          <TrashSection
+            trashedNotes={trashedNotes}
+            onRestore={onRestore}
+            onPermanentDelete={onPermanentDelete}
+          />
+        )}
+      </div>
     </div>
   );
 }

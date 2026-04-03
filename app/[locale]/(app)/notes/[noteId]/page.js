@@ -20,6 +20,7 @@ export default function NotePage() {
   const [currentNote, setCurrentNote] = useState(null);
   const [editorSaveStatus, setEditorSaveStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [trashedNotes, setTrashedNotes] = useState([]);
 
   const fetchNotes = useCallback(async () => {
     try {
@@ -47,10 +48,21 @@ export default function NotePage() {
     }
   }, [noteId, router]);
 
+  const fetchTrashedNotes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notes/trash");
+      const data = await res.json();
+      if (data.success) setTrashedNotes(data.data);
+    } catch {
+      /* silent */
+    }
+  }, []);
+
   useEffect(() => {
     fetchNotes();
     fetchCurrentNote();
-  }, [fetchNotes, fetchCurrentNote]);
+    fetchTrashedNotes();
+  }, [fetchNotes, fetchCurrentNote, fetchTrashedNotes]);
 
   const handleSave = useCallback(
     async (updates) => {
@@ -106,13 +118,45 @@ export default function NotePage() {
         const data = await res.json();
         if (data.success) {
           await fetchNotes();
+          await fetchTrashedNotes();
           if (id === noteId) router.replace("/notes");
         }
       } catch {
         toast.error(t("deleteFailed"));
       }
     },
-    [fetchNotes, noteId, router, t],
+    [fetchNotes, fetchTrashedNotes, noteId, router, t],
+  );
+
+  const handleRestore = useCallback(
+    async (id) => {
+      try {
+        const res = await fetch(`/api/notes/${id}/restore`, { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          await fetchNotes();
+          await fetchTrashedNotes();
+        }
+      } catch {
+        toast.error(t("saveFailed"));
+      }
+    },
+    [fetchNotes, fetchTrashedNotes, t],
+  );
+
+  const handlePermanentDelete = useCallback(
+    async (id) => {
+      try {
+        const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
+        const data = await res.json();
+        if (data.success) {
+          await fetchTrashedNotes();
+        }
+      } catch {
+        toast.error(t("deleteFailed"));
+      }
+    },
+    [fetchTrashedNotes, t],
   );
 
   const handleReorder = useCallback(
@@ -213,6 +257,9 @@ export default function NotePage() {
       onReorder={handleReorder}
       onRename={handleRename}
       onDuplicate={handleDuplicate}
+      trashedNotes={trashedNotes}
+      onRestore={handleRestore}
+      onPermanentDelete={handlePermanentDelete}
     >
       {currentNote && (
         <>

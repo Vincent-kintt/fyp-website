@@ -15,6 +15,9 @@ export default function MobileSidebar({
   onReorder,
   onRename,
   onDuplicate,
+  trashedNotes,
+  onRestore,
+  onPermanentDelete,
 }) {
   const t = useTranslations("notes");
 
@@ -73,6 +76,9 @@ export default function MobileSidebar({
             onReorder={onReorder}
             onRename={onRename}
             onDuplicate={onDuplicate}
+            trashedNotes={trashedNotes}
+            onRestore={onRestore}
+            onPermanentDelete={onPermanentDelete}
           />
         </div>
       </aside>
