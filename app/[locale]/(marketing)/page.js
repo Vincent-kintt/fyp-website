@@ -1,7 +1,7 @@
 import { DM_Serif_Display, Outfit } from "next/font/google";
 import { auth } from "@/auth";
 import { redirect } from "@/i18n/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import ClientRedirect from "@/components/auth/ClientRedirect";
 import Button from "@/components/ui/Button";
 import ScrollReveal from "@/components/ui/ScrollReveal";
@@ -29,7 +29,8 @@ export async function generateMetadata() {
 export default async function Home() {
   const session = await auth();
   if (session) {
-    redirect("/dashboard");
+    const locale = await getLocale();
+    redirect({ href: "/dashboard", locale });
   }
 
   const t = await getTranslations("landing");
