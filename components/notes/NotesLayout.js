@@ -12,6 +12,8 @@ export default function NotesLayout({
   onCreateNote,
   onDeleteNote,
   onReorder,
+  onRename,
+  onDuplicate,
   children,
 }) {
   const t = useTranslations("notes");
@@ -26,6 +28,8 @@ export default function NotesLayout({
           onCreateNote={onCreateNote}
           onDeleteNote={onDeleteNote}
           onReorder={onReorder}
+          onRename={onRename}
+          onDuplicate={onDuplicate}
         />
       </aside>
 
@@ -49,6 +53,8 @@ export default function NotesLayout({
         onCreateNote={onCreateNote}
         onDeleteNote={onDeleteNote}
         onReorder={onReorder}
+        onRename={onRename}
+        onDuplicate={onDuplicate}
       />
 
       <main className="flex-1 overflow-y-auto">{children}</main>

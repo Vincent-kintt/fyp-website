@@ -126,6 +126,64 @@ export default function NotePage() {
     [fetchNotes, t],
   );
 
+  const handleRename = useCallback(
+    async (id, newTitle) => {
+      try {
+        const res = await fetch(`/api/notes/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: newTitle }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setNotes((prev) =>
+            prev.map((n) => (n.id === id ? { ...n, title: newTitle } : n)),
+          );
+          if (id === noteId) {
+            setCurrentNote((prev) => (prev ? { ...prev, title: newTitle } : prev));
+          }
+        }
+      } catch {
+        toast.error(t("saveFailed"));
+      }
+    },
+    [noteId, t],
+  );
+
+  const handleDuplicate = useCallback(
+    async (id) => {
+      try {
+        const sourceNote = notes.find((n) => n.id === id);
+        if (!sourceNote) return;
+        const getRes = await fetch(`/api/notes/${id}`);
+        const getData = await getRes.json();
+        if (!getData.success) return;
+
+        const res = await fetch("/api/notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: `${getData.data.title} (copy)`,
+            parentId: getData.data.parentId,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          await fetch(`/api/notes/${data.data.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: getData.data.content }),
+          });
+          await fetchNotes();
+          router.push(`/notes/${data.data.id}`);
+        }
+      } catch {
+        toast.error(t("saveFailed"));
+      }
+    },
+    [notes, fetchNotes, router, t],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -141,6 +199,8 @@ export default function NotePage() {
       onCreateNote={handleCreateNote}
       onDeleteNote={handleDeleteNote}
       onReorder={handleReorder}
+      onRename={handleRename}
+      onDuplicate={handleDuplicate}
     >
       {currentNote && (
         <NoteEditor key={currentNote.id} note={currentNote} onSave={handleSave} />

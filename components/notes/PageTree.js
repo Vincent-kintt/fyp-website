@@ -15,6 +15,8 @@ export default function PageTree({
   onCreateNote,
   onDeleteNote,
   onReorder,
+  onRename,
+  onDuplicate,
 }) {
   const t = useTranslations("notes");
   const tree = buildTree(notes);
@@ -98,6 +100,8 @@ export default function PageTree({
                   activeNoteId={activeNoteId}
                   onCreateSubPage={(parentId) => onCreateNote?.(parentId)}
                   onDeleteNote={onDeleteNote}
+                  onRename={onRename}
+                  onDuplicate={onDuplicate}
                 />
               ))}
             </SortableContext>

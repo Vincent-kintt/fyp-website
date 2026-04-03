@@ -13,6 +13,8 @@ export default function MobileSidebar({
   onCreateNote,
   onDeleteNote,
   onReorder,
+  onRename,
+  onDuplicate,
 }) {
   const t = useTranslations("notes");
 
@@ -73,6 +75,8 @@ export default function MobileSidebar({
             onCreateNote={onCreateNote}
             onDeleteNote={onDeleteNote}
             onReorder={onReorder}
+            onRename={onRename}
+            onDuplicate={onDuplicate}
           />
         </div>
       </aside>
