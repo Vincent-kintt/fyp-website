@@ -66,6 +66,9 @@ a[href] {
     --input-border: #d1d5db;
     --input-border-focus: #3b82f6;
 
+    /* Checkbox */
+    --checkbox-border: #636366;
+
     /* Shadow */
     --shadow-color: rgba(0, 0, 0, 0.1);
 
@@ -196,6 +199,9 @@ a[href] {
     --input-border: #3f3f46;
     --input-border-focus: #60a5fa;
 
+    /* Checkbox */
+    --checkbox-border: #98989d;
+
     /* Shadow */
     --shadow-color: rgba(0, 0, 0, 0.4);
 
@@ -267,6 +273,23 @@ a[href] {
     --cmdk-kbd-border: #222222;
     --cmdk-overlay: rgba(0, 0, 0, 0.6);
     --cmdk-shadow: none;
+  }
+}
+
+/* ── Spacing Tokens ── */
+:root {
+  --spacing-page-x: 16px;
+  --spacing-page-y: 24px;
+  --spacing-section: 24px;
+  --spacing-card: 16px;
+  --spacing-row: 12px;
+  --spacing-inline: 8px;
+}
+@media (min-width: 640px) {
+  :root {
+    --spacing-page-x: 24px;
+    --spacing-page-y: 32px;
+    --spacing-row: 8px;
   }
 }
 
@@ -538,6 +561,11 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  .page-enter-1, .page-enter-2, .page-enter-3,
+  .page-enter-4, .page-enter-5,
+  .task-stagger-enter {
+    animation-delay: 0ms !important;
+  }
 }
 
 /* Checkmark draw animation */
@@ -566,8 +594,15 @@ body {
 
 /* Staggered list entry — opacity only to avoid conflicting with dnd-kit transforms */
 .task-stagger-enter {
-  animation: fadeIn var(--duration-normal) var(--ease-decelerate) both;
+  animation: fadeIn var(--duration-slow) var(--ease-decelerate) both;
 }
+
+/* Page section stagger — opacity only for SSR safety */
+.page-enter-1 { animation: fadeIn var(--duration-slow) var(--ease-decelerate) both; animation-delay: 0ms; }
+.page-enter-2 { animation: fadeIn var(--duration-slow) var(--ease-decelerate) both; animation-delay: 80ms; }
+.page-enter-3 { animation: fadeIn var(--duration-slow) var(--ease-decelerate) both; animation-delay: 140ms; }
+.page-enter-4 { animation: fadeIn var(--duration-slow) var(--ease-decelerate) both; animation-delay: 200ms; }
+.page-enter-5 { animation: fadeIn var(--duration-slow) var(--ease-decelerate) both; animation-delay: 260ms; }
 
 /* Reasoning shimmer animation */
 @keyframes reasoning-shimmer {
