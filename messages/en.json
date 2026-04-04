@@ -16,7 +16,8 @@
     "toggleTheme": "Toggle theme",
     "skipToContent": "Skip to content",
     "notes": "Notes",
-    "register": "Sign Up"
+    "register": "Sign Up",
+    "mainNavigation": "Main navigation"
   },
   "footer": {
     "copyright": "ReminderApp",

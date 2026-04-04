@@ -16,7 +16,8 @@
     "toggleTheme": "切換主題",
     "skipToContent": "跳至內容",
     "notes": "筆記",
-    "register": "註冊"
+    "register": "註冊",
+    "mainNavigation": "主要導航"
   },
   "footer": {
     "copyright": "ReminderApp",
