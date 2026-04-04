@@ -22,10 +22,29 @@ Fix: outer `<button>` stays 44px for touch target. Inner `<span>` is the 20px vi
 
 - Touch target: 44px (WCAG 2.5.5 compliant)
 - Visual circle: 20px (aligns with Apple Reminders)
-- Border color: `#636366` (4.58:1 contrast ratio, passes WCAG 1.4.11 non-text contrast 3:1)
+- Border color: `var(--checkbox-border)` — see Section 4 for token definition
 - Hover: border color transitions to `--primary` (blue)
 - Focus: existing `:focus-visible` ring stays on the outer button
-- Checked state: unchanged (green fill + checkmark SVG animation)
+
+Checked state: the checkmark SVG and green fill must live inside the inner `<span>`, not the outer `<button>`. Current code uses `w-full h-full` on the SVG which fills the button — this must change to fill the 20px circle instead.
+
+```
+<!-- Unchecked -->
+<button class="... w-11 h-11 flex items-center justify-center ...">
+  <span class="w-5 h-5 rounded-full border-[1.5px] ..."></span>
+</button>
+
+<!-- Checked -->
+<button class="... w-11 h-11 flex items-center justify-center ...">
+  <span class="w-5 h-5 rounded-full bg-success border-success flex items-center justify-center">
+    <svg class="w-3 h-3 text-white" ...>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  </span>
+</button>
+```
+
+Scope: main task checkbox only. Subtask checkboxes (`TaskItem.js` line 339) and other checkbox controls (`DayTimeline.js`, `TaskEditForm.js`) are out of scope for this iteration.
 
 File: `components/tasks/TaskItem.js` lines 140-172
 
@@ -35,7 +54,7 @@ No shadow lift, no elevation, no transform.
 
 - Hover: background tint only (`rgba(0,0,0,0.028)` / dark: `rgba(255,255,255,0.04)`)
 - Action buttons: fade in on hover (desktop), always visible (mobile) — existing pattern preserved
-- Transition: `background 120ms var(--ease-standard)`
+- Transition: `background var(--duration-fast) var(--ease-standard)` (150ms, reuse existing token)
 - No `transform` or `box-shadow` on task rows — dnd-kit manages inline transforms
 
 Action button hover-reveal must also trigger on keyboard `:focus-within` for accessibility.
@@ -47,11 +66,11 @@ File: `components/tasks/TaskItem.js` lines 119-130
 Existing `task-stagger-enter` class already applies opacity-only fadeIn with index-based delay.
 
 Changes:
-- Duration: 200ms → 280ms (slower decel for Apple-like feel)
+- Duration: 200ms → `var(--duration-slow)` (300ms, reuse existing token)
 - Per-item delay: 40ms → 30ms (snappier cascade)
 - Max cap: 15 items (600ms) → 10 items (300ms max delay)
 - Animation: stays opacity-only (no translateY — dnd-kit safe)
-- `prefers-reduced-motion`: existing handler in globals.css covers this
+- `prefers-reduced-motion`: add explicit `animation-delay: 0ms` under the existing reduced-motion media query — current rule only shortens duration but doesn't zero delay, so staggered items would still appear sequentially
 
 Files:
 - `app/globals.css` line 568 (`.task-stagger-enter` class)
@@ -66,29 +85,48 @@ Each page's sections fade in with staggered delays on mount. Opacity-only — no
 Add CSS classes for section-level stagger. Applied via className in page components, not via ScrollReveal (which causes opacity-0 flash on SSR pages).
 
 ```css
-.page-enter-1 { animation: fadeIn 400ms var(--ease-decelerate) both; animation-delay: 0ms; }
-.page-enter-2 { animation: fadeIn 400ms var(--ease-decelerate) both; animation-delay: 80ms; }
-.page-enter-3 { animation: fadeIn 400ms var(--ease-decelerate) both; animation-delay: 140ms; }
-.page-enter-4 { animation: fadeIn 400ms var(--ease-decelerate) both; animation-delay: 200ms; }
-.page-enter-5 { animation: fadeIn 400ms var(--ease-decelerate) both; animation-delay: 260ms; }
+.page-enter-1 { animation: fadeIn var(--duration-slow) var(--ease-decelerate) both; animation-delay: 0ms; }
+.page-enter-2 { animation: fadeIn var(--duration-slow) var(--ease-decelerate) both; animation-delay: 80ms; }
+.page-enter-3 { animation: fadeIn var(--duration-slow) var(--ease-decelerate) both; animation-delay: 140ms; }
+.page-enter-4 { animation: fadeIn var(--duration-slow) var(--ease-decelerate) both; animation-delay: 200ms; }
+.page-enter-5 { animation: fadeIn var(--duration-slow) var(--ease-decelerate) both; animation-delay: 260ms; }
 ```
 
 ### Dashboard stagger order
 
-1. Header (title + date) — 0ms
-2. Stats cards row — 80ms
-3. Quick add input — 140ms
-4. Task sections — 200ms+
+1. Header (title + date) — 0ms (page-enter-1)
+2. Stats cards row — 80ms (page-enter-2)
+3. NextTaskCard hero block — 140ms (page-enter-3, conditional — only renders if next task exists)
+4. Quick add input — 200ms (page-enter-4)
+5. Task sections — 260ms (page-enter-5, conditional sections like Overdue/Today/Tomorrow appear based on data)
+
+Conditional sections: apply the enter class regardless — if the section doesn't render, the class has no effect. No special handling needed.
 
 ### Other pages
 
 Same pattern, adapted to each page's section structure. Apply incrementally — dashboard first, then reminders, calendar, inbox.
 
+### Reduced motion
+
+The existing `prefers-reduced-motion` rule in globals.css shortens `animation-duration` but does NOT zero `animation-delay`. Add to the reduced-motion media query:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-1, .page-enter-2, .page-enter-3,
+  .page-enter-4, .page-enter-5,
+  .task-stagger-enter {
+    animation-delay: 0ms !important;
+  }
+}
+```
+
+This ensures all staggered content appears simultaneously instead of sequentially when reduced motion is preferred.
+
 ### Constraints
 
 - Uses existing `fadeIn` keyframe from globals.css
 - Not applied to dynamically loaded content (task items have their own stagger)
-- `prefers-reduced-motion`: covered by existing globals.css rule that sets `animation-duration: 0.01ms`
+- `animation-fill-mode: both` means sections start at `opacity: 0` during delay — acceptable for polish since delay is max 260ms, but page-enter-1 (0ms delay) always appears instantly
 
 Files:
 - `app/globals.css` (add `.page-enter-*` classes)
@@ -130,9 +168,31 @@ Codex flagged 12px vertical row padding as generous for desktop (Linear ~8px, No
 
 Dashboard first → reminders → calendar → inbox. One page per commit.
 
+### Token definition strategy
+
+Responsive tokens (different values at different breakpoints) go in `:root` with `@media` overrides — `@theme` doesn't support media queries. Static tokens can go in either.
+
+```css
+:root {
+  --spacing-page-x: 16px;
+  --spacing-page-y: 24px;
+  --spacing-row: 12px;
+}
+@media (min-width: 640px) {
+  :root {
+    --spacing-page-x: 24px;
+    --spacing-page-y: 32px;
+    --spacing-row: 8px;
+  }
+}
+```
+
+Shared components that own spacing (`StatsOverview.js` `mb-8`, `TaskSection.js` `mb-6`) will be adjusted per-page during rollout. These are in scope.
+
 Files:
-- `app/globals.css` (define tokens in `@theme` or `:root`)
+- `app/globals.css` (define tokens in `:root` with media query overrides)
 - Individual page components (apply tokens)
+- `components/dashboard/StatsOverview.js`, `components/tasks/TaskSection.js` (adjust owned spacing)
 
 ## Section 4: Interaction Feedback
 
@@ -187,6 +247,12 @@ Replace hard-coded `var(--text-muted)` with `var(--checkbox-border)` in:
 Action buttons currently use `sm:opacity-0 sm:group-hover:opacity-100`. Add `focus-within:opacity-100` to ensure keyboard-navigated actions are visible.
 
 Current code already has this (`focus-within:opacity-100` on line 272). Verify it works correctly.
+
+Drag handle (`DragHandle.js`) is also hover-hidden on desktop and has no focus fallback. Add `group-focus-within:opacity-100` to the drag handle as well.
+
+### Press Feedback Scope
+
+`active:scale-[0.97]` applies only to the shared `Button` component (`components/ui/Button.js`). Raw `<button>` elements in TaskItem, QuickAdd, Calendar, Navbar etc. are NOT in scope — they are either dnd-kit managed or have specialized interaction patterns.
 
 ## What Is NOT In Scope
 
