@@ -61,7 +61,7 @@ export default function BottomNav() {
       `}</style>
 
       <div
-        className="relative flex border-t bg-[var(--navbar-bg)] border-[var(--navbar-border)]"
+        className="relative flex bg-[var(--navbar-bg)]"
         style={{
           height: "calc(60px + env(safe-area-inset-bottom, 0px))",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
