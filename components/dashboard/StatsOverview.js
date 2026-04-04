@@ -11,7 +11,7 @@ export default function StatsOverview({ tasks }) {
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
-    <div className="grid grid-cols-3 gap-4 mb-8">
+    <div className="grid grid-cols-3 gap-4" style={{ marginBottom: "var(--spacing-section)" }}>
       <div className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] flex flex-col items-center justify-center text-center">
         <div className="text-success mb-1">
           <FaCheckCircle className="w-5 h-5" />
