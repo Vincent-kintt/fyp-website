@@ -46,8 +46,13 @@ export default function NotesLayout({
 }) {
   const t = useTranslations("notes");
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(getInitialCollapsed);
-  const [sidebarWidth, setSidebarWidth] = useState(getInitialWidth);
+  const [collapsed, setCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
+
+  useEffect(() => {
+    setCollapsed(getInitialCollapsed());
+    setSidebarWidth(getInitialWidth());
+  }, []);
   const [isResizing, setIsResizing] = useState(false);
   const [peekVisible, setPeekVisible] = useState(false);
   const peekTimerRef = useRef(null);

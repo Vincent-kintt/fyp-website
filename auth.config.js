@@ -3,6 +3,15 @@
  * Used by middleware - NO MongoDB/Node.js dependencies here
  */
 import Credentials from "next-auth/providers/credentials";
+import { routing } from "@/i18n/routing";
+
+const nonDefaultLocales = routing.locales.filter(
+  (l) => l !== routing.defaultLocale,
+);
+const localeStripRegex =
+  nonDefaultLocales.length > 0
+    ? new RegExp(`^\\/(${nonDefaultLocales.join("|")})(\/|$)`)
+    : null;
 
 export const authConfig = {
   providers: [
@@ -30,7 +39,9 @@ export const authConfig = {
 
       // Strip locale prefix (e.g. /en/dashboard -> /dashboard)
       // Default locale (zh-TW) has no prefix thanks to localePrefix: "as-needed"
-      const pathname = nextUrl.pathname.replace(/^\/(en)(\/|$)/, "/");
+      const pathname = localeStripRegex
+        ? nextUrl.pathname.replace(localeStripRegex, "/")
+        : nextUrl.pathname;
 
       const isOnProtectedRoute =
         pathname.startsWith("/reminders") ||
@@ -49,7 +60,9 @@ export const authConfig = {
       const isAuthPage =
         pathname === "/login" || pathname === "/register";
       if (isAuthPage && isLoggedIn) {
-        const localeMatch = nextUrl.pathname.match(/^\/(en)(\/|$)/);
+        const localeMatch = localeStripRegex
+          ? nextUrl.pathname.match(localeStripRegex)
+          : null;
         const prefix = localeMatch ? `/${localeMatch[1]}` : "";
         return Response.redirect(new URL(`${prefix}/dashboard`, nextUrl));
       }

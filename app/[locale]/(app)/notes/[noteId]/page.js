@@ -73,7 +73,8 @@ export default function NotePage() {
           body: JSON.stringify(updates),
         });
         const data = await res.json();
-        if (data.success && updates.title) {
+        if (!data.success) throw new Error("Save failed");
+        if (updates.title) {
           setNotes((prev) =>
             prev.map((n) =>
               n.id === noteId ? { ...n, title: updates.title } : n,
@@ -83,8 +84,9 @@ export default function NotePage() {
             prev ? { ...prev, title: updates.title } : prev,
           );
         }
-      } catch {
+      } catch (err) {
         toast.error(t("saveFailed"));
+        throw err;
       }
     },
     [noteId, t],

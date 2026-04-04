@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { BlockNoteView } from "@blocknote/mantine";
 import {
@@ -18,6 +18,7 @@ import IconPicker from "./IconPicker";
 
 export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconChange }) {
   const t = useTranslations("notes");
+  const locale = useLocale();
   const { theme } = useTheme();
   const [title, setTitle] = useState(note?.title || "");
   const [saveStatus, setSaveStatus] = useState(null);
@@ -122,6 +123,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             input: input || noteContext,
             noteTitle: title,
             noteContext,
+            language: locale?.startsWith("zh") ? "zh" : "en",
           }),
         });
 
@@ -162,7 +164,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
         });
       }
     },
-    [editor, title],
+    [editor, title, locale],
   );
 
   const getSlashMenuItems = useCallback(
