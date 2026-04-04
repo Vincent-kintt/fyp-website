@@ -116,14 +116,10 @@ const TaskItem = memo(
         <div
           ref={ref}
           data-testid={`task-item-${task.id}`}
-          className={`group relative flex items-start gap-2 p-4 rounded-xl transition-opacity duration-200 hover:opacity-90 ${
+          className={`group relative flex items-start gap-2 py-3 sm:py-2 px-4 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] transition-[background-color,opacity] duration-200 hover:bg-[rgba(0,0,0,0.028)] dark:hover:bg-[rgba(255,255,255,0.04)] ${
             currentTask.completed ? "opacity-60" : ""
           } ${isDragging ? "opacity-50" : ""} ${animationClass || ""}`}
           style={{
-            backgroundColor: "var(--card-bg)",
-            borderColor: "var(--card-border)",
-            borderWidth: "1px",
-            borderStyle: "solid",
             animationDelay: animationDelay ? `${animationDelay}ms` : undefined,
             ...dragStyle,
           }}
@@ -136,38 +132,35 @@ const TaskItem = memo(
             />
           )}
 
-          {/* Checkbox — border color encodes priority (high=red, others=gray) */}
+          {/* Checkbox — 44px touch target, 20px visual circle */}
           <button
             onClick={handleToggle}
             aria-label={t(currentTask.completed ? "markIncomplete" : "markComplete")}
-            className={`flex-shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full border-2 transition-[border-color,background-color] duration-200 ${
-              currentTask.completed
-                ? "bg-success border-success"
-                : "hover:border-primary"
-            }`}
-            style={{
-              borderColor: currentTask.completed
-                ? undefined
-                : "var(--text-muted)",
-            }}
+            className="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-full transition-colors duration-200"
           >
-            {currentTask.completed && (
-              <svg
-                className="w-full h-full text-white p-0.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-              >
-                <polyline
-                  points="20 6 9 17 4 12"
-                  strokeDasharray="24"
-                  strokeDashoffset="0"
-                  style={{
-                    animation: "checkmark-draw 200ms var(--ease-decelerate)",
-                  }}
-                />
-              </svg>
+            {currentTask.completed ? (
+              <span className="w-5 h-5 rounded-full bg-success border-[1.5px] border-success flex items-center justify-center">
+                <svg
+                  className="w-3 h-3 text-white"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                >
+                  <polyline
+                    points="20 6 9 17 4 12"
+                    strokeDasharray="24"
+                    strokeDashoffset="0"
+                    style={{
+                      animation: "checkmark-draw 200ms var(--ease-decelerate)",
+                    }}
+                  />
+                </svg>
+              </span>
+            ) : (
+              <span
+                className="w-5 h-5 rounded-full border-[1.5px] border-[var(--checkbox-border)] transition-colors duration-200 hover:border-primary"
+              />
             )}
           </button>
 
