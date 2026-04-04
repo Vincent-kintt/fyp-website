@@ -116,7 +116,7 @@ const TaskItem = memo(
         <div
           ref={ref}
           data-testid={`task-item-${task.id}`}
-          className={`group relative flex items-start gap-2 py-3 sm:py-2 px-4 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] transition-[background-color,opacity] duration-200 hover:bg-[rgba(0,0,0,0.028)] dark:hover:bg-[rgba(255,255,255,0.04)] ${
+          className={`group relative flex items-start gap-2 py-3 sm:py-2 px-4 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] transition-[background-color,opacity] duration-150 hover:bg-[rgba(0,0,0,0.028)] dark:hover:bg-[rgba(255,255,255,0.04)] ${
             currentTask.completed ? "opacity-60" : ""
           } ${isDragging ? "opacity-50" : ""} ${animationClass || ""}`}
           style={{
