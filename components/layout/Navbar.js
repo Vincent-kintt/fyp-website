@@ -83,46 +83,48 @@ export default function Navbar() {
           <div className="flex items-center space-x-4 sm:space-x-6">
             {session ? (
               <>
-                <Link
-                  href="/dashboard"
-                  aria-label={t("today")}
-                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
-                >
-                  <FaHome className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">{t("today")}</span>
-                </Link>
-                <Link
-                  href="/inbox"
-                  aria-label={t("inbox")}
-                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
-                >
-                  <FaInbox className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">{t("inbox")}</span>
-                </Link>
-                <Link
-                  href="/calendar"
-                  aria-label={t("calendar")}
-                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
-                >
-                  <FaCalendarAlt className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">{t("calendar")}</span>
-                </Link>
-                <Link
-                  href="/reminders"
-                  aria-label={t("all")}
-                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
-                >
-                  <FaList className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">{t("all")}</span>
-                </Link>
-                <Link
-                  href="/notes"
-                  aria-label={t("notes")}
-                  className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
-                >
-                  <FaStickyNote className="w-4 h-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">{t("notes")}</span>
-                </Link>
+                <div className="hidden md:flex items-center space-x-4 sm:space-x-6">
+                  <Link
+                    href="/dashboard"
+                    aria-label={t("today")}
+                    className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
+                  >
+                    <FaHome className="w-4 h-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("today")}</span>
+                  </Link>
+                  <Link
+                    href="/inbox"
+                    aria-label={t("inbox")}
+                    className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
+                  >
+                    <FaInbox className="w-4 h-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("inbox")}</span>
+                  </Link>
+                  <Link
+                    href="/calendar"
+                    aria-label={t("calendar")}
+                    className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
+                  >
+                    <FaCalendarAlt className="w-4 h-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("calendar")}</span>
+                  </Link>
+                  <Link
+                    href="/reminders"
+                    aria-label={t("all")}
+                    className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
+                  >
+                    <FaList className="w-4 h-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("all")}</span>
+                  </Link>
+                  <Link
+                    href="/notes"
+                    aria-label={t("notes")}
+                    className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px]"
+                  >
+                    <FaStickyNote className="w-4 h-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("notes")}</span>
+                  </Link>
+                </div>
 
                 <GlobalSearch />
 
