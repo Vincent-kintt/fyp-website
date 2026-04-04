@@ -37,7 +37,8 @@ export const authConfig = {
         pathname.startsWith("/dashboard") ||
         pathname.startsWith("/inbox") ||
         pathname.startsWith("/calendar") ||
-        pathname.startsWith("/notes");
+        pathname.startsWith("/notes") ||
+        pathname.startsWith("/all");
 
       if (isOnProtectedRoute) {
         if (isLoggedIn) return true;
