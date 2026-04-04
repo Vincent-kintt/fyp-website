@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import "../globals.css";
 import Navbar from "@/components/layout/Navbar";
+import BottomNav from "@/components/layout/BottomNav";
 import Footer from "@/components/layout/Footer";
 import Providers from "../providers";
 import ThemeProvider from "@/components/ThemeProvider";
@@ -48,10 +49,16 @@ export default async function LocaleLayout({ children, params }) {
                 Skip to content
               </a>
               <Navbar />
-              <main id="main-content" className="flex-1 w-full">
+              <main
+                id="main-content"
+                className="flex-1 w-full pb-[calc(60px+env(safe-area-inset-bottom,0px))] md:pb-0"
+              >
                 {children}
               </main>
-              <Footer />
+              <BottomNav />
+              <div className="hidden md:block">
+                <Footer />
+              </div>
             </Providers>
           </NextIntlClientProvider>
         </ThemeProvider>
