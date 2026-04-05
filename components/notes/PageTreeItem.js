@@ -51,18 +51,28 @@ export default function PageTreeItem({
 
   if (isOverlay) {
     return (
-      <div
-        className="notes-tree-item notes-tree-overlay"
-        style={{ paddingLeft: `${12 + depth * 16}px` }}
-      >
+      <div className="notes-tree-item notes-tree-overlay" style={{ paddingLeft: "10px", position: "relative" }}>
         <NoteIcon icon={note.icon} hasChildren={hasChildren} expanded={expanded} size={15} />
-        <span className="flex-1 truncate text-[14px]">{note.title || t("untitled")}</span>
+        <span className="flex-1 truncate text-[14px]" style={{ color: "var(--text-primary)" }}>
+          {note.title || t("untitled")}
+        </span>
         {descendantCount > 0 && (
           <span
-            className="text-[10px] px-1.5 py-0.5 rounded-full"
-            style={{ background: "var(--surface-hover)", color: "var(--text-muted)" }}
+            className="text-[10px] rounded-full font-medium"
+            style={{
+              position: "absolute",
+              top: "-5px",
+              right: "-5px",
+              width: "18px",
+              height: "18px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--primary, #3b82f6)",
+              color: "white",
+            }}
           >
-            +{descendantCount}
+            {descendantCount}
           </span>
         )}
       </div>

@@ -103,10 +103,18 @@ export default function PageTree({
     [dropPosition, overId, activeId],
   );
 
+  // Auto-expand timer ref
+  const autoExpandTimerRef = useRef(null);
+  const lastOverIdRef = useRef(null);
+
   // Compute drop zone from pointer position within the over element
   const computeDropZone = useCallback((event) => {
     const over = event.over;
-    if (!over) return;
+    if (!over) {
+      setOverId(null);
+      setDropPosition(null);
+      return;
+    }
 
     setOverId(over.id);
 
@@ -117,14 +125,42 @@ export default function PageTree({
     const pointerY = event.activatorEvent.clientY + event.delta.y;
     const relativeY = (pointerY - overRect.top) / overRect.height;
 
-    if (relativeY < DROP_ZONE_BEFORE) {
-      setDropPosition("before");
-    } else if (relativeY > DROP_ZONE_AFTER) {
-      setDropPosition("after");
+    // Check if over-item is a leaf (no children) — leaf nodes only get before/after
+    const overItem = sortableItems.find((i) => i.id === over.id);
+    const isLeaf = overItem && !overItem.hasChildren;
+
+    let position;
+    if (isLeaf) {
+      // Leaf: 50/50 split — before or after only
+      position = relativeY < 0.5 ? "before" : "after";
     } else {
-      setDropPosition("into");
+      // Non-leaf: top 25% = before, middle 50% = into, bottom 25% = after
+      if (relativeY < DROP_ZONE_BEFORE) {
+        position = "before";
+      } else if (relativeY > DROP_ZONE_AFTER) {
+        position = "after";
+      } else {
+        position = "into";
+      }
     }
-  }, []);
+
+    setDropPosition(position);
+
+    // Auto-expand: if hovering "into" zone of a collapsed folder for 500ms
+    if (position === "into" && over.id !== lastOverIdRef.current) {
+      clearTimeout(autoExpandTimerRef.current);
+      lastOverIdRef.current = over.id;
+
+      if (!expandedIds.has(over.id)) {
+        autoExpandTimerRef.current = setTimeout(() => {
+          setExpandedIds((prev) => new Set([...prev, over.id]));
+        }, 500);
+      }
+    } else if (position !== "into" || over.id !== lastOverIdRef.current) {
+      clearTimeout(autoExpandTimerRef.current);
+      lastOverIdRef.current = null;
+    }
+  }, [sortableItems, expandedIds]);
 
   // DnD handlers
   const handleDragStart = useCallback(
@@ -177,6 +213,8 @@ export default function PageTree({
     setOverId(null);
     setDropPosition(null);
     descendantIdsRef.current = new Set();
+    clearTimeout(autoExpandTimerRef.current);
+    lastOverIdRef.current = null;
   }
 
   return (
