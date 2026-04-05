@@ -42,6 +42,12 @@ Files requiring null guards (add early `if (!task.dateTime) return/skip` or cond
 - `components/search/GlobalSearch.js` — search result date formatting
 - `lib/format.js` — `formatDateTime()` and `formatRelativeDate()`
 - `app/api/cron/notify/route.js` — push notification scheduling (MongoDB `$gte/$lte` naturally excludes null, but message formatting needs guard)
+- `app/api/reminders/reorder/route.js` — has dateTime in truthy-only branch
+- `app/[locale]/(app)/reminders/[id]/page.js` — UI render of dateTime
+- `components/reminders/ToolResultCard.js` — date display in AI tool results
+- `components/reminders/ExportButton.js` — export logic
+
+Note: `lib/format.js` formatDateTime/formatRelativeDate are already partially null-safe (return early on falsy input). Verify and extend if needed rather than rewriting.
 
 ### MongoDB index
 
@@ -57,9 +63,11 @@ No backfill needed for existing reminders — they all have `dateTime` set. Exis
 
 ### GET `/api/reminders`
 
-Add `inboxState` query parameter support. When `inboxState=inbox`:
-- Filter: `{ userId, inboxState: "inbox" }`
-- Sort: `{ createdAt: -1 }` (not `dateTime`)
+**Default behavior change**: When no `inboxState` param is provided, the default query EXCLUDES `inboxState: "inbox"` tasks. This prevents null-dateTime inbox tasks from leaking into dashboard, calendar, and other consumers that assume dateTime is present.
+
+- No param (default): `{ userId, inboxState: { $ne: "inbox" } }` — backward compatible, existing consumers see no inbox tasks
+- `inboxState=inbox`: `{ userId, inboxState: "inbox" }`, sort by `{ createdAt: -1 }`
+- `inboxState=all`: `{ userId }` — no inboxState filter (for admin/export use cases)
 - Existing filters (status, category, tag) still work alongside
 
 ### POST `/api/reminders`
@@ -81,6 +89,13 @@ if (existing.inboxState === "inbox") {
 }
 ```
 
+### PUT `/api/reminders/[id]`
+
+Same changes as PATCH:
+- Allow `dateTime` to be null in validation
+- Add guarded auto-transition logic (same code as PATCH)
+- TaskEditForm uses PUT, so this is required for the triage flow (user opens inbox task in detail panel, sets a date, saves → task leaves inbox)
+
 ### DELETE `/api/inbox/capture`
 
 Remove the entire route. Also remove:
@@ -89,25 +104,50 @@ Remove the entire route. Also remove:
 - The `$ne: "inbox-capture"` filter from `GET /api/notes` and `GET /api/notes/trash`
 - The 403 guard for inbox-capture in `PATCH/DELETE /api/notes/[noteId]`
 
-Migration: any existing `inbox-capture` documents in the notes collection get `type` field removed (become regular notes).
+Migration: any existing `inbox-capture` documents in the notes collection get `type` field removed and `title` set to "Inbox Notes (migrated)". They become regular notes visible in the Notes page tree. Users can rename or delete them.
 
 ### `lib/reminderUtils.js`
 
 Add `inboxState` to `formatReminder()` output.
 
+### `lib/ai/tools.js`
+
+AI tools that directly write to the reminders collection (bypassing the API route) must also set `inboxState`:
+- `createReminder` tool: set `inboxState: "processed"` (AI-created tasks always have context/date)
+- `batchCreateReminders` tool: same
+- Zod schema for `createReminder`: change `dateTime: z.string()` to `z.string().nullable().optional()`
+- `getReminders` tool: add null guard when formatting dateTime in response string
+- `checkScheduleConflicts` tool: filter out `dateTime: null` from conflict query
+
 ---
 
 ## Part 3: React Query & Hooks
 
-### Shared key factory
+### `lib/queryKeys.js` (new)
+
+Shared query key factory — used by all hooks and any component that does optimistic updates or direct cache access.
 
 ```javascript
-const reminderKeys = {
+export const reminderKeys = {
   all: ["tasks"],
   lists: () => [...reminderKeys.all, "list"],
   list: (filters) => [...reminderKeys.lists(), filters],
 };
+
+export const noteKeys = {
+  all: ["notes"],
+  lists: () => [...noteKeys.all, "list"],
+  detail: (id) => [...noteKeys.all, "detail", id],
+};
 ```
+
+All components that currently hard-code `["tasks"]` for `invalidateQueries`, `setQueryData`, or `cancelQueries` must migrate to use `reminderKeys`. Known locations:
+- `hooks/useTasks.js`
+- `app/[locale]/(app)/dashboard/page.js`
+- `app/[locale]/(app)/calendar/page.js`
+- `app/[locale]/(app)/inbox/page.js`
+- `components/tasks/TaskDetailPanel.js`
+- `components/tasks/QuickAdd.js`
 
 ### `hooks/useInboxTasks.js` (new)
 
@@ -121,7 +161,7 @@ const reminderKeys = {
 
 - Update to use `reminderKeys.list({})` as query key
 - Mutation `onSuccess` invalidates `reminderKeys.all` (catches inbox too)
-- No other changes needed — existing consumers keep working
+- Migrate all internal `setQueryData`/`cancelQueries` calls to use `reminderKeys`
 
 ---
 
@@ -164,6 +204,8 @@ Shows:
 Does NOT show: date, time, icons, drag handle, snooze button, subtask count.
 
 Click entire row → opens `TaskDetailPanel` for triage (set date, add tags, move out of inbox).
+
+Note: current `TaskDetailPanel` wiring in inbox page is broken (passes `onUpdate` but panel expects `onSave`, doesn't pass `tasks`). Fix the prop contract during rewrite.
 
 ### `app/[locale]/(app)/inbox/page.js` (rewrite)
 
@@ -221,7 +263,32 @@ Currently NotesLayout receives notes data as props from the page component. With
 - Shared `useNotes()` hook with React Query (preferred — consistent with useTasks pattern)
 - React context provider at the layout level
 
-Use a new `hooks/useNotes.js` that fetches from `GET /api/notes` with React Query, so both Sidebar and page can consume it independently.
+Use a new `hooks/useNotes.js` that provides both reads AND mutations via React Query:
+
+**Reads:**
+- `notes` — list of all notes (query key: `noteKeys.lists()`)
+- `trashedNotes` — trashed notes list
+- `loading` — loading state
+
+**Mutations (all invalidate `noteKeys.all` on success):**
+- `createNote(parentId)` — POST to `/api/notes`
+- `deleteNote(id)` — DELETE to `/api/notes/[id]`
+- `renameNote(id, title)` — PATCH to `/api/notes/[id]`
+- `duplicateNote(id)` — fetch + POST
+- `reorderNotes(updates)` — POST to `/api/notes/reorder`
+- `restoreNote(id)` — POST to `/api/notes/[id]/restore`
+- `permanentDeleteNote(id)` — DELETE (trashed note)
+
+This hook replaces all the local state + manual fetch patterns currently in `notes/[noteId]/page.js`. Both Sidebar's PageTree and the note page consume the same cached data, preventing sync issues.
+
+`currentNote` (the full note with content) stays as a page-level fetch via `noteKeys.detail(noteId)` since only the editor needs it, not the sidebar.
+
+### Routing rules for active note
+
+Sidebar uses `usePathname()` to determine:
+- Path matches `/notes/*` → expand Notes section
+- Extract `noteId` from path: `/notes/:noteId` or `/:locale/notes/:noteId` → pass as `activeNoteId` to PageTree
+- `/notes` with no ID (list page) → no active highlight, section still expanded
 
 ---
 
@@ -257,40 +324,54 @@ Use a new `hooks/useNotes.js` that fetches from `GET /api/notes` with React Quer
 ## Files Affected
 
 ### Create
+- `lib/queryKeys.js` — shared React Query key factory
 - `hooks/useInboxTasks.js` — inbox-specific React Query hook
-- `hooks/useNotes.js` — shared notes data hook for Sidebar + pages
+- `hooks/useNotes.js` — shared notes data+mutations hook for Sidebar + pages
 - `components/inbox/InboxInput.js` — auto-resize textarea with AI parse
 - `components/inbox/InboxTaskRow.js` — minimal inbox task row
 - `scripts/migrate-inbox-capture.js` — one-time migration for inbox-capture notes
 - `scripts/create-inbox-index.js` — MongoDB index for inboxState
 
 ### Modify
-- `app/api/reminders/route.js` — nullable dateTime, inboxState filter/field
-- `app/api/reminders/[id]/route.js` — guarded auto-transition
+- `app/api/reminders/route.js` — nullable dateTime, inboxState filter/field, default exclude inbox
+- `app/api/reminders/[id]/route.js` — PATCH + PUT: guarded auto-transition, nullable dateTime
+- `app/api/reminders/reorder/route.js` — null guard in dateTime branch
 - `app/api/notes/route.js` — remove inbox-capture exclusion
 - `app/api/notes/trash/route.js` — remove inbox-capture exclusion
 - `app/api/notes/[noteId]/route.js` — remove inbox-capture 403 guard
 - `lib/reminderUtils.js` — add inboxState to formatReminder
-- `lib/format.js` — null guards in date formatters
+- `lib/format.js` — verify/extend null safety in date formatters
 - `lib/dnd.js` — null guard in getSections
-- `lib/ai/tools.js` — nullable dateTime in Zod schemas, null guards
+- `lib/ai/tools.js` — nullable dateTime in Zod schemas, null guards, set inboxState on direct DB writes
 - `lib/ai/prompt.js` — update system prompt for inbox tasks
-- `hooks/useTasks.js` — shared query key factory, prefix invalidation
+- `hooks/useTasks.js` — migrate to shared query key factory
 - `app/[locale]/(app)/inbox/page.js` — full rewrite
-- `app/[locale]/(app)/dashboard/page.js` — null guard in section logic
-- `app/[locale]/(app)/calendar/page.js` — null guard in date filter
+- `app/[locale]/(app)/dashboard/page.js` — null guard + migrate query key
+- `app/[locale]/(app)/calendar/page.js` — null guard + migrate query key
+- `app/[locale]/(app)/reminders/[id]/page.js` — null guard in dateTime render
+- `app/[locale]/(app)/notes/[noteId]/page.js` — replace local state with useNotes hook
 - `components/layout/Sidebar.js` — add context-aware Notes section with PageTree
 - `components/notes/NotesLayout.js` — remove desktop sidebar, keep mobile drawer
 - `components/tasks/TaskItem.js` — null guard in formatTaskDate
-- `components/tasks/TaskEditForm.js` — null guard in form init
+- `components/tasks/TaskEditForm.js` — null guard in form init, allow null dateTime
+- `components/tasks/TaskDetailPanel.js` — migrate query key
+- `components/tasks/QuickAdd.js` — migrate query key
 - `components/dashboard/NextTaskCard.js` — null guard
 - `components/dashboard/StatsOverview.js` — null guard
 - `components/calendar/DayTimeline.js` — null guard
 - `components/reminders/ReminderCard.js` — null guard
+- `components/reminders/ToolResultCard.js` — null guard
+- `components/reminders/ExportButton.js` — null guard
 - `components/search/GlobalSearch.js` — null guard
 - `app/api/cron/notify/route.js` — null guard in message formatting
 - `messages/en.json` — new/removed inbox keys
 - `messages/zh-TW.json` — new/removed inbox keys
+
+### Tests to update
+- `tests/integration/reminders-api.test.js` — dateTime no longer required, add inboxState test cases
+- `tests/integration/reminder-id-api.test.js` — same
+- `tests/integration/reorder-api.test.js` — null dateTime branch coverage
+- `tests/ai-tools.test.js` — nullable dateTime in batch create
 
 ### Delete
 - `components/inbox/InboxEditor.js`
