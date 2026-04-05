@@ -14,8 +14,10 @@ import { en as bnEn } from "@blocknote/core/locales";
 import "@blocknote/mantine/style.css";
 import { Sparkles } from "lucide-react";
 import TaskItem from "@/components/tasks/TaskItem";
+import useInlineTaskDetection from "@/hooks/useInlineTaskDetection";
+import FloatingSuggestion from "./FloatingSuggestion";
 
-export default function InboxEditor({ tasks, onToggleComplete, onDelete, onEdit }) {
+export default function InboxEditor({ tasks, onToggleComplete, onDelete, onEdit, onTaskAdded }) {
   const t = useTranslations("inbox");
   const tNotes = useTranslations("notes");
   const locale = useLocale();
@@ -33,6 +35,14 @@ export default function InboxEditor({ tasks, onToggleComplete, onDelete, onEdit 
       },
     },
   });
+
+  const {
+    suggestion,
+    isParsing,
+    addTask,
+    dismissSuggestion,
+    handleEditorChange,
+  } = useInlineTaskDetection(editor);
 
   // Fetch capture document on mount
   useEffect(() => {
@@ -265,7 +275,10 @@ export default function InboxEditor({ tasks, onToggleComplete, onDelete, onEdit 
         <BlockNoteView
           editor={editor}
           theme={theme === "dark" ? "dark" : "light"}
-          onChange={handleContentChange}
+          onChange={() => {
+            handleContentChange();
+            handleEditorChange();
+          }}
           slashMenu={false}
         >
           <SuggestionMenuController
@@ -299,6 +312,16 @@ export default function InboxEditor({ tasks, onToggleComplete, onDelete, onEdit 
           </div>
         </>
       )}
+      <FloatingSuggestion
+        suggestion={suggestion}
+        onAdd={() => {
+          const result = addTask();
+          if (result && onTaskAdded) {
+            onTaskAdded(result);
+          }
+        }}
+        onDismiss={dismissSuggestion}
+      />
     </div>
   );
 }

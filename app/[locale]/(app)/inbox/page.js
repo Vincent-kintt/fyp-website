@@ -116,6 +116,7 @@ export default function InboxPage() {
           onToggleComplete={toggleComplete}
           onDelete={deleteTask}
           onEdit={(id) => setSelectedTaskId(id)}
+          onTaskAdded={handleTaskDetected}
         />
       ) : (
         <>
