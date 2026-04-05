@@ -59,6 +59,10 @@ screenshots/
 overview.md
 docs/superpowers/
 .superpowers/
+.agents/
+.worktreeinclude
+skills-lock.json
+skills/
 
 # Test artifacts
 .playwright-auth/
