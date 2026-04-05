@@ -31,6 +31,7 @@ import {
   useDraggable,
 } from "@dnd-kit/core";
 import { useQueryClient } from "@tanstack/react-query";
+import { reminderKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
 import {
   useDndSensors,
@@ -86,9 +87,9 @@ export default function CalendarPage() {
       const newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
 
       // Optimistic update
-      const originalTasks = queryClient.getQueryData(["tasks"]);
+      const originalTasks = queryClient.getQueryData(reminderKeys.list({}));
       queryClient.setQueryData(
-        ["tasks"],
+        reminderKeys.list({}),
         tasks.map((t) =>
           t.id === active.id ? { ...t, dateTime: newDateTime } : t
         )
@@ -98,7 +99,7 @@ export default function CalendarPage() {
         await patchReminderStatus(active.id, { dateTime: newDateTime });
         toast.success(t("movedTo", { date: format(targetDate, "M/d") }));
       } catch {
-        queryClient.setQueryData(["tasks"], originalTasks);
+        queryClient.setQueryData(reminderKeys.list({}), originalTasks);
         toast.error(t("moveFailed"));
       }
     },
