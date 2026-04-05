@@ -122,4 +122,56 @@ describe("POST /api/notes/reorder", () => {
     const doc = await db.collection("notes").findOne({ _id: result.insertedId });
     expect(doc.sortOrder).toBe(1000);
   });
+
+  it("rejects self-parent", async () => {
+    mockSession(TEST_USER);
+    const id1 = await insertNote({ title: "Note A" });
+    const req = createRequest("POST", "/api/notes/reorder", {
+      body: { updates: [{ id: id1, sortOrder: 1000, parentId: id1 }] },
+    });
+    const res = await POST(req);
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(400);
+    expect(body.error).toMatch(/cannot be its own parent/i);
+  });
+
+  it("rejects circular reference (parent set to own descendant)", async () => {
+    mockSession(TEST_USER);
+    const id1 = await insertNote({ title: "Parent", sortOrder: 1000 });
+    const id2 = await insertNote({ title: "Child", parentId: new ObjectId(id1), sortOrder: 1000 });
+    const id3 = await insertNote({ title: "Grandchild", parentId: new ObjectId(id2), sortOrder: 1000 });
+    // Try to make "Parent" a child of "Grandchild"
+    const req = createRequest("POST", "/api/notes/reorder", {
+      body: { updates: [{ id: id1, sortOrder: 1000, parentId: id3 }] },
+    });
+    const res = await POST(req);
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(400);
+    expect(body.error).toMatch(/circular/i);
+  });
+
+  it("rejects nonexistent parentId", async () => {
+    mockSession(TEST_USER);
+    const id1 = await insertNote({ title: "Note A" });
+    const fakeId = new ObjectId().toString();
+    const req = createRequest("POST", "/api/notes/reorder", {
+      body: { updates: [{ id: id1, sortOrder: 1000, parentId: fakeId }] },
+    });
+    const res = await POST(req);
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(400);
+    expect(body.error).toMatch(/parent.*not found/i);
+  });
+
+  it("rejects invalid parentId format (non-ObjectId string)", async () => {
+    mockSession(TEST_USER);
+    const id1 = await insertNote({ title: "Note A" });
+    const req = createRequest("POST", "/api/notes/reorder", {
+      body: { updates: [{ id: id1, sortOrder: 1000, parentId: "not-valid" }] },
+    });
+    const res = await POST(req);
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(400);
+    expect(body.error).toMatch(/invalid.*parent/i);
+  });
 });

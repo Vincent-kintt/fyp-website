@@ -7,7 +7,6 @@ import { getNotesCollection } from "@/lib/notes/db";
 export async function POST(request) {
   try {
     const session = await auth();
-
     if (!session || !session.user) {
       return apiError("Unauthorized", 401);
     }
@@ -19,7 +18,7 @@ export async function POST(request) {
       return apiError("updates array is required", 400);
     }
 
-    // Validate all entries
+    // Basic field validation
     for (const item of updates) {
       if (!item.id || !ObjectId.isValid(item.id)) {
         return apiError(`Invalid note ID: ${item.id}`, 400);
@@ -27,38 +26,80 @@ export async function POST(request) {
       if (typeof item.sortOrder !== "number") {
         return apiError(`sortOrder must be a number for ID: ${item.id}`, 400);
       }
+      if (item.parentId !== undefined && item.parentId !== null) {
+        if (!ObjectId.isValid(item.parentId)) {
+          return apiError(`Invalid parentId format: ${item.parentId}`, 400);
+        }
+      }
     }
 
     const notesCollection = await getNotesCollection();
-    const now = new Date();
 
-    const ops = updates.map((item) => {
-      let resolvedParentId;
-      if (item.parentId === undefined || item.parentId === null) {
-        resolvedParentId = null;
-      } else {
-        resolvedParentId = ObjectId.isValid(item.parentId)
-          ? new ObjectId(item.parentId)
-          : null;
+    // Fetch all user's notes for relationship validation
+    const userNotes = await notesCollection
+      .find({ userId: session.user.id, deletedAt: null })
+      .project({ _id: 1, parentId: 1 })
+      .toArray();
+
+    const noteIdSet = new Set(userNotes.map((n) => n._id.toString()));
+
+    // Build parent map reflecting pending updates
+    const parentMap = new Map();
+    for (const note of userNotes) {
+      parentMap.set(note._id.toString(), note.parentId?.toString() || null);
+    }
+    for (const item of updates) {
+      if (item.parentId !== undefined) {
+        parentMap.set(item.id, item.parentId || null);
+      }
+    }
+
+    // Validate each update with a parentId
+    for (const item of updates) {
+      const resolvedParentId = item.parentId || null;
+      if (!resolvedParentId) continue;
+
+      if (item.id === resolvedParentId) {
+        return apiError(`Note ${item.id} cannot be its own parent`, 400);
       }
 
-      return {
-        updateOne: {
-          filter: {
-            _id: new ObjectId(item.id),
-            userId: session.user.id,
-            deletedAt: null,
-          },
-          update: {
-            $set: {
-              sortOrder: item.sortOrder,
-              parentId: resolvedParentId,
-              updatedAt: now,
-            },
+      if (!noteIdSet.has(resolvedParentId)) {
+        return apiError(`Parent not found: ${resolvedParentId}`, 400);
+      }
+
+      // Circular reference check
+      const visited = new Set();
+      let current = resolvedParentId;
+      while (current) {
+        if (current === item.id) {
+          return apiError(
+            `Circular reference: ${item.id} is an ancestor of ${resolvedParentId}`,
+            400,
+          );
+        }
+        if (visited.has(current)) break;
+        visited.add(current);
+        current = parentMap.get(current) || null;
+      }
+    }
+
+    const now = new Date();
+    const ops = updates.map((item) => ({
+      updateOne: {
+        filter: {
+          _id: new ObjectId(item.id),
+          userId: session.user.id,
+          deletedAt: null,
+        },
+        update: {
+          $set: {
+            sortOrder: item.sortOrder,
+            parentId: item.parentId ? new ObjectId(item.parentId) : null,
+            updatedAt: now,
           },
         },
-      };
-    });
+      },
+    }));
 
     const result = await notesCollection.bulkWrite(ops);
 
