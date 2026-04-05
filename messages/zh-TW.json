@@ -118,7 +118,11 @@
     "editorPlaceholder": "隨手寫下任何想法...",
     "saving": "儲存中...",
     "saved": "已儲存",
-    "capturedTasks": "已捕捉的任務"
+    "capturedTasks": "已捕捉的任務",
+    "unprocessed": "{count} 個未處理",
+    "inboxZero": "收件匣清空了！",
+    "inboxZeroDesc": "所有任務都已處理完畢。",
+    "newTodo": "新增待辦"
   },
   "calendar": {
     "title": "行事曆",

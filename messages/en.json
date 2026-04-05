@@ -118,7 +118,11 @@
     "editorPlaceholder": "Type anything... tasks, notes, ideas",
     "saving": "Saving...",
     "saved": "Saved",
-    "capturedTasks": "Captured Tasks"
+    "capturedTasks": "Captured Tasks",
+    "unprocessed": "{count} unprocessed",
+    "inboxZero": "Inbox zero!",
+    "inboxZeroDesc": "All tasks have been processed.",
+    "newTodo": "New To-Do"
   },
   "calendar": {
     "title": "Calendar",
