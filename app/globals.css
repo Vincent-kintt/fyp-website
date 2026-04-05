@@ -1440,11 +1440,3 @@ div[style*="maxWidth"]:focus-within .notes-add-icon-hint,
 .dark .notes-peek-overlay {
   box-shadow: 4px 0 16px rgba(0, 0, 0, 0.4);
 }
-
-/* Ephemeral AI task detection highlight — applied via DOM, never saved in editor content */
-.ai-task-highlight {
-  border-left: 3px solid var(--primary);
-  background: color-mix(in srgb, var(--primary) 5%, transparent);
-  border-radius: 4px;
-  transition: background 150ms ease, border-color 150ms ease;
-}

@@ -15,7 +15,6 @@ export async function GET() {
       .find({
         userId: session.user.id,
         deletedAt: { $ne: null },
-        type: { $ne: "inbox-capture" },
       })
       .sort({ deletedAt: -1 })
       .toArray();
