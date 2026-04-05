@@ -17,7 +17,7 @@ export async function GET() {
 
     const notesCollection = await getNotesCollection();
     const notes = await notesCollection
-      .find({ userId: session.user.id, deletedAt: null })
+      .find({ userId: session.user.id, deletedAt: null, type: { $ne: "inbox-capture" } })
       .sort({ updatedAt: -1 })
       .toArray();
 

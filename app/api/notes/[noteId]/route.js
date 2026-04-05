@@ -102,6 +102,15 @@ export async function PATCH(request, segmentData) {
       if (!parentExists) return apiError("Parent note not found", 404);
     }
 
+    // Guard: prevent modifying capture documents via generic note API
+    const existingNote = await notesCollection.findOne({
+      _id: new ObjectId(noteId),
+      userId: session.user.id,
+    });
+    if (existingNote?.type === "inbox-capture") {
+      return apiError("Use /api/inbox/capture to modify the capture document", 403);
+    }
+
     const updated = await notesCollection.findOneAndUpdate(
       { _id: new ObjectId(noteId), userId: session.user.id },
       { $set: updateData },
@@ -145,6 +154,10 @@ export async function DELETE(request, segmentData) {
 
     if (!note) {
       return apiError("Note not found", 404);
+    }
+
+    if (note.type === "inbox-capture") {
+      return apiError("Capture document cannot be deleted", 403);
     }
 
     // Check if note is already in trash
