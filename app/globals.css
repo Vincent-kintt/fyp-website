@@ -958,12 +958,24 @@ body {
 
 /* ── Notes System ── */
 
-/* Full-viewport notes layout: break out of (app) container, hide footer */
+/* Notes layout: break out of (app) container padding, stay within <main> */
 .notes-page {
-  width: 100vw;
-  max-width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  margin-top: -2rem;
+  margin: -2rem -1rem;
+  width: calc(100% + 2rem);
+}
+
+@media (min-width: 640px) {
+  .notes-page {
+    margin: -2rem -1.5rem;
+    width: calc(100% + 3rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .notes-page {
+    margin: -2rem -2rem;
+    width: calc(100% + 4rem);
+  }
 }
 
 body:has(.notes-page) {
