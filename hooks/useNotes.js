@@ -130,18 +130,46 @@ export default function useNotes() {
 
   const reorderNotes = useCallback(
     async (updates) => {
+      // Optimistic update: apply changes to cache immediately
+      const previousNotes = queryClient.getQueryData(noteKeys.lists());
+
+      if (previousNotes) {
+        const updateMap = new Map(updates.map((u) => [u.id, u]));
+        const optimisticNotes = previousNotes.map((note) => {
+          const update = updateMap.get(note.id);
+          if (update) {
+            return {
+              ...note,
+              sortOrder: update.sortOrder,
+              parentId: update.parentId ?? null,
+            };
+          }
+          return note;
+        });
+        queryClient.setQueryData(noteKeys.lists(), optimisticNotes);
+      }
+
       try {
-        await fetch("/api/notes/reorder", {
+        const res = await fetch("/api/notes/reorder", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ updates }),
         });
-        await invalidateAll();
-      } catch {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Failed to reorder");
+        }
+      } catch (err) {
+        // Rollback on failure
+        if (previousNotes) {
+          queryClient.setQueryData(noteKeys.lists(), previousNotes);
+        }
         toast.error(t("saveFailed"));
+      } finally {
+        await invalidateAll();
       }
     },
-    [invalidateAll, t],
+    [queryClient, invalidateAll, t],
   );
 
   const restoreNote = useCallback(
