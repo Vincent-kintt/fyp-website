@@ -4,7 +4,6 @@ import {
   findAncestors,
   flattenVisibleTree,
   getDescendantIds,
-  getProjection,
   computeTreeReorder,
 } from "@/lib/notes/tree.js";
 
@@ -149,60 +148,6 @@ describe("getDescendantIds", () => {
   });
 });
 
-describe("getProjection", () => {
-  const items = [
-    { id: "a", depth: 0, parentId: null, hasChildren: true },
-    { id: "b", depth: 1, parentId: "a", hasChildren: false },
-    { id: "c", depth: 1, parentId: "a", hasChildren: false },
-    { id: "d", depth: 0, parentId: null, hasChildren: false },
-  ];
-  const INDENT = 16;
-
-  it("same-level reorder: no horizontal offset", () => {
-    const result = getProjection(items, "d", "c", 0, INDENT);
-    expect(result.depth).toBe(1);
-    expect(result.parentId).toBe("a");
-  });
-
-  it("reparent deeper: right offset makes item child of over-item", () => {
-    const result = getProjection(items, "d", "a", INDENT, INDENT);
-    expect(result.depth).toBe(1);
-    expect(result.parentId).toBe("a");
-  });
-
-  it("reparent shallower: left offset moves to root", () => {
-    const result = getProjection(items, "b", "d", -INDENT, INDENT);
-    expect(result.depth).toBe(0);
-    expect(result.parentId).toBeNull();
-  });
-
-  it("clamps depth to minimum 0", () => {
-    const result = getProjection(items, "d", "a", -INDENT * 5, INDENT);
-    expect(result.depth).toBe(0);
-    expect(result.parentId).toBeNull();
-  });
-
-  it("clamps depth to max overItem.depth + 1", () => {
-    const result = getProjection(items, "d", "a", INDENT * 10, INDENT);
-    expect(result.depth).toBe(1);
-    expect(result.parentId).toBe("a");
-  });
-
-  it("returns over-item parentId when same depth", () => {
-    // No horizontal offset: depth stays the same, parentId matches over-item's parent
-    const result = getProjection(items, "d", "b", 0, INDENT);
-    expect(result.depth).toBe(1);
-    expect(result.parentId).toBe("a");
-  });
-
-  it("allows nesting under leaf nodes (any note can be parent)", () => {
-    // Dragging "a" over "d" (leaf, depth 0), offset right by 1 indent
-    const result = getProjection(items, "a", "d", INDENT, INDENT);
-    expect(result.depth).toBe(1);
-    expect(result.parentId).toBe("d");
-  });
-});
-
 describe("computeTreeReorder", () => {
   const flat = [
     { id: "a", parentId: null, sortOrder: 1000 },
@@ -211,9 +156,9 @@ describe("computeTreeReorder", () => {
     { id: "d", parentId: null, sortOrder: 2000 },
   ];
 
-  it("reorders within same parent", () => {
-    const projection = { depth: 1, parentId: "a" };
-    const result = computeTreeReorder(flat, "c", projection, 1);
+  it("reorders before a sibling", () => {
+    // Move "c" before "b" under parent "a"
+    const result = computeTreeReorder(flat, "c", "b", "before");
     const cUpdate = result.find((u) => u.id === "c");
     const bUpdate = result.find((u) => u.id === "b");
     expect(cUpdate.parentId).toBe("a");
@@ -221,24 +166,30 @@ describe("computeTreeReorder", () => {
     expect(cUpdate.sortOrder).toBeLessThan(bUpdate.sortOrder);
   });
 
-  it("reparents to new parent", () => {
-    const projection = { depth: 1, parentId: "a" };
-    const result = computeTreeReorder(flat, "d", projection, 0);
+  it("reorders after a sibling", () => {
+    const result = computeTreeReorder(flat, "c", "b", "after");
+    const cUpdate = result.find((u) => u.id === "c");
+    const bUpdate = result.find((u) => u.id === "b");
+    expect(bUpdate.sortOrder).toBeLessThan(cUpdate.sortOrder);
+  });
+
+  it("reparents into another note", () => {
+    // Move "d" into "a" as child
+    const result = computeTreeReorder(flat, "d", "a", "into");
     const dUpdate = result.find((u) => u.id === "d");
     expect(dUpdate.parentId).toBe("a");
     expect(dUpdate.sortOrder).toBeDefined();
   });
 
-  it("reparents to root", () => {
-    const projection = { depth: 0, parentId: null };
-    const result = computeTreeReorder(flat, "b", projection, 0);
+  it("reparents to root via before/after on root item", () => {
+    // Move "b" (child of a) before "d" (root) → becomes root
+    const result = computeTreeReorder(flat, "b", "d", "before");
     const bUpdate = result.find((u) => u.id === "b");
     expect(bUpdate.parentId).toBeNull();
   });
 
   it("uses 1000-increment sortOrder values", () => {
-    const projection = { depth: 1, parentId: "a" };
-    const result = computeTreeReorder(flat, "d", projection, 1);
+    const result = computeTreeReorder(flat, "d", "b", "after");
     for (const update of result) {
       expect(update.sortOrder % 1000).toBe(0);
     }

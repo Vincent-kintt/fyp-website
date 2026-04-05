@@ -1010,11 +1010,14 @@ body:has(.notes-page) {
 }
 
 .notes-tree-item[data-dragging="true"] {
-  opacity: 0.4;
+  opacity: 0.3;
+  background: var(--surface-hover);
 }
 
 .notes-tree-item[data-drop-target="true"] {
-  background: var(--primary-alpha-10, rgba(59, 130, 246, 0.1));
+  background: var(--primary-alpha-10, rgba(59, 130, 246, 0.08));
+  outline: 2px solid var(--primary, #3b82f6);
+  outline-offset: -2px;
   border-radius: 6px;
 }
 
@@ -1022,16 +1025,30 @@ body:has(.notes-page) {
   height: 2px;
   background: var(--primary, #3b82f6);
   border-radius: 1px;
-  margin: 0 4px;
+  margin: 1px 4px;
   pointer-events: none;
+  position: relative;
+}
+
+.notes-drop-indicator::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 2px solid var(--primary, #3b82f6);
+  background: var(--surface);
 }
 
 .notes-tree-overlay {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   width: 200px;
+  opacity: 0.9;
 }
 
 .notes-drawer-backdrop {

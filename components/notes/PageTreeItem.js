@@ -6,7 +6,6 @@ import { Link } from "@/i18n/navigation";
 import { ChevronRight, MoreHorizontal, Plus, Trash2, Pencil, Copy } from "lucide-react";
 import NoteIcon from "./NoteIcon";
 import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { useClickOutside } from "@/hooks/useClickOutside";
 
 export default function PageTreeItem({
@@ -40,11 +39,15 @@ export default function PageTreeItem({
     isDragging,
   } = useSortable({ id: note.id, disabled: isOverlay });
 
-  const sortableStyle = isOverlay
-    ? {}
-    : { transform: CSS.Transform.toString(transform), transition };
+  // Don't apply sortable transform — tree DnD uses DragOverlay + custom indicators,
+  // not the default "push items apart" behavior which causes items to jump around
+  const sortableStyle = {};
 
   const isActive = note.id === activeNoteId;
+  const setSortableRowRef = (node) => {
+    setNodeRef(node);
+    setActivatorNodeRef(node);
+  };
 
   if (isOverlay) {
     return (
@@ -71,7 +74,7 @@ export default function PageTreeItem({
       {dropIndicator === "before" && (
         <div className="notes-drop-indicator" style={{ marginLeft: `${12 + depth * 16}px` }} />
       )}
-      <div ref={setNodeRef} style={sortableStyle} {...attributes}>
+      <div ref={setSortableRowRef} style={sortableStyle} {...attributes} {...listeners}>
         <div
           className="notes-tree-item group"
           style={{ paddingLeft: `${12 + depth * 16}px` }}
@@ -81,8 +84,6 @@ export default function PageTreeItem({
         >
           {/* Drag handle area: chevron + icon */}
           <div
-            ref={setActivatorNodeRef}
-            {...listeners}
             className="flex items-center gap-1 flex-shrink-0 cursor-grab active:cursor-grabbing"
           >
             <button
@@ -142,6 +143,8 @@ export default function PageTreeItem({
               href={`/notes/${note.id}`}
               className="flex-1 truncate text-[14px]"
               title={note.title}
+              draggable={false}
+              onDragStart={(event) => event.preventDefault()}
             >
               {note.title || t("untitled")}
             </Link>

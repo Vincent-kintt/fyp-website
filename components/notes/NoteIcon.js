@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { File, Folder, FolderOpen } from "lucide-react";
+import { File } from "lucide-react";
 import { getIconComponent, getIconColor } from "@/lib/notes/iconMap";
 
 export default function NoteIcon({
@@ -19,7 +19,7 @@ export default function NoteIcon({
     return <Icon size={size} strokeWidth={1.5} style={{ color }} />;
   }
 
-  const FallbackIcon = hasChildren ? (expanded ? FolderOpen : Folder) : File;
+  const FallbackIcon = File;
   return (
     <FallbackIcon
       size={size}

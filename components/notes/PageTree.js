@@ -6,11 +6,13 @@ import { ChevronRight, File, Plus, Trash2 } from "lucide-react";
 import TrashSection from "./TrashSection";
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { buildTree, flattenVisibleTree, getDescendantIds, getProjection, computeTreeReorder } from "@/lib/notes/tree";
+import { buildTree, flattenVisibleTree, getDescendantIds, computeTreeReorder } from "@/lib/notes/tree";
 import { useDndSensors, DROP_ANIMATION_CONFIG } from "@/lib/dnd";
 import PageTreeItem from "./PageTreeItem";
 
-const INDENT_WIDTH = 16;
+// Drop zone thresholds: top 25% = before, middle 50% = into, bottom 25% = after
+const DROP_ZONE_BEFORE = 0.25;
+const DROP_ZONE_AFTER = 0.75;
 
 export default function PageTree({
   notes,
@@ -60,7 +62,7 @@ export default function PageTree({
   // Drag state
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
-  const [dragOffsetX, setDragOffsetX] = useState(0);
+  const [dropPosition, setDropPosition] = useState(null); // "before" | "into" | "after"
   const descendantIdsRef = useRef(new Set());
 
   const toggleExpand = useCallback((id) => {
@@ -87,28 +89,42 @@ export default function PageTree({
 
   const sortableIds = useMemo(() => sortableItems.map((item) => item.id), [sortableItems]);
 
-  // Projection: where would the item land?
-  const projected = useMemo(() => {
-    if (!activeId || !overId) return null;
-    return getProjection(sortableItems, activeId, overId, dragOffsetX, INDENT_WIDTH);
-  }, [sortableItems, activeId, overId, dragOffsetX]);
-
   // Find active note for overlay
   const activeNote = activeId ? notes.find((n) => n.id === activeId) : null;
   const activeDescendantCount = activeId ? descendantIdsRef.current.size : 0;
 
-  // Compute drop indicator for each item
+  // Drop indicator for each item — driven by dropPosition state
   const getDropIndicator = useCallback(
     (itemId) => {
-      if (!projected || !overId) return null;
-      if (itemId === overId && projected.depth > (sortableItems.find((i) => i.id === overId)?.depth ?? 0)) {
-        return "into";
-      }
-      if (itemId === overId) return "after";
-      return null;
+      if (!dropPosition || !overId || !activeId) return null;
+      if (itemId !== overId) return null;
+      return dropPosition;
     },
-    [projected, overId, sortableItems],
+    [dropPosition, overId, activeId],
   );
+
+  // Compute drop zone from pointer position within the over element
+  const computeDropZone = useCallback((event) => {
+    const over = event.over;
+    if (!over) return;
+
+    setOverId(over.id);
+
+    const overRect = over.rect;
+    if (!overRect) return;
+
+    // Pointer Y = activation point + delta
+    const pointerY = event.activatorEvent.clientY + event.delta.y;
+    const relativeY = (pointerY - overRect.top) / overRect.height;
+
+    if (relativeY < DROP_ZONE_BEFORE) {
+      setDropPosition("before");
+    } else if (relativeY > DROP_ZONE_AFTER) {
+      setDropPosition("after");
+    } else {
+      setDropPosition("into");
+    }
+  }, []);
 
   // DnD handlers
   const handleDragStart = useCallback(
@@ -121,38 +137,35 @@ export default function PageTree({
   );
 
   const handleDragMove = useCallback((event) => {
-    setDragOffsetX(event.delta.x);
-    setOverId(event.over?.id ?? null);
-  }, []);
+    computeDropZone(event);
+  }, [computeDropZone]);
 
   const handleDragOver = useCallback((event) => {
-    setOverId(event.over?.id ?? null);
-  }, []);
+    computeDropZone(event);
+  }, [computeDropZone]);
 
   const handleDragEnd = useCallback(
     (event) => {
       const { active, over } = event;
-      if (!over || active.id === over.id) {
+      if (!over || active.id === over.id || !dropPosition) {
         resetDragState();
         return;
       }
 
-      const finalProjection = getProjection(sortableItems, active.id, over.id, dragOffsetX, INDENT_WIDTH);
-      const overIndex = sortableItems.findIndex((item) => item.id === over.id);
-      const updates = computeTreeReorder(notes, active.id, finalProjection, overIndex);
+      const updates = computeTreeReorder(notes, active.id, over.id, dropPosition);
 
       if (updates.length > 0) {
         onReorder?.(updates);
 
-        // Auto-expand if dropped into a collapsed folder
-        if (finalProjection.parentId && !expandedIds.has(finalProjection.parentId)) {
-          setExpandedIds((prev) => new Set([...prev, finalProjection.parentId]));
+        // Auto-expand if dropped into a page
+        if (dropPosition === "into" && !expandedIds.has(over.id)) {
+          setExpandedIds((prev) => new Set([...prev, over.id]));
         }
       }
 
       resetDragState();
     },
-    [sortableItems, notes, onReorder, dragOffsetX, expandedIds],
+    [notes, onReorder, dropPosition, expandedIds],
   );
 
   const handleDragCancel = useCallback(() => {
@@ -162,7 +175,7 @@ export default function PageTree({
   function resetDragState() {
     setActiveId(null);
     setOverId(null);
-    setDragOffsetX(0);
+    setDropPosition(null);
     descendantIdsRef.current = new Set();
   }
 
@@ -213,7 +226,7 @@ export default function PageTree({
               {activeNote ? (
                 <PageTreeItem
                   note={activeNote}
-                  depth={projected?.depth ?? 0}
+                  depth={0}
                   expanded={false}
                   hasChildren={activeDescendantCount > 0}
                   isOverlay
