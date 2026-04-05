@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronRight, File, Plus, Trash2 } from "lucide-react";
 import TrashSection from "./TrashSection";
@@ -38,6 +38,24 @@ export default function PageTree({
     }
     return ids;
   });
+
+  // Auto-expand parents when new children appear
+  useEffect(() => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const note of notes) {
+        if (note.parentId && notes.some((n) => n.id === note.parentId) && !next.has(note.parentId)) {
+          const parentHadChildren = prev.has(note.parentId);
+          if (!parentHadChildren) {
+            next.add(note.parentId);
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [notes]);
 
   // Drag state
   const [activeId, setActiveId] = useState(null);
