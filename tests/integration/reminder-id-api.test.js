@@ -127,16 +127,28 @@ describe("PUT /api/reminders/[id]", () => {
     expect(status).toBe(401);
   });
 
-  it("returns 400 when required fields are missing (no dateTime)", async () => {
+  it("returns 400 when required field title is missing", async () => {
     mockSession(TEST_USER);
     const id = await insertReminder();
     const req = createRequest("PUT", `/api/reminders/${id}`, {
-      body: { title: "Updated" },
+      body: { dateTime: new Date().toISOString() },
     });
     const res = await PUT(req, params({ id }));
     const { status, body } = await parseResponse(res);
     expect(status).toBe(400);
-    expect(body.error).toMatch(/missing required fields/i);
+    expect(body.error).toMatch(/missing required field/i);
+  });
+
+  it("returns 200 when PUT has title but no dateTime (inbox task)", async () => {
+    mockSession(TEST_USER);
+    const id = await insertReminder();
+    const req = createRequest("PUT", `/api/reminders/${id}`, {
+      body: { title: "Updated inbox task" },
+    });
+    const res = await PUT(req, params({ id }));
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body.data.dateTime).toBeNull();
   });
 
   it("returns 200 for valid status transition pending→completed", async () => {

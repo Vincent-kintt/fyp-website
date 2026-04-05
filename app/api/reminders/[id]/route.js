@@ -82,8 +82,8 @@ export async function PUT(request, { params }) {
     }
 
     // Validation
-    if (!title || !dateTime) {
-      return apiError("Missing required fields (title, dateTime)", 400);
+    if (!title) {
+      return apiError("Missing required field (title)", 400);
     }
 
     const fieldError = validateReminderFields({ title, description, remark, tags });
@@ -112,18 +112,19 @@ export async function PUT(request, { params }) {
 
     const remindersCollection = await getCollection("reminders");
 
+    // Fetch existing document (needed for status transition validation and auto-transition)
+    const existing = await remindersCollection.findOne({
+      _id: new ObjectId(id),
+      userId: session.user.id,
+    });
+
+    if (!existing) {
+      return apiError("Reminder not found", 404);
+    }
+
     // Validate status transition if status is being changed
     if (status !== undefined) {
-      const currentReminder = await remindersCollection.findOne({
-        _id: new ObjectId(id),
-        userId: session.user.id,
-      });
-
-      if (!currentReminder) {
-        return apiError("Reminder not found", 404);
-      }
-
-      const currentStatus = currentReminder.status || "pending";
+      const currentStatus = existing.status || "pending";
       if (!isValidStatusTransition(currentStatus, status)) {
         return apiError(
           `Invalid status transition from '${currentStatus}' to '${status}'`,
@@ -136,7 +137,7 @@ export async function PUT(request, { params }) {
       title,
       description: description || "",
       remark: remark || "",
-      dateTime: new Date(dateTime),
+      dateTime: dateTime ? new Date(dateTime) : null,
       duration: duration || null,
       category: effectiveCategory,
       tags: processedTags,
@@ -152,6 +153,13 @@ export async function PUT(request, { params }) {
     if (status !== undefined) {
       updateData.status = status;
       updateData.completed = deriveCompletedFromStatus(status);
+    }
+
+    // Auto-transition: inbox → processed when dateTime set or completed
+    if (existing.inboxState === "inbox") {
+      if (updateData.dateTime || updateData.status === "completed") {
+        updateData.inboxState = "processed";
+      }
     }
 
     const result = await remindersCollection.updateOne(
@@ -259,6 +267,16 @@ export async function PATCH(request, { params }) {
 
     const remindersCollection = await getCollection("reminders");
 
+    // Fetch existing document (needed for status transition validation and auto-transition)
+    const existing = await remindersCollection.findOne({
+      _id: new ObjectId(id),
+      userId: session.user.id,
+    });
+
+    if (!existing) {
+      return apiError("Reminder not found", 404);
+    }
+
     // Build update object with only provided fields
     const updateData = { updatedAt: new Date() };
 
@@ -268,17 +286,7 @@ export async function PATCH(request, { params }) {
         return apiError(`Invalid status: ${body.status}`, 400);
       }
 
-      // Fetch current reminder to validate status transition
-      const currentReminder = await remindersCollection.findOne({
-        _id: new ObjectId(id),
-        userId: session.user.id,
-      });
-
-      if (!currentReminder) {
-        return apiError("Reminder not found", 404);
-      }
-
-      const currentStatus = currentReminder.status || "pending";
+      const currentStatus = existing.status || "pending";
       if (!isValidStatusTransition(currentStatus, body.status)) {
         return apiError(
           `Invalid status transition from '${currentStatus}' to '${body.status}'`,
@@ -311,17 +319,7 @@ export async function PATCH(request, { params }) {
       }
     } else if (typeof body.completed === "boolean") {
       // Backward compatibility: handle completed boolean
-      // Must fetch current reminder to validate transition and restore correct status
-      const currentReminder = await remindersCollection.findOne({
-        _id: new ObjectId(id),
-        userId: session.user.id,
-      });
-
-      if (!currentReminder) {
-        return apiError("Reminder not found", 404);
-      }
-
-      const currentStatus = currentReminder.status || "pending";
+      const currentStatus = existing.status || "pending";
       const targetStatus = body.completed ? "completed" : currentStatus === "completed" ? "pending" : currentStatus;
 
       if (!isValidStatusTransition(currentStatus, targetStatus)) {
@@ -368,6 +366,13 @@ export async function PATCH(request, { params }) {
     if (body.sortOrder !== undefined) updateData.sortOrder = body.sortOrder;
     if (body.subtasks !== undefined) {
       updateData.subtasks = normalizeSubtasks(body.subtasks);
+    }
+
+    // Auto-transition: inbox → processed when dateTime set or completed
+    if (existing.inboxState === "inbox") {
+      if (updateData.dateTime || updateData.status === "completed") {
+        updateData.inboxState = "processed";
+      }
     }
 
     const result = await remindersCollection.updateOne(
