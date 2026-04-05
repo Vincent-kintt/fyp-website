@@ -13,6 +13,9 @@ import {
   FaChevronLeft,
   FaChevronRight,
 } from "react-icons/fa";
+import { FiChevronDown, FiChevronRight, FiPlus } from "react-icons/fi";
+import useNotes from "@/hooks/useNotes";
+import PageTree from "@/components/notes/PageTree";
 
 const PRIMARY_ITEMS = [
   { href: "/inbox", icon: FaInbox, labelKey: "inbox" },
@@ -21,7 +24,6 @@ const PRIMARY_ITEMS = [
 ];
 
 const WORKSPACE_ITEMS = [
-  { href: "/notes", icon: FaStickyNote, labelKey: "notes" },
   { href: "/reminders", icon: FaList, labelKey: "all" },
 ];
 
@@ -36,11 +38,34 @@ export default function Sidebar() {
   const { data: session } = useSession();
 
   const [collapsed, setCollapsed] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState(false);
+
+  const isNotesPage = pathname?.startsWith("/notes");
+
+  const {
+    notes,
+    trashedNotes,
+    createNote,
+    deleteNote,
+    reorderNotes,
+    renameNote,
+    duplicateNote,
+    restoreNote,
+    permanentDeleteNote,
+  } = useNotes();
+
+  const activeNoteId = isNotesPage
+    ? pathname.split("/notes/")[1]?.split("/")[0] || null
+    : null;
 
   useEffect(() => {
     const stored = localStorage.getItem("sidebar-collapsed");
     if (stored === "true") setCollapsed(true);
   }, []);
+
+  useEffect(() => {
+    if (isNotesPage) setNotesExpanded(true);
+  }, [isNotesPage]);
 
   const toggleCollapse = () => {
     setCollapsed((prev) => {
@@ -122,6 +147,59 @@ export default function Sidebar() {
           </div>
         )}
         {collapsed && <div className="pt-3" />}
+
+        {/* Notes section */}
+        {!collapsed ? (
+          <div>
+            <div className="flex items-center justify-between px-2 py-1">
+              <button
+                onClick={() => setNotesExpanded((p) => !p)}
+                className="flex items-center gap-1 text-[10px] font-semibold"
+                style={{ color: "var(--text-muted)", letterSpacing: "0.5px" }}
+              >
+                {notesExpanded ? (
+                  <FiChevronDown size={10} />
+                ) : (
+                  <FiChevronRight size={10} />
+                )}
+                NOTES
+              </button>
+              <button
+                onClick={() => createNote(null)}
+                className="p-0.5 rounded hover:opacity-70"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <FiPlus size={13} />
+              </button>
+            </div>
+            {notesExpanded && notes.length > 0 && (
+              <div className="max-h-[300px] overflow-y-auto">
+                <PageTree
+                  notes={notes}
+                  activeNoteId={activeNoteId}
+                  onCreateNote={createNote}
+                  onDeleteNote={deleteNote}
+                  onReorder={reorderNotes}
+                  onRename={renameNote}
+                  onDuplicate={duplicateNote}
+                  trashedNotes={trashedNotes}
+                  onRestore={restoreNote}
+                  onPermanentDelete={permanentDeleteNote}
+                />
+              </div>
+            )}
+            {notesExpanded && notes.length === 0 && (
+              <div
+                className="px-3 py-2 text-[11px]"
+                style={{ color: "var(--text-muted)" }}
+              >
+                No pages yet
+              </div>
+            )}
+          </div>
+        ) : (
+          renderItem({ href: "/notes", icon: FaStickyNote, labelKey: "notes" })
+        )}
 
         {WORKSPACE_ITEMS.map(renderItem)}
       </nav>
