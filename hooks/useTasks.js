@@ -5,8 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRef, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-
-const TASKS_KEY = ["tasks"];
+import { reminderKeys } from "@/lib/queryKeys";
 
 async function fetchTasksFromApi() {
   const res = await fetch("/api/reminders");
@@ -25,7 +24,7 @@ export function useTasks() {
 
   // ---- Query ----
   const query = useQuery({
-    queryKey: TASKS_KEY,
+    queryKey: reminderKeys.list({}),
     queryFn: fetchTasksFromApi,
     enabled: !!session,
   });
@@ -47,7 +46,7 @@ export function useTasks() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: "pending" }),
         }).catch(console.error);
-        queryClient.setQueryData(TASKS_KEY, (old) =>
+        queryClient.setQueryData(reminderKeys.list({}), (old) =>
           old?.map((t) =>
             t.id === task.id
               ? { ...t, status: "pending", snoozedUntil: null }
@@ -70,9 +69,9 @@ export function useTasks() {
         return r.json();
       }),
     onMutate: async ({ id, completed }) => {
-      await queryClient.cancelQueries({ queryKey: TASKS_KEY });
-      const previous = queryClient.getQueryData(TASKS_KEY);
-      queryClient.setQueryData(TASKS_KEY, (old) =>
+      await queryClient.cancelQueries({ queryKey: reminderKeys.all });
+      const previous = queryClient.getQueryData(reminderKeys.list({}));
+      queryClient.setQueryData(reminderKeys.list({}), (old) =>
         old?.map((t) =>
           t.id === id
             ? {
@@ -89,7 +88,7 @@ export function useTasks() {
     },
     onError: (_, __, context) => {
       if (context?.previous)
-        queryClient.setQueryData(TASKS_KEY, context.previous);
+        queryClient.setQueryData(reminderKeys.list({}), context.previous);
       toast.error(t("updateFailed"));
     },
     onSuccess: (_, { id, completed }) => {
@@ -104,14 +103,14 @@ export function useTasks() {
       }
     },
     onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all }),
   });
 
   // ---- Deferred delete (5s undo window, NOT a TQ mutation) ----
   const deleteTask = useCallback(
     (id) => {
-      const previous = queryClient.getQueryData(TASKS_KEY);
-      queryClient.setQueryData(TASKS_KEY, (old) =>
+      const previous = queryClient.getQueryData(reminderKeys.list({}));
+      queryClient.setQueryData(reminderKeys.list({}), (old) =>
         old?.filter((t) => t.id !== id)
       );
 
@@ -122,9 +121,9 @@ export function useTasks() {
             method: "DELETE",
           });
           if (!res.ok) throw new Error("Failed");
-          queryClient.invalidateQueries({ queryKey: TASKS_KEY });
+          queryClient.invalidateQueries({ queryKey: reminderKeys.all });
         } catch {
-          queryClient.setQueryData(TASKS_KEY, previous);
+          queryClient.setQueryData(reminderKeys.list({}), previous);
           toast.error(t("deleteFailed"));
         }
       }, 5000);
@@ -137,7 +136,7 @@ export function useTasks() {
           onClick: () => {
             clearTimeout(timer);
             deleteTimersRef.current.delete(id);
-            queryClient.setQueryData(TASKS_KEY, previous);
+            queryClient.setQueryData(reminderKeys.list({}), previous);
           },
         },
         duration: 5000,
@@ -158,7 +157,7 @@ export function useTasks() {
         return r.json();
       }),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all }),
     onError: () => toast.error(t("updateFailed")),
   });
 
@@ -178,9 +177,9 @@ export function useTasks() {
       });
     },
     onMutate: async ({ id, snoozedUntil }) => {
-      await queryClient.cancelQueries({ queryKey: TASKS_KEY });
-      const previous = queryClient.getQueryData(TASKS_KEY);
-      queryClient.setQueryData(TASKS_KEY, (old) =>
+      await queryClient.cancelQueries({ queryKey: reminderKeys.all });
+      const previous = queryClient.getQueryData(reminderKeys.list({}));
+      queryClient.setQueryData(reminderKeys.list({}), (old) =>
         old?.map((t) =>
           t.id === id
             ? {
@@ -195,14 +194,14 @@ export function useTasks() {
     },
     onError: (_, { snoozedUntil }, context) => {
       if (context?.previous)
-        queryClient.setQueryData(TASKS_KEY, context.previous);
+        queryClient.setQueryData(reminderKeys.list({}), context.previous);
       toast.error(snoozedUntil ? t("snoozeFailed") : t("cancelSnoozeFailed"));
     },
     onSuccess: (_, { snoozedUntil }) => {
       toast.success(snoozedUntil ? t("snoozed") : t("snoozeCancelled"));
     },
     onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all }),
   });
 
   // ---- Quick add (invalidate on success) ----
@@ -217,7 +216,7 @@ export function useTasks() {
         return r.json();
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: TASKS_KEY });
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
       toast.success(t("taskAdded"));
     },
     onError: () => toast.error(t("addFailed")),
@@ -242,6 +241,6 @@ export function useTasks() {
       snoozeMutation.mutate({ id, snoozedUntil }),
     quickAdd: (data) => quickAddMutation.mutate(data),
     refetch: () =>
-      queryClient.invalidateQueries({ queryKey: TASKS_KEY }),
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all }),
   };
 }

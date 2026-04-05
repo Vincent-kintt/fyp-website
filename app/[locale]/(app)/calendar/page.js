@@ -31,6 +31,7 @@ import {
   useDraggable,
 } from "@dnd-kit/core";
 import { useQueryClient } from "@tanstack/react-query";
+import { reminderKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
 import {
   useDndSensors,
@@ -80,15 +81,15 @@ export default function CalendarPage() {
       const draggedTask = tasks.find((t) => t.id === active.id);
       if (!draggedTask) return;
 
-      // Skip if dropping on same day
-      if (isSameDay(new Date(draggedTask.dateTime), targetDate)) return;
+      // Skip if dropping on same day (or if task has no dateTime)
+      if (!draggedTask.dateTime || isSameDay(new Date(draggedTask.dateTime), targetDate)) return;
 
       const newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
 
       // Optimistic update
-      const originalTasks = queryClient.getQueryData(["tasks"]);
+      const originalTasks = queryClient.getQueryData(reminderKeys.list({}));
       queryClient.setQueryData(
-        ["tasks"],
+        reminderKeys.list({}),
         tasks.map((t) =>
           t.id === active.id ? { ...t, dateTime: newDateTime } : t
         )
@@ -98,7 +99,7 @@ export default function CalendarPage() {
         await patchReminderStatus(active.id, { dateTime: newDateTime });
         toast.success(t("movedTo", { date: format(targetDate, "M/d") }));
       } catch {
-        queryClient.setQueryData(["tasks"], originalTasks);
+        queryClient.setQueryData(reminderKeys.list({}), originalTasks);
         toast.error(t("moveFailed"));
       }
     },
@@ -127,7 +128,7 @@ export default function CalendarPage() {
   // Get tasks for a specific date
   const getTasksForDate = (date) => {
     if (!date) return [];
-    return tasks.filter((task) => isSameDay(new Date(task.dateTime), date));
+    return tasks.filter((task) => task.dateTime && isSameDay(new Date(task.dateTime), date));
   };
 
   // Get tasks for selected date

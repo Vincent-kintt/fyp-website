@@ -21,6 +21,7 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTasks } from "@/hooks/useTasks";
+import { reminderKeys } from "@/lib/queryKeys";
 import TaskItem from "@/components/tasks/TaskItem";
 import TaskSection from "@/components/tasks/TaskSection";
 import QuickAdd from "@/components/tasks/QuickAdd";
@@ -168,7 +169,9 @@ export default function DashboardPage() {
   const now = new Date();
 
   // Sort by dateTime for initial grouping, then re-sort sections by sortOrder
-  const sortedTasks = [...tasks].sort(
+  // Tasks without dateTime (inbox tasks) are excluded from date-based sections
+  const datedTasks = tasks.filter((t) => t.dateTime);
+  const sortedTasks = [...datedTasks].sort(
     (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
   );
 
@@ -355,7 +358,7 @@ export default function DashboardPage() {
 
       if (!sourceSection || !targetSection) return;
 
-      const originalTasks = queryClient.getQueryData(["tasks"]);
+      const originalTasks = queryClient.getQueryData(reminderKeys.list({}));
 
       if (sourceSection === targetSection) {
         // Within-section reorder (unchanged)
@@ -372,7 +375,7 @@ export default function DashboardPage() {
         const reorderedIds = new Set(reorderedWithOrder.map((t) => t.id));
         const otherTasks = tasks.filter((t) => !reorderedIds.has(t.id));
         queryClient.setQueryData(
-          ["tasks"],
+          reminderKeys.list({}),
           [...otherTasks, ...reorderedWithOrder],
         );
 
@@ -380,7 +383,7 @@ export default function DashboardPage() {
           const sortUpdates = computeSortOrders(reordered);
           await reorderReminders(sortUpdates);
         } catch {
-          queryClient.setQueryData(["tasks"], originalTasks);
+          queryClient.setQueryData(reminderKeys.list({}), originalTasks);
           toast.error(t("reorderFailed"));
         }
       } else {
@@ -428,7 +431,7 @@ export default function DashboardPage() {
           }
 
           queryClient.setQueryData(
-            ["tasks"],
+            reminderKeys.list({}),
             tasks.map((t) => (t.id === active.id ? optimisticUpdate : t)),
           );
 
@@ -436,7 +439,7 @@ export default function DashboardPage() {
             await patchReminderStatus(active.id, statusBody);
             toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
           } catch {
-            queryClient.setQueryData(["tasks"], originalTasks);
+            queryClient.setQueryData(reminderKeys.list({}), originalTasks);
             toast.error(t("moveFailed"));
           }
         } else {
@@ -464,7 +467,7 @@ export default function DashboardPage() {
             };
 
             queryClient.setQueryData(
-              ["tasks"],
+              reminderKeys.list({}),
               tasks.map((t) => (t.id === active.id ? optimisticUpdate : t)),
             );
 
@@ -472,13 +475,13 @@ export default function DashboardPage() {
               await patchReminderStatus(active.id, statusBody);
               toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
             } catch {
-              queryClient.setQueryData(["tasks"], originalTasks);
+              queryClient.setQueryData(reminderKeys.list({}), originalTasks);
               toast.error(t("moveFailed"));
             }
           } else {
             // Date → Date move (existing logic)
             queryClient.setQueryData(
-              ["tasks"],
+              reminderKeys.list({}),
               tasks.map((t) =>
                 t.id === active.id ? { ...t, dateTime: newDateTime } : t,
               ),
@@ -494,7 +497,7 @@ export default function DashboardPage() {
               ]);
               toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
             } catch {
-              queryClient.setQueryData(["tasks"], originalTasks);
+              queryClient.setQueryData(reminderKeys.list({}), originalTasks);
               toast.error(t("moveFailed"));
             }
           }

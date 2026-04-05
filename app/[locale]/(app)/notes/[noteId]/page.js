@@ -10,27 +10,29 @@ import NotesLayout from "@/components/notes/NotesLayout";
 import NoteEditor from "@/components/notes/NoteEditor";
 import NoteTopBar from "@/components/notes/NoteTopBar";
 import { findAncestors } from "@/lib/notes/tree";
+import useNotes from "@/hooks/useNotes";
 
 export default function NotePage() {
   const { noteId } = useParams();
   const router = useRouter();
   const t = useTranslations("notes");
   const locale = useLocale();
-  const [notes, setNotes] = useState([]);
+
+  const {
+    notes,
+    trashedNotes,
+    createNote,
+    deleteNote,
+    reorderNotes,
+    renameNote,
+    duplicateNote,
+    restoreNote,
+    permanentDeleteNote,
+  } = useNotes();
+
   const [currentNote, setCurrentNote] = useState(null);
   const [editorSaveStatus, setEditorSaveStatus] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [trashedNotes, setTrashedNotes] = useState([]);
-
-  const fetchNotes = useCallback(async () => {
-    try {
-      const res = await fetch("/api/notes");
-      const data = await res.json();
-      if (data.success) setNotes(data.data);
-    } catch {
-      /* silent */
-    }
-  }, []);
 
   const fetchCurrentNote = useCallback(async () => {
     try {
@@ -48,21 +50,9 @@ export default function NotePage() {
     }
   }, [noteId, router]);
 
-  const fetchTrashedNotes = useCallback(async () => {
-    try {
-      const res = await fetch("/api/notes/trash");
-      const data = await res.json();
-      if (data.success) setTrashedNotes(data.data);
-    } catch {
-      /* silent */
-    }
-  }, []);
-
   useEffect(() => {
-    fetchNotes();
     fetchCurrentNote();
-    fetchTrashedNotes();
-  }, [fetchNotes, fetchCurrentNote, fetchTrashedNotes]);
+  }, [fetchCurrentNote]);
 
   const handleSave = useCallback(
     async (updates) => {
@@ -75,11 +65,6 @@ export default function NotePage() {
         const data = await res.json();
         if (!data.success) throw new Error("Save failed");
         if (updates.title) {
-          setNotes((prev) =>
-            prev.map((n) =>
-              n.id === noteId ? { ...n, title: updates.title } : n,
-            ),
-          );
           setCurrentNote((prev) =>
             prev ? { ...prev, title: updates.title } : prev,
           );
@@ -103,161 +88,20 @@ export default function NotePage() {
         const data = await res.json();
         if (data.success) {
           setCurrentNote((prev) => (prev ? { ...prev, icon } : prev));
-          setNotes((prev) =>
-            prev.map((n) => (n.id === noteId ? { ...n, icon } : n)),
-          );
         }
       } catch {
         toast.error(t("saveFailed"));
       }
     },
     [noteId, t],
-  );
-
-  const handleCreateNote = useCallback(
-    async (parentId) => {
-      try {
-        const res = await fetch("/api/notes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: t("untitled"),
-            parentId: parentId || null,
-          }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          await fetchNotes();
-          router.push(`/notes/${data.data.id}`);
-        }
-      } catch {
-        toast.error(t("saveFailed"));
-      }
-    },
-    [fetchNotes, router, t],
   );
 
   const handleDeleteNote = useCallback(
     async (id) => {
-      if (!confirm(t("confirmDelete"))) return;
-      try {
-        const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
-        const data = await res.json();
-        if (data.success) {
-          await fetchNotes();
-          await fetchTrashedNotes();
-          if (id === noteId) router.replace("/notes");
-        }
-      } catch {
-        toast.error(t("deleteFailed"));
-      }
+      await deleteNote(id);
+      if (id === noteId) router.replace("/notes");
     },
-    [fetchNotes, fetchTrashedNotes, noteId, router, t],
-  );
-
-  const handleRestore = useCallback(
-    async (id) => {
-      try {
-        const res = await fetch(`/api/notes/${id}/restore`, { method: "POST" });
-        const data = await res.json();
-        if (data.success) {
-          await fetchNotes();
-          await fetchTrashedNotes();
-        }
-      } catch {
-        toast.error(t("saveFailed"));
-      }
-    },
-    [fetchNotes, fetchTrashedNotes, t],
-  );
-
-  const handlePermanentDelete = useCallback(
-    async (id) => {
-      try {
-        const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
-        const data = await res.json();
-        if (data.success) {
-          await fetchTrashedNotes();
-        }
-      } catch {
-        toast.error(t("deleteFailed"));
-      }
-    },
-    [fetchTrashedNotes, t],
-  );
-
-  const handleReorder = useCallback(
-    async (updates) => {
-      try {
-        await fetch("/api/notes/reorder", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ updates }),
-        });
-        await fetchNotes();
-      } catch {
-        toast.error(t("saveFailed"));
-      }
-    },
-    [fetchNotes, t],
-  );
-
-  const handleRename = useCallback(
-    async (id, newTitle) => {
-      try {
-        const res = await fetch(`/api/notes/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: newTitle }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setNotes((prev) =>
-            prev.map((n) => (n.id === id ? { ...n, title: newTitle } : n)),
-          );
-          if (id === noteId) {
-            setCurrentNote((prev) => (prev ? { ...prev, title: newTitle } : prev));
-          }
-        }
-      } catch {
-        toast.error(t("saveFailed"));
-      }
-    },
-    [noteId, t],
-  );
-
-  const handleDuplicate = useCallback(
-    async (id) => {
-      try {
-        const sourceNote = notes.find((n) => n.id === id);
-        if (!sourceNote) return;
-        const getRes = await fetch(`/api/notes/${id}`);
-        const getData = await getRes.json();
-        if (!getData.success) return;
-
-        const res = await fetch("/api/notes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: `${getData.data.title} (copy)`,
-            parentId: getData.data.parentId,
-          }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          await fetch(`/api/notes/${data.data.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: getData.data.content }),
-          });
-          await fetchNotes();
-          router.push(`/notes/${data.data.id}`);
-        }
-      } catch {
-        toast.error(t("saveFailed"));
-      }
-    },
-    [notes, fetchNotes, router, t],
+    [deleteNote, noteId, router],
   );
 
   const ancestors = currentNote
@@ -270,28 +114,7 @@ export default function NotePage() {
   if (loading) {
     return (
       <div className="flex h-full">
-        <aside
-          className="hidden md:flex flex-col"
-          style={{
-            width: 240,
-            minWidth: 240,
-            boxShadow: "1px 0 0 0 var(--border)",
-            background: "var(--background-secondary)",
-          }}
-        >
-          <div className="px-3 pt-3 pb-2">
-            <div className="skeleton-line h-3 w-12" />
-          </div>
-          <div className="px-2 space-y-0.5">
-            {[24, 32, 20, 28].map((w, i) => (
-              <div key={i} className="flex items-center gap-2 px-2 py-1.5">
-                <div className="skeleton-line w-4 h-4 rounded" />
-                <div className="skeleton-line h-3" style={{ width: `${w * 4}px` }} />
-              </div>
-            ))}
-          </div>
-        </aside>
-        <main className="flex-1 overflow-hidden" style={{ background: "var(--surface)" }}>
+        <section className="flex-1 overflow-hidden" style={{ background: "var(--surface)" }}>
           <div
             className="flex items-center justify-between px-3"
             style={{ minHeight: 40, borderBottom: "1px solid var(--border)" }}
@@ -310,7 +133,7 @@ export default function NotePage() {
               <div className="skeleton-line h-4 w-3/5" />
             </div>
           </div>
-        </main>
+        </section>
       </div>
     );
   }
@@ -319,14 +142,14 @@ export default function NotePage() {
     <NotesLayout
       notes={notes}
       activeNoteId={noteId}
-      onCreateNote={handleCreateNote}
+      onCreateNote={createNote}
       onDeleteNote={handleDeleteNote}
-      onReorder={handleReorder}
-      onRename={handleRename}
-      onDuplicate={handleDuplicate}
+      onReorder={reorderNotes}
+      onRename={renameNote}
+      onDuplicate={duplicateNote}
       trashedNotes={trashedNotes}
-      onRestore={handleRestore}
-      onPermanentDelete={handlePermanentDelete}
+      onRestore={restoreNote}
+      onPermanentDelete={permanentDeleteNote}
     >
       {currentNote && (
         <>
@@ -337,9 +160,9 @@ export default function NotePage() {
             locale={locale}
             onRename={() => {
               const newTitle = prompt(t("rename"), currentNote.title);
-              if (newTitle?.trim()) handleRename(currentNote.id, newTitle.trim());
+              if (newTitle?.trim()) renameNote(currentNote.id, newTitle.trim());
             }}
-            onDuplicate={() => handleDuplicate(currentNote.id)}
+            onDuplicate={() => duplicateNote(currentNote.id)}
             onDelete={() => handleDeleteNote(currentNote.id)}
           />
           <NoteEditor

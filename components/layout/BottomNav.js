@@ -7,16 +7,14 @@ import {
   FaHome,
   FaInbox,
   FaCalendarAlt,
-  FaList,
   FaStickyNote,
 } from "react-icons/fa";
 import { useVirtualKeyboard } from "@/hooks/useVirtualKeyboard";
 
 const TABS = [
-  { href: "/dashboard", icon: FaHome, labelKey: "today" },
   { href: "/inbox", icon: FaInbox, labelKey: "inbox" },
+  { href: "/dashboard", icon: FaHome, labelKey: "today" },
   { href: "/calendar", icon: FaCalendarAlt, labelKey: "calendar" },
-  { href: "/reminders", icon: FaList, labelKey: "all" },
   { href: "/notes", icon: FaStickyNote, labelKey: "notes" },
 ];
 
@@ -41,7 +39,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      role="tablist"
+      role="navigation"
       aria-label={t("mainNavigation")}
       className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
       style={{
@@ -88,7 +86,6 @@ export default function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              role="tab"
               aria-current={isActive ? "page" : undefined}
               aria-label={t(tab.labelKey)}
               className="relative z-10 flex flex-1 flex-col items-center justify-center gap-[3px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
@@ -106,7 +103,7 @@ export default function BottomNav() {
                 }}
               />
               <span
-                className="bottom-nav-item-label text-[10px] font-medium leading-none"
+                className="bottom-nav-item-label text-[11px] font-medium leading-none"
                 style={{
                   transition: "color 150ms ease",
                 }}

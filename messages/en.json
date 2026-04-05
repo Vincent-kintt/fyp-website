@@ -17,7 +17,9 @@
     "skipToContent": "Skip to content",
     "notes": "Notes",
     "register": "Sign Up",
-    "mainNavigation": "Main navigation"
+    "mainNavigation": "Main navigation",
+    "workspace": "Workspace",
+    "more": "More"
   },
   "footer": {
     "copyright": "ReminderApp",
@@ -109,7 +111,14 @@
     "emptyDescription": "Start capturing ideas and tasks quickly",
     "completed": "Completed",
     "moreCompleted": "+{count} more completed",
-    "reorderFailed": "Failed to reorder"
+    "reorderFailed": "Failed to reorder",
+    "recentLabel": "Recent",
+    "parsing": "AI parsing...",
+    "addFailed": "Failed to add task",
+    "unprocessed": "{count} unprocessed",
+    "inboxZero": "Inbox zero!",
+    "inboxZeroDesc": "All tasks have been processed.",
+    "newTodo": "New To-Do"
   },
   "calendar": {
     "title": "Calendar",
