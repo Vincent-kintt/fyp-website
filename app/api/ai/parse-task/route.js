@@ -4,6 +4,7 @@ import { normalizeTags } from "@/lib/utils";
 import { getModel } from "@/lib/ai/provider.js";
 import { generateText } from "ai";
 import * as chrono from "chrono-node";
+import { computeOverallConfidence } from "./confidence.js";
 
 const PARSE_MODEL = process.env.PARSE_TASK_MODEL || "x-ai/grok-4.1-fast";
 
@@ -123,7 +124,9 @@ Extract structured data from user input. Return JSON only:
   "title": "Clean task title (remove date/time words)",
   "tags": ["relevant", "tags"],
   "priority": "low/medium/high",
-  "date_expression": "normalized English date/time for chrono-node parser"
+  "date_expression": "normalized English date/time for chrono-node parser",
+  "is_task": true,
+  "matched_text": "exact substring from input"
 }
 
 **Date/Time Rules:**
@@ -135,9 +138,14 @@ Extract structured data from user input. Return JSON only:
 
 **Priority:** HIGH for urgent/ASAP/deadline, LOW for whenever/maybe, MEDIUM default.
 
+Also determine:
+- "is_task": true if the input contains a clear actionable task (something to do, schedule, or complete). false if it's just a note, observation, thought, or informational text like "the weather is nice" or "I feel tired".
+- "matched_text": the exact verbatim substring from the input that represents the task. Must appear in the original input unchanged.
+
 Examples:
-- "meeting tmr 2pm" -> {"title": "Meeting", "tags": ["work"], "priority": "medium", "date_expression": "tomorrow at 2:00 pm"}
-- "今天10點開會" -> {"title": "開會", "tags": ["work"], "priority": "medium", "date_expression": "today at 10:00 am/pm"} (pick based on current time)`;
+- "meeting tmr 2pm" -> {"title": "Meeting", "tags": ["work"], "priority": "medium", "date_expression": "tomorrow at 2:00 pm", "is_task": true, "matched_text": "meeting tmr 2pm"}
+- "the weather is nice today" -> {"title": "", "tags": [], "priority": "medium", "date_expression": "", "is_task": false, "matched_text": ""}
+- "今天10點開會" -> {"title": "開會", "tags": ["work"], "priority": "medium", "date_expression": "today at 10:00 am/pm", "is_task": true, "matched_text": "今天10點開會"} (pick based on current time)`;
 
     const { text: content } = await generateText({
       model: getModel(PARSE_MODEL),
@@ -196,23 +204,36 @@ Examples:
       }
     }
 
+    // isTask — default false if LLM didn't return it (non-authoritative)
+    const isTask = llmParsed.is_task === true;
+
+    // matchedText — the LLM's identified task substring
+    const matchedText = llmParsed.matched_text || text;
+
     // Construct final result
+    const confidence = {
+      title: 0.9,
+      tags: llmParsed.tags?.length > 0 ? 0.8 : 0.5,
+      priority: 0.7,
+    };
+
+    // Add dateTime confidence from chrono if parsed successfully
+    if (chronoResult) {
+      confidence.dateTime = chronoResult.confidence;
+    }
+
+    // Compute overall confidence
+    confidence.overall = computeOverallConfidence(confidence);
+
     const result = {
       title: llmParsed.title || text.trim(),
       tags: normalizeTags(llmParsed.tags || []),
       priority: llmParsed.priority || "medium",
-      confidence: {
-        title: 0.9,
-        tags: llmParsed.tags?.length > 0 ? 0.8 : 0.5,
-        priority: 0.7,
-      },
+      ...(chronoResult ? { dateTime: chronoResult.dateTime } : {}),
+      isTask,
+      matchedText,
+      confidence,
     };
-
-    // Add dateTime from chrono if parsed successfully
-    if (chronoResult) {
-      result.dateTime = chronoResult.dateTime;
-      result.confidence.dateTime = chronoResult.confidence;
-    }
 
     return NextResponse.json({
       success: true,
