@@ -7,7 +7,6 @@ import "../globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
 import BottomNav from "@/components/layout/BottomNav";
-import Footer from "@/components/layout/Footer";
 import Providers from "../providers";
 import ThemeProvider from "@/components/ThemeProvider";
 
@@ -60,9 +59,6 @@ export default async function LocaleLayout({ children, params }) {
                 </main>
               </div>
               <BottomNav />
-              <div className="hidden md:block">
-                <Footer />
-              </div>
             </Providers>
           </NextIntlClientProvider>
         </ThemeProvider>

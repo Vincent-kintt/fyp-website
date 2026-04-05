@@ -279,8 +279,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
 
   return (
     <div
-      className="mx-auto px-6 md:px-16 pt-6 pb-[30vh]"
-      style={{ maxWidth: "900px" }}
+      className="px-6 pt-6 pb-[30vh]"
       onKeyDown={handleEditorKeyDown}
     >
       {/* Icon area */}

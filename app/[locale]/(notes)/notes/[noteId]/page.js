@@ -122,7 +122,7 @@ export default function NotePage() {
             <div className="skeleton-line h-3 w-24" />
             <div className="skeleton-line h-3 w-16" />
           </div>
-          <div className="mx-auto px-6 md:px-16 pt-6" style={{ maxWidth: 900 }}>
+          <div className="px-6 pt-6">
             <div style={{ paddingLeft: 54 }}>
               <div className="skeleton-line w-8 h-8 rounded-lg mb-2" />
             </div>
