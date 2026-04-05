@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronRight, File, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronRight, File, Plus, Trash2 } from "lucide-react";
 import TrashSection from "./TrashSection";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -57,39 +57,7 @@ export default function PageTree({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Search bar — triggers global ⌘K search */}
-      <button
-        onClick={() => {
-          document.dispatchEvent(
-            new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })
-          );
-        }}
-        className="flex items-center gap-2 mx-2 mt-2 mb-1 px-2.5 py-1.5 rounded-md text-[12.5px] text-left"
-        style={{ color: "var(--text-muted)" }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-      >
-        <Search size={13} strokeWidth={1.5} />
-        {t("search")}
-        <kbd
-          className="ml-auto text-[10px] px-1.5 py-0.5 rounded font-mono"
-          style={{ background: "var(--surface-hover)", color: "var(--text-muted)" }}
-        >
-          ⌘K
-        </kbd>
-      </button>
-
-      {/* Section label */}
-      <div className="px-3 pt-3 pb-1">
-        <span
-          className="text-[11px] font-medium"
-          style={{ color: "var(--text-muted)" }}
-        >
-          {t("pages")}
-        </span>
-      </div>
-
-      <div className="flex-1 overflow-y-auto py-1 px-1">
+      <div className="flex-1 overflow-y-auto py-2 px-1">
         {tree.length === 0 ? (
           <div className="flex flex-col items-center px-3 py-10 text-center gap-2">
             <File size={32} strokeWidth={1} style={{ color: "var(--text-muted)", opacity: 0.15 }} />
