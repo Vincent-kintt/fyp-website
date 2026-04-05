@@ -258,7 +258,7 @@ describe("POST /api/reminders", () => {
     const res = await POST(req);
     const { status, body } = await parseResponse(res);
     expect(status).toBe(400);
-    expect(body.error).toMatch(/missing required fields/i);
+    expect(body.error).toMatch(/missing required field/i);
   });
 
   it("creates reminder with correct defaults", async () => {

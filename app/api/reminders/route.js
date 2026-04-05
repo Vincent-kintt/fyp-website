@@ -22,6 +22,7 @@ export async function GET(request) {
     const category = searchParams.get("category");
     const type = searchParams.get("type");
     const tag = searchParams.get("tag");
+    const inboxStateParam = searchParams.get("inboxState");
 
     const remindersCollection = await getCollection("reminders");
 
@@ -29,6 +30,16 @@ export async function GET(request) {
     const filter = {
       userId: session.user.id,
     };
+
+    // inboxState filtering — default excludes inbox tasks
+    if (inboxStateParam === "inbox") {
+      filter.inboxState = "inbox";
+    } else if (inboxStateParam === "all") {
+      // no inboxState filter
+    } else {
+      // default: exclude inbox tasks so null-dateTime tasks don't leak
+      filter.inboxState = { $ne: "inbox" };
+    }
 
     // Filter by category (backward compatible)
     if (category && category !== "all") {
@@ -71,7 +82,8 @@ export async function GET(request) {
       }
     }
 
-    const cursor = remindersCollection.find(filter).sort({ dateTime: 1 });
+    const sort = inboxStateParam === "inbox" ? { createdAt: -1 } : { dateTime: 1 };
+    const cursor = remindersCollection.find(filter).sort(sort);
 
     if (usePagination && limit > 0) {
       const total = await remindersCollection.countDocuments(filter);
@@ -124,9 +136,13 @@ export async function POST(request) {
       remark,
     } = body;
 
-    // Validation - tags or category required
-    if (!title || !dateTime) {
-      return apiError("Missing required fields (title, dateTime)", 400);
+    // Validation
+    if (!title) {
+      return apiError("Missing required field (title)", 400);
+    }
+    const inboxState = body.inboxState || "processed";
+    if (inboxState !== "inbox" && !dateTime) {
+      return apiError("Missing required field (dateTime) for non-inbox tasks", 400);
     }
 
     const fieldError = validateReminderFields({ title, description, remark, tags });
@@ -153,7 +169,8 @@ export async function POST(request) {
       title,
       description: description || "",
       remark: remark || "",
-      dateTime: new Date(dateTime),
+      dateTime: dateTime ? new Date(dateTime) : null,
+      inboxState,
       duration: duration || null, // Duration in minutes for time blocking
       category: effectiveCategory,
       tags: processedTags,
