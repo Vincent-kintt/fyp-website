@@ -114,7 +114,11 @@
     "reorderFailed": "Failed to reorder",
     "recentLabel": "Recent",
     "parsing": "AI parsing...",
-    "addFailed": "Failed to add task"
+    "addFailed": "Failed to add task",
+    "editorPlaceholder": "Type anything... tasks, notes, ideas",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "capturedTasks": "Captured Tasks"
   },
   "calendar": {
     "title": "Calendar",

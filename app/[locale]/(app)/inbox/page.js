@@ -8,8 +8,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { useTasks } from "@/hooks/useTasks";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import CaptureInput from "@/components/inbox/CaptureInput";
 import RecentFeed from "@/components/inbox/RecentFeed";
+import InboxEditor from "@/components/inbox/InboxEditor";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 
@@ -21,6 +23,8 @@ export default function InboxPage() {
 
   const { tasks, loading, toggleComplete, deleteTask, quickAdd, refetch } =
     useTasks();
+
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
@@ -106,14 +110,24 @@ export default function InboxPage() {
         {t("subtitle")}
       </p>
 
-      <CaptureInput onTaskAdded={handleTaskDetected} />
-
-      <RecentFeed
-        tasks={tasks}
-        onToggleComplete={toggleComplete}
-        onDelete={deleteTask}
-        onEdit={(id) => setSelectedTaskId(id)}
-      />
+      {isDesktop ? (
+        <InboxEditor
+          tasks={tasks}
+          onToggleComplete={toggleComplete}
+          onDelete={deleteTask}
+          onEdit={(id) => setSelectedTaskId(id)}
+        />
+      ) : (
+        <>
+          <CaptureInput onTaskAdded={handleTaskDetected} />
+          <RecentFeed
+            tasks={tasks}
+            onToggleComplete={toggleComplete}
+            onDelete={deleteTask}
+            onEdit={(id) => setSelectedTaskId(id)}
+          />
+        </>
+      )}
 
       {selectedTaskId && (
         <TaskDetailPanel
