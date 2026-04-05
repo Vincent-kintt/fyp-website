@@ -21,9 +21,6 @@ const PRIMARY_ITEMS = [
   { href: "/inbox", icon: FaInbox, labelKey: "inbox" },
   { href: "/dashboard", icon: FaHome, labelKey: "today" },
   { href: "/calendar", icon: FaCalendarAlt, labelKey: "calendar" },
-];
-
-const WORKSPACE_ITEMS = [
   { href: "/reminders", icon: FaList, labelKey: "all" },
 ];
 
@@ -85,7 +82,7 @@ export default function Sidebar() {
         title={collapsed ? t(labelKey) : undefined}
         className={`
           relative flex items-center ${collapsed ? "justify-center" : "gap-3"}
-          ${collapsed ? "px-0 py-2.5" : "px-3 py-2.5"} rounded-lg text-[13.5px] font-medium
+          ${collapsed ? "px-0 py-2.5" : "px-3 py-2.5"} rounded-lg text-[14px] font-medium
           transition-colors duration-150
           ${
             active
@@ -109,7 +106,7 @@ export default function Sidebar() {
   return (
     <aside
       className={`hidden md:flex flex-col flex-shrink-0 border-r transition-[width] duration-200 ease-out ${
-        collapsed ? "w-[56px]" : "w-[210px]"
+        collapsed ? "w-[56px]" : "w-[240px]"
       }`}
       style={{
         backgroundColor: "var(--navbar-bg)",
@@ -140,11 +137,9 @@ export default function Sidebar() {
 
         {!collapsed && (
           <div
-            className="pt-4 pb-1.5 px-3 text-[10px] font-medium uppercase tracking-widest"
-            style={{ color: "var(--text-muted)" }}
-          >
-            {t("workspace")}
-          </div>
+            className="mx-3 my-2"
+            style={{ height: "1px", backgroundColor: "var(--navbar-border)" }}
+          />
         )}
         {collapsed && <div className="pt-3" />}
 
@@ -154,7 +149,7 @@ export default function Sidebar() {
             <div className="flex items-center justify-between px-2 py-1">
               <button
                 onClick={() => setNotesExpanded((p) => !p)}
-                className="flex items-center gap-1 text-[10px] font-semibold"
+                className="flex items-center gap-1 text-[11px] font-semibold"
                 style={{ color: "var(--text-muted)", letterSpacing: "0.5px" }}
               >
                 {notesExpanded ? (
@@ -201,7 +196,7 @@ export default function Sidebar() {
           renderItem({ href: "/notes", icon: FaStickyNote, labelKey: "notes" })
         )}
 
-        {WORKSPACE_ITEMS.map(renderItem)}
+
       </nav>
 
       {session?.user && (
