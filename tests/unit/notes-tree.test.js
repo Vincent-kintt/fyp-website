@@ -189,9 +189,17 @@ describe("getProjection", () => {
   });
 
   it("returns over-item parentId when same depth", () => {
-    const result = getProjection(items, "d", "b", INDENT, INDENT);
+    // No horizontal offset: depth stays the same, parentId matches over-item's parent
+    const result = getProjection(items, "d", "b", 0, INDENT);
     expect(result.depth).toBe(1);
     expect(result.parentId).toBe("a");
+  });
+
+  it("allows nesting under leaf nodes (any note can be parent)", () => {
+    // Dragging "a" over "d" (leaf, depth 0), offset right by 1 indent
+    const result = getProjection(items, "a", "d", INDENT, INDENT);
+    expect(result.depth).toBe(1);
+    expect(result.parentId).toBe("d");
   });
 });
 
