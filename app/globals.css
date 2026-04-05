@@ -1013,6 +1013,27 @@ body:has(.notes-page) {
   opacity: 0.4;
 }
 
+.notes-tree-item[data-drop-target="true"] {
+  background: var(--primary-alpha-10, rgba(59, 130, 246, 0.1));
+  border-radius: 6px;
+}
+
+.notes-drop-indicator {
+  height: 2px;
+  background: var(--primary, #3b82f6);
+  border-radius: 1px;
+  margin: 0 4px;
+  pointer-events: none;
+}
+
+.notes-tree-overlay {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 200px;
+}
+
 .notes-drawer-backdrop {
   position: fixed;
   inset: 0;
