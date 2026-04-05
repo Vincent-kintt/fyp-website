@@ -17,7 +17,8 @@
     "skipToContent": "跳至內容",
     "notes": "筆記",
     "register": "註冊",
-    "mainNavigation": "主要導航"
+    "mainNavigation": "主要導航",
+    "workspace": "工作區"
   },
   "footer": {
     "copyright": "ReminderApp",
@@ -109,7 +110,10 @@
     "emptyDescription": "開始快速捕捉想法和任務吧",
     "completed": "已完成",
     "moreCompleted": "還有 {count} 項已完成",
-    "reorderFailed": "排序失敗"
+    "reorderFailed": "排序失敗",
+    "recentLabel": "最近",
+    "parsing": "AI 解析中...",
+    "addFailed": "新增失敗"
   },
   "calendar": {
     "title": "行事曆",
