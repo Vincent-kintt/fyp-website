@@ -7,7 +7,7 @@ export default function StatsOverview({ tasks }) {
   const t = useTranslations("stats");
   const total = tasks.length;
   const completed = tasks.filter(t => t.completed).length;
-  const overdue = tasks.filter(t => !t.completed && new Date(t.dateTime) < new Date()).length;
+  const overdue = tasks.filter(t => !t.completed && t.dateTime && new Date(t.dateTime) < new Date()).length;
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (

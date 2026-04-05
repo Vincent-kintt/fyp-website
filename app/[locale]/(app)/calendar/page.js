@@ -80,8 +80,8 @@ export default function CalendarPage() {
       const draggedTask = tasks.find((t) => t.id === active.id);
       if (!draggedTask) return;
 
-      // Skip if dropping on same day
-      if (isSameDay(new Date(draggedTask.dateTime), targetDate)) return;
+      // Skip if dropping on same day (or if task has no dateTime)
+      if (!draggedTask.dateTime || isSameDay(new Date(draggedTask.dateTime), targetDate)) return;
 
       const newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
 
@@ -127,7 +127,7 @@ export default function CalendarPage() {
   // Get tasks for a specific date
   const getTasksForDate = (date) => {
     if (!date) return [];
-    return tasks.filter((task) => isSameDay(new Date(task.dateTime), date));
+    return tasks.filter((task) => task.dateTime && isSameDay(new Date(task.dateTime), date));
   };
 
   // Get tasks for selected date

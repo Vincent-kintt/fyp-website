@@ -68,7 +68,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
       setError(t("titleRequired"));
       return;
     }
-    if (!formData.dateTime) {
+    if (!formData.dateTime && reminder?.inboxState !== "inbox") {
       setError(t("dateRequired"));
       return;
     }

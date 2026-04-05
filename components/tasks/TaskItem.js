@@ -56,6 +56,7 @@ const TaskItem = memo(
     };
 
     const formatTaskDate = (dateTime) => {
+      if (!dateTime) return null;
       const date = new Date(dateTime);
       const isZh = locale === "zh-TW";
       const timeStr = format(date, isZh ? "HH:mm" : "h:mm a");
@@ -97,7 +98,7 @@ const TaskItem = memo(
     };
 
     const isOverdue =
-      !currentTask.completed && isPast(new Date(currentTask.dateTime));
+      !currentTask.completed && currentTask.dateTime && isPast(new Date(currentTask.dateTime));
 
     const handleSave = (updatedTask) => {
       setCurrentTask(updatedTask);
@@ -107,6 +108,7 @@ const TaskItem = memo(
     };
 
     const formatTimeOnly = (dateTime) => {
+      if (!dateTime) return null;
       const isZh = locale === "zh-TW";
       return format(new Date(dateTime), isZh ? "HH:mm" : "h:mm a");
     };
@@ -187,6 +189,7 @@ const TaskItem = memo(
               </p>
             )}
             {/* Always show time, with full date info when showDate is true */}
+            {currentTask.dateTime && (
             <div
               className="flex items-center gap-1 mt-1 text-xs flex-wrap"
               style={{
@@ -249,6 +252,7 @@ const TaskItem = memo(
                 </span>
               )}
             </div>
+            )}
 
             {/* Snoozed indicator */}
             {currentTask.status === "snoozed" && currentTask.snoozedUntil && (

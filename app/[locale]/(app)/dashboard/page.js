@@ -168,7 +168,9 @@ export default function DashboardPage() {
   const now = new Date();
 
   // Sort by dateTime for initial grouping, then re-sort sections by sortOrder
-  const sortedTasks = [...tasks].sort(
+  // Tasks without dateTime (inbox tasks) are excluded from date-based sections
+  const datedTasks = tasks.filter((t) => t.dateTime);
+  const sortedTasks = [...datedTasks].sort(
     (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
   );
 

@@ -20,7 +20,11 @@ export default function NextTaskCard({ task, onComplete }) {
 
     const updateTimeLeft = () => {
       const now = new Date();
-      const taskTime = new Date(task.dateTime);
+      const taskTime = task.dateTime ? new Date(task.dateTime) : null;
+      if (!taskTime) {
+        setTimeLeft("");
+        return;
+      }
       const diff = differenceInMinutes(taskTime, now);
 
       if (diff < 0) {
@@ -69,7 +73,7 @@ export default function NextTaskCard({ task, onComplete }) {
             <p className="text-blue-100 mb-4 line-clamp-2 text-sm">{task.description}</p>
           )}
           <div className="flex items-center gap-3 text-sm text-blue-100">
-            <span>{format(new Date(task.dateTime), "h:mm a")}</span>
+            {task.dateTime && <span>{format(new Date(task.dateTime), "h:mm a")}</span>}
             <span>•</span>
             <span className="capitalize">{task.category}</span>
           </div>

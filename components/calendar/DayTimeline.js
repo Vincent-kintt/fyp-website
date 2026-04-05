@@ -35,6 +35,7 @@ export default function DayTimeline({ date, tasks, onToggleComplete, onDelete, o
   // Group tasks by time block
   const getTasksForBlock = (blockStartHour) => {
     return tasks.filter(task => {
+      if (!task.dateTime) return false;
       const hour = new Date(task.dateTime).getHours();
       return hour >= blockStartHour && hour < blockStartHour + 2;
     });
@@ -95,9 +96,11 @@ export default function DayTimeline({ date, tasks, onToggleComplete, onDelete, o
                   >
                     {task.title}
                   </span>
+                  {task.dateTime && (
                   <span className="text-[10px] opacity-70 flex-shrink-0">
                     {format(new Date(task.dateTime), "h:mm")}
                   </span>
+                  )}
                 </div>
               ))}
             </div>
