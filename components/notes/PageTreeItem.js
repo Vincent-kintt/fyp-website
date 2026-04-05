@@ -73,7 +73,7 @@ export default function PageTreeItem({
         {renaming ? (
           <input
             autoFocus
-            className="flex-1 text-[13px] bg-transparent outline-none px-1 rounded"
+            className="flex-1 text-[14px] bg-transparent outline-none px-1 rounded"
             style={{ color: "var(--text-primary)", border: "1px solid var(--border-focus)" }}
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
@@ -99,7 +99,7 @@ export default function PageTreeItem({
         ) : (
           <Link
             href={`/notes/${note.id}`}
-            className="flex-1 truncate text-[13px]"
+            className="flex-1 truncate text-[14px]"
             title={note.title}
           >
             {note.title || t("untitled")}

@@ -958,32 +958,10 @@ body {
 
 /* ── Notes System ── */
 
-/* Notes layout: break out of (app) container padding, stay within <main> */
-.notes-page {
-  margin: -2rem -1rem;
-  width: calc(100% + 2rem);
-}
-
-@media (min-width: 640px) {
-  .notes-page {
-    margin: -2rem -1.5rem;
-    width: calc(100% + 3rem);
-  }
-}
-
-@media (min-width: 1024px) {
-  .notes-page {
-    margin: -2rem -2rem;
-    width: calc(100% + 4rem);
-  }
-}
+/* Notes page: no breakout needed — lives in (notes) route group without (app) padding */
 
 body:has(.notes-page) {
   overflow: hidden;
-}
-
-body:has(.notes-page) footer {
-  display: none;
 }
 
 .notes-sidebar {
@@ -1011,14 +989,14 @@ body:has(.notes-page) footer {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 8px;
+  padding: 5px 8px;
   margin: 1px 4px;
   border-radius: 6px;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--text-secondary);
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard);
-  min-height: 28px;
+  min-height: 30px;
   user-select: none;
 }
 
