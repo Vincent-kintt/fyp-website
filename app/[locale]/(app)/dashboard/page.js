@@ -580,7 +580,7 @@ export default function DashboardPage() {
   return (
     <div className="max-w-2xl mx-auto pb-24">
       {/* Header */}
-      <div className="mb-6">
+      <div className="page-enter-1" style={{ marginBottom: "var(--spacing-section)" }}>
         <h1
           className="text-2xl font-bold flex items-center gap-3"
           style={{ color: "var(--text-primary)" }}
@@ -598,11 +598,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Overview */}
-      <StatsOverview tasks={overdueTasks.concat(todayTasks, completedToday)} />
+      <div className="page-enter-2">
+        <StatsOverview tasks={overdueTasks.concat(todayTasks, completedToday)} />
+      </div>
 
       {/* Next Task Card (Hero) */}
       {nextTask && (
-        <div className="mb-8">
+        <div className="page-enter-3" style={{ marginBottom: "var(--spacing-section)" }}>
           <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider text-text-muted">
             {t("focus")}
           </h2>
@@ -611,7 +613,7 @@ export default function DashboardPage() {
       )}
 
       {/* Quick Add */}
-      <div className="mb-8">
+      <div className="page-enter-4" style={{ marginBottom: "var(--spacing-section)" }}>
         <QuickAdd
           onAdd={handleQuickAdd}
           onOpenAI={handleOpenAIFromQuickAdd}
@@ -620,6 +622,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Drag-and-Drop Context for all sections */}
+      <div className="page-enter-5">
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
@@ -799,6 +802,7 @@ export default function DashboardPage() {
           ) : null}
         </DragOverlay>
       </DndContext>
+      </div>
 
       <TaskDetailPanel
         taskId={selectedTaskId}

@@ -177,7 +177,7 @@ function TaskListContent({
             showDate={showDate}
             isCompleting={completingIds?.has(task.id)}
             animationClass="task-stagger-enter"
-            animationDelay={Math.min(index * 40, 600)}
+            animationDelay={Math.min(index * 30, 300)}
           />
         ))
       ) : emptyAction ? (

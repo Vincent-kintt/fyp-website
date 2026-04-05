@@ -13,7 +13,7 @@ export default function Button({
   href,
   ...props
 }) {
-  const baseStyles = "inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
+  const baseStyles = "inline-flex items-center justify-center font-medium rounded-lg transition-[colors,transform] duration-200 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
   const variants = {
     primary: "bg-primary text-text-inverted hover:bg-primary-hover",

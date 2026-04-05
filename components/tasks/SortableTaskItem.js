@@ -24,7 +24,9 @@ export default function SortableTaskItem({ task, animationDelay, animationClass,
 
   const style = {
     transform: CSS.Translate.toString(transform),
-    transition,
+    transition: transition
+      ? `${transition}, opacity 200ms`
+      : undefined,
     willChange: isDragging ? "transform" : undefined,
     contain: "layout style",
   };
