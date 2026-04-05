@@ -18,7 +18,6 @@
     "notes": "筆記",
     "register": "註冊",
     "mainNavigation": "主要導航",
-    "workspace": "工作區",
     "more": "更多"
   },
   "footer": {
@@ -314,7 +313,6 @@
     "summarizeSubtext": "摘要整頁內容",
     "digestLabel": "摘要整理",
     "digestSubtext": "產生結構化摘要",
-    "pages": "頁面",
     "search": "搜尋…",
     "trash": "垃圾桶",
     "trashEmpty": "垃圾桶是空的",

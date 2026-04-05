@@ -18,7 +18,6 @@
     "notes": "Notes",
     "register": "Sign Up",
     "mainNavigation": "Main navigation",
-    "workspace": "Workspace",
     "more": "More"
   },
   "footer": {
@@ -314,7 +313,6 @@
     "summarizeSubtext": "Summarize the current page",
     "digestLabel": "Digest",
     "digestSubtext": "Generate a structured digest",
-    "pages": "Pages",
     "search": "Search…",
     "trash": "Trash",
     "trashEmpty": "Trash is empty",
