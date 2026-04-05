@@ -18,7 +18,8 @@
     "notes": "Notes",
     "register": "Sign Up",
     "mainNavigation": "Main navigation",
-    "workspace": "Workspace"
+    "workspace": "Workspace",
+    "more": "More"
   },
   "footer": {
     "copyright": "ReminderApp",

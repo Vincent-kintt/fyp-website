@@ -11,8 +11,10 @@ import {
   FaMoon,
   FaSun,
   FaGlobe,
+  FaEllipsisH,
+  FaList,
 } from "react-icons/fa";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import Button from "../ui/Button";
 import GlobalSearch from "../search/GlobalSearch";
@@ -26,10 +28,22 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowRef = useRef(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (overflowRef.current && !overflowRef.current.contains(e.target)) {
+        setOverflowOpen(false);
+      }
+    };
+    if (overflowOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [overflowOpen]);
 
   const handleSignOut = async () => {
     const prefix = locale === "zh-TW" ? "" : `/${locale}`;
@@ -120,6 +134,46 @@ export default function Navbar() {
                   {t("register")}
                 </Link>
               </>
+            )}
+
+            {/* Mobile overflow menu */}
+            {session && (
+              <div className="relative md:hidden" ref={overflowRef}>
+                <button
+                  onClick={() => setOverflowOpen((prev) => !prev)}
+                  className="p-2 rounded-lg bg-background-tertiary text-text-primary hover:bg-surface-active transition-colors"
+                  aria-label={t("more")}
+                  aria-expanded={overflowOpen}
+                >
+                  <FaEllipsisH className="text-sm" />
+                </button>
+                {overflowOpen && (
+                  <div
+                    className="absolute right-0 top-full mt-1 w-48 rounded-lg shadow-lg border z-50 py-1"
+                    style={{
+                      backgroundColor: "var(--card-bg)",
+                      borderColor: "var(--card-border)",
+                    }}
+                  >
+                    <Link
+                      href="/reminders"
+                      className="flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors"
+                      style={{ color: "var(--text-primary)" }}
+                      onClick={() => setOverflowOpen(false)}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.backgroundColor =
+                          "var(--surface-hover)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.backgroundColor = "transparent")
+                      }
+                    >
+                      <FaList size={14} style={{ color: "var(--text-muted)" }} />
+                      {t("all")}
+                    </Link>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Locale Switcher */}

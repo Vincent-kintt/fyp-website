@@ -18,7 +18,8 @@
     "notes": "筆記",
     "register": "註冊",
     "mainNavigation": "主要導航",
-    "workspace": "工作區"
+    "workspace": "工作區",
+    "more": "更多"
   },
   "footer": {
     "copyright": "ReminderApp",
