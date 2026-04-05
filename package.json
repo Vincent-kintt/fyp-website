@@ -18,7 +18,9 @@
     "migrate-userids": "node --env-file=.env.local scripts/migrateUserIds.js",
     "generate-vapid": "node scripts/generate-vapid.js",
     "create-push-indexes": "node --env-file=.env.local scripts/createPushIndexes.js",
-    "create-notes-indexes": "node scripts/create-notes-indexes.js"
+    "create-notes-indexes": "node scripts/create-notes-indexes.js",
+    "migrate-inbox-capture": "node --env-file=.env.local scripts/migrate-inbox-capture.js",
+    "create-inbox-index": "node --env-file=.env.local scripts/create-inbox-index.js"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.37",
