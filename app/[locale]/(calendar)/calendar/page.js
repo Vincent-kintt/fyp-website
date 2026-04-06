@@ -55,6 +55,7 @@ function useBreakpoint() {
   return bp;
 }
 
+
 export default function CalendarPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -226,7 +227,7 @@ export default function CalendarPage() {
     !viewMode
   ) {
     return (
-      <div className="flex h-[calc(100dvh-64px)] overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -mt-8 -mb-8 items-center justify-center">
+      <div className="flex h-full overflow-hidden items-center justify-center">
         <div className="skeleton-line h-8 w-48 rounded-lg" />
       </div>
     );
@@ -237,12 +238,12 @@ export default function CalendarPage() {
 
   return (
     <>
-      <div className="flex h-[calc(100dvh-64px)] overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -mt-8 -mb-8">
+      <div className="flex h-full overflow-hidden">
         {/* Sidebar — desktop only */}
         {isDesktop && (
           <div
-            className="w-[272px] shrink-0 flex flex-col"
-            style={{ background: "var(--card-bg)" }}
+            className="w-[272px] shrink-0 flex flex-col border-r"
+            style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
           >
             <CalendarSidebar
               currentMonth={currentMonth}
@@ -349,7 +350,7 @@ export default function CalendarPage() {
               onDragEnd={handleDragEnd}
               onDragCancel={handleDragCancel}
             >
-              <div className="h-full overflow-hidden">
+              <div className="h-full flex flex-col overflow-hidden">
                 {viewMode === "day" && (
                   <DayView
                     date={selectedDate}
