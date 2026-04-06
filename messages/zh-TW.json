@@ -117,7 +117,17 @@
     "unprocessed": "{count} 個未處理",
     "inboxZero": "收件匣清空了！",
     "inboxZeroDesc": "所有任務都已處理完畢。",
-    "newTodo": "新增待辦"
+    "newTodo": "新增待辦",
+    "extractTasks": "提取任務",
+    "extracting": "提取中...",
+    "extractedTasks": "已提取的任務",
+    "confirmAll": "全部確認",
+    "noTasks": "未在內容中找到任務。",
+    "confirmed": "任務已建立",
+    "confirmFailed": "任務建立失敗",
+    "dismissed": "已忽略",
+    "reExtractWarning": "未確認的任務將被替換。",
+    "partialSuccess": "已建立 {success} 項，{failed} 項失敗"
   },
   "calendar": {
     "title": "行事曆",

@@ -117,7 +117,17 @@
     "unprocessed": "{count} unprocessed",
     "inboxZero": "Inbox zero!",
     "inboxZeroDesc": "All tasks have been processed.",
-    "newTodo": "New To-Do"
+    "newTodo": "New To-Do",
+    "extractTasks": "Extract Tasks",
+    "extracting": "Extracting...",
+    "extractedTasks": "Extracted Tasks",
+    "confirmAll": "Confirm All",
+    "noTasks": "No tasks found in your writing.",
+    "confirmed": "Task created",
+    "confirmFailed": "Failed to create task",
+    "dismissed": "Dismissed",
+    "reExtractWarning": "Unconfirmed tasks will be replaced.",
+    "partialSuccess": "{success} created, {failed} failed"
   },
   "calendar": {
     "title": "Calendar",
