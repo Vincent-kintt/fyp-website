@@ -107,7 +107,6 @@ export default function GlobalSearch() {
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations("search");
-  const tNav = useTranslations("nav");
   const [open, setOpen] = useState(false);
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -132,6 +131,13 @@ export default function GlobalSearch() {
     };
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
+  }, []);
+
+  // Listen for open-global-search event from sidebar
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("open-global-search", handler);
+    return () => window.removeEventListener("open-global-search", handler);
   }, []);
 
   // Fetch reminders on open with cache
@@ -184,25 +190,12 @@ export default function GlobalSearch() {
   const isBrowsing = !searchValue;
 
   return (
-    <>
-      {/* Trigger button */}
-      <button
-        onClick={() => setOpen(true)}
-        className="text-text-secondary hover:text-primary transition-colors font-medium flex items-center gap-1.5"
-        aria-label="Search reminders (Ctrl+K)"
-        aria-keyshortcuts="Meta+K"
-      >
-        <SearchIcon className="w-4 h-4" />
-        <span className="hidden sm:inline">{tNav("search")}</span>
-      </button>
-
-      {/* Command palette */}
-      <Command.Dialog
-        open={open}
-        onOpenChange={setOpen}
-        label={t("title")}
-        loop
-      >
+    <Command.Dialog
+      open={open}
+      onOpenChange={setOpen}
+      label={t("title")}
+      loop
+    >
         {/* Accessible title (visually hidden) */}
         <DialogPrimitive.Title className="sr-only">
           {t("title")}
@@ -375,7 +368,6 @@ export default function GlobalSearch() {
             </span>
           </div>
         </div>
-      </Command.Dialog>
-    </>
+    </Command.Dialog>
   );
 }
