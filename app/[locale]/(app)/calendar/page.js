@@ -1,100 +1,184 @@
 "use client";
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useTasks } from "@/hooks/useTasks";
 import {
-  FaCalendarAlt,
-  FaChevronLeft,
-  FaChevronRight,
-} from "react-icons/fa";
-import {
   format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  addDays,
   addMonths,
   subMonths,
-  isSameMonth,
-  isSameDay,
+  addWeeks,
+  subWeeks,
+  addDays,
+  subDays,
+  startOfWeek,
+  endOfWeek,
   isToday,
 } from "date-fns";
-import {
-  DndContext,
-  closestCenter,
-  DragOverlay,
-  useDroppable,
-  useDraggable,
-} from "@dnd-kit/core";
+import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
 import { useQueryClient } from "@tanstack/react-query";
 import { reminderKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
 import {
   useDndSensors,
   DROP_ANIMATION_CONFIG,
-  computeNewDateTime,
   patchReminderStatus,
-  CALENDAR_DAY_PREFIX,
   parseDayDropId,
+  parseSlotDropId,
+  computeNewDateTime,
+  computeSlotDateTime,
 } from "@/lib/dnd";
-import DayTimeline from "@/components/calendar/DayTimeline";
+import { buildTasksByDate } from "@/lib/calendar";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import CalendarSidebar from "@/components/calendar/CalendarSidebar";
+import ViewTabs from "@/components/calendar/ViewTabs";
+import DayView from "@/components/calendar/DayView";
+import WeekView from "@/components/calendar/WeekView";
+import MonthView from "@/components/calendar/MonthView";
+import AgendaView from "@/components/calendar/AgendaView";
+import WeekStrip from "@/components/calendar/WeekStrip";
+import QuickAddPopover from "@/components/calendar/QuickAddPopover";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
+
+function useBreakpoint() {
+  const [bp, setBp] = useState("desktop");
+  useEffect(() => {
+    const check = () => {
+      const w = window.innerWidth;
+      setBp(w < 768 ? "mobile" : w < 1024 ? "tablet" : "desktop");
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return bp;
+}
 
 export default function CalendarPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const t = useTranslations("calendar");
-  const { tasks, loading, toggleComplete, deleteTask, refetch } = useTasks();
+  const { tasks, loading, toggleComplete, deleteTask, quickAdd, refetch } =
+    useTasks();
 
-  // Initialize with null to prevent hydration mismatch
   const [currentMonth, setCurrentMonth] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [viewMode, setViewMode] = useState('month');
+  const [viewMode, setViewMode] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
-
-  const handleEditTask = useCallback((taskId) => {
-    setSelectedTaskId(taskId);
-  }, []);
-
-  const sensors = useDndSensors();
-  const queryClient = useQueryClient();
+  const [quickAddSlot, setQuickAddSlot] = useState(null);
   const [activeDragId, setActiveDragId] = useState(null);
 
-  const handleCalendarDragStart = useCallback((event) => {
+  const bp = useBreakpoint();
+  const sensors = useDndSensors();
+  const queryClient = useQueryClient();
+
+  // Hydration init
+  useEffect(() => {
+    setCurrentMonth(new Date());
+    setSelectedDate(new Date());
+    const w = window.innerWidth;
+    setViewMode(w < 768 ? "agenda" : w < 1024 ? "day" : "week");
+  }, []);
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
+
+  // Navigation
+  const navigateForward = useCallback(() => {
+    if (viewMode === "week") {
+      setSelectedDate((d) => addWeeks(d, 1));
+    } else if (viewMode === "monthView") {
+      setCurrentMonth((m) => addMonths(m, 1));
+    } else {
+      setSelectedDate((d) => addDays(d, 1));
+    }
+  }, [viewMode]);
+
+  const navigateBack = useCallback(() => {
+    if (viewMode === "week") {
+      setSelectedDate((d) => subWeeks(d, 1));
+    } else if (viewMode === "monthView") {
+      setCurrentMonth((m) => subMonths(m, 1));
+    } else {
+      setSelectedDate((d) => subDays(d, 1));
+    }
+  }, [viewMode]);
+
+  const goToToday = useCallback(() => {
+    const now = new Date();
+    setSelectedDate(now);
+    setCurrentMonth(now);
+  }, []);
+
+  // Quick add
+  const handleSlotClick = useCallback((dateStr, hour, minute) => {
+    setQuickAddSlot({ dateStr, hour, minute });
+  }, []);
+
+  const handleQuickAddSubmit = useCallback(
+    ({ title, dateTime }) => {
+      quickAdd({ title, dateTime, status: "pending" });
+    },
+    [quickAdd]
+  );
+
+  // DnD handlers
+  const handleDragStart = useCallback((event) => {
     setActiveDragId(event.active.id);
   }, []);
 
-  const handleCalendarDragEnd = useCallback(
+  const handleDragEnd = useCallback(
     async (event) => {
       const { active, over } = event;
       setActiveDragId(null);
-
       if (!over) return;
 
+      const draggedTask = tasks.find((task) => task.id === active.id);
+      if (!draggedTask) return;
+
+      // Try slot drop first (updates both date + time)
+      const slotData = parseSlotDropId(over.id);
+      if (slotData) {
+        const newDateTime = computeSlotDateTime(slotData);
+        const originalTasks = queryClient.getQueryData(reminderKeys.list({}));
+        queryClient.setQueryData(
+          reminderKeys.list({}),
+          tasks.map((task) =>
+            task.id === active.id ? { ...task, dateTime: newDateTime } : task
+          )
+        );
+        try {
+          await patchReminderStatus(active.id, { dateTime: newDateTime });
+          toast.success(
+            t("movedTo", {
+              date: format(slotData.date, "M/d"),
+            })
+          );
+        } catch {
+          queryClient.setQueryData(reminderKeys.list({}), originalTasks);
+          toast.error(t("moveFailed"));
+        }
+        return;
+      }
+
+      // Fall back to day drop (preserves time)
       const targetDate = parseDayDropId(over.id);
       if (!targetDate) return;
 
-      const draggedTask = tasks.find((t) => t.id === active.id);
-      if (!draggedTask) return;
-
-      // Skip if dropping on same day (or if task has no dateTime)
-      if (!draggedTask.dateTime || isSameDay(new Date(draggedTask.dateTime), targetDate)) return;
+      if (!draggedTask.dateTime) return;
 
       const newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
-
-      // Optimistic update
       const originalTasks = queryClient.getQueryData(reminderKeys.list({}));
       queryClient.setQueryData(
         reminderKeys.list({}),
-        tasks.map((t) =>
-          t.id === active.id ? { ...t, dateTime: newDateTime } : t
+        tasks.map((task) =>
+          task.id === active.id ? { ...task, dateTime: newDateTime } : task
         )
       );
-
       try {
         await patchReminderStatus(active.id, { dateTime: newDateTime });
         toast.success(t("movedTo", { date: format(targetDate, "M/d") }));
@@ -106,312 +190,239 @@ export default function CalendarPage() {
     [tasks, queryClient, t]
   );
 
-  const handleCalendarDragCancel = useCallback(() => {
+  const handleDragCancel = useCallback(() => {
     setActiveDragId(null);
   }, []);
 
   const activeDragTask = activeDragId
-    ? tasks.find((t) => t.id === activeDragId)
+    ? tasks.find((task) => task.id === activeDragId)
     : null;
 
-  useEffect(() => {
-    setCurrentMonth(new Date());
-    setSelectedDate(new Date());
-  }, []);
+  const tasksByDate = useMemo(() => buildTasksByDate(tasks), [tasks]);
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
+  // Top bar title
+  const topBarTitle = useMemo(() => {
+    if (!selectedDate || !currentMonth || !viewMode) return "";
+    if (viewMode === "week") {
+      const ws = startOfWeek(selectedDate);
+      const we = endOfWeek(selectedDate);
+      return t("weekOf", {
+        start: format(ws, "MMM d"),
+        end: format(we, "MMM d"),
+      });
     }
-  }, [status, router]);
-
-  // Get tasks for a specific date
-  const getTasksForDate = (date) => {
-    if (!date) return [];
-    return tasks.filter((task) => task.dateTime && isSameDay(new Date(task.dateTime), date));
-  };
-
-  // Get tasks for selected date
-  const selectedDateTasks = getTasksForDate(selectedDate);
-
-  // Calendar rendering
-  const renderHeader = () => {
-    return (
-      <div className="flex items-center justify-between mb-4">
-        <button
-          onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-          className="p-2 hover:opacity-70 rounded-lg transition-colors"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          <FaChevronLeft className="w-4 h-4" />
-        </button>
-        <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-          {format(currentMonth, "MMMM yyyy")}
-        </h2>
-        <button
-          onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-          className="p-2 hover:opacity-70 rounded-lg transition-colors"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          <FaChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-    );
-  };
-
-  const renderDays = () => {
-    const days = [t("days.sun"), t("days.mon"), t("days.tue"), t("days.wed"), t("days.thu"), t("days.fri"), t("days.sat")];
-    return (
-      <div className="grid grid-cols-7 mb-2">
-        {days.map((day) => (
-          <div
-            key={day}
-            className="text-center text-xs font-medium py-2"
-            style={{ color: "var(--text-muted)" }}
-          >
-            {day}
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  function DroppableDay({ dateStr, isCurrentMonth, children }) {
-    const { setNodeRef, isOver } = useDroppable({
-      id: `${CALENDAR_DAY_PREFIX}${dateStr}`,
-      disabled: !isCurrentMonth,
-    });
-
-    return (
-      <div ref={setNodeRef} className="relative">
-        {children}
-        {isOver && isCurrentMonth && (
-          <div className="absolute inset-0 rounded-lg ring-2 ring-primary/40 bg-primary/5 pointer-events-none z-10" />
-        )}
-      </div>
-    );
-  }
-
-  function DraggableTaskPill({ task }) {
-    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-      id: task.id,
-    });
-
-    return (
-      <div
-        ref={setNodeRef}
-        {...attributes}
-        {...listeners}
-        className={`w-1.5 h-1.5 rounded-full bg-primary cursor-grab active:cursor-grabbing transition-opacity ${
-          isDragging ? "opacity-40" : ""
-        }`}
-        title={task.title}
-      />
-    );
-  }
-
-  const renderCells = () => {
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart);
-    const endDate = endOfWeek(monthEnd);
-
-    const rows = [];
-    let days = [];
-    let day = startDate;
-
-    while (day <= endDate) {
-      for (let i = 0; i < 7; i++) {
-        const currentDay = day;
-        const dayTasks = getTasksForDate(currentDay);
-        const isSelected = isSameDay(currentDay, selectedDate);
-        const isCurrentMonth = isSameMonth(currentDay, monthStart);
-        const isTodayDate = isToday(currentDay);
-        const dateStr = format(currentDay, "yyyy-MM-dd");
-
-        days.push(
-          <DroppableDay key={currentDay.toString()} dateStr={dateStr} isCurrentMonth={isCurrentMonth}>
-            <button
-              onClick={() => setSelectedDate(currentDay)}
-              className="relative p-2 h-12 w-full flex flex-col items-center justify-start rounded-lg transition-all"
-              style={{
-                backgroundColor: isSelected ? "var(--primary)" : isTodayDate ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "transparent",
-                color: isSelected ? "var(--text-inverted)" : isTodayDate ? "var(--primary)" : isCurrentMonth ? "var(--text-primary)" : "var(--text-muted)",
-                opacity: isCurrentMonth ? 1 : 0.4,
-              }}
-              onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.05)")}
-              onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = isTodayDate ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "transparent")}
-            >
-              <span className="text-sm">{format(currentDay, "d")}</span>
-              {dayTasks.length > 0 && (
-                <div className="flex gap-0.5 mt-0.5">
-                  {dayTasks.slice(0, 3).map((task) => (
-                    <DraggableTaskPill key={task.id} task={task} />
-                  ))}
-                  {dayTasks.length > 3 && (
-                    <span className={`text-[8px] font-medium ${isSelected ? "text-white/70" : "text-[var(--text-muted)]"}`}>
-                      +{dayTasks.length - 3}
-                    </span>
-                  )}
-                </div>
-              )}
-            </button>
-          </DroppableDay>
-        );
-        day = addDays(day, 1);
-      }
-      rows.push(
-        <div key={day.toString()} className="grid grid-cols-7 gap-1">
-          {days}
-        </div>
-      );
-      days = [];
+    if (viewMode === "monthView") {
+      return format(currentMonth, "MMMM yyyy");
     }
-    return <div className="space-y-1">{rows}</div>;
-  };
+    if (isToday(selectedDate)) return t("today");
+    return format(selectedDate, "EEEE, MMM d");
+  }, [viewMode, selectedDate, currentMonth, t]);
 
-  if (status === "loading" || loading || !currentMonth || !selectedDate) {
+  if (
+    status === "loading" ||
+    loading ||
+    !currentMonth ||
+    !selectedDate ||
+    !viewMode
+  ) {
     return (
-      <div className="max-w-6xl mx-auto px-4 pb-20 space-y-6">
-        <div>
-          <div className="skeleton-line h-7 w-32 mb-2" />
-          <div className="skeleton-line h-4 w-48" />
-        </div>
-        <div className="bg-surface rounded-xl border border-border p-4">
-          <div className="flex justify-between mb-4">
-            <div className="skeleton-line h-6 w-32" />
-            <div className="flex gap-2">
-              <div className="skeleton-line w-8 h-8 rounded" />
-              <div className="skeleton-line w-8 h-8 rounded" />
-            </div>
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {[...Array(35)].map((_, i) => (
-              <div key={i} className="skeleton-line h-10 rounded" />
-            ))}
-          </div>
-        </div>
+      <div className="flex h-[calc(100dvh-64px)] overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -mt-8 -mb-8 items-center justify-center">
+        <div className="skeleton-line h-8 w-48 rounded-lg" />
       </div>
     );
   }
+
+  const isMobile = bp === "mobile";
+  const isDesktop = bp === "desktop";
 
   return (
-    <div className="max-w-6xl mx-auto px-4 pb-20">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
-            <FaCalendarAlt className="text-primary" />
-            {t("title")}
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            {t("subtitle")}
-          </p>
-        </div>
-        
-        {/* View Toggle for Mobile */}
-        <div className="flex bg-[var(--card-bg)] p-1 rounded-lg border border-[var(--card-border)] lg:hidden self-start">
-          <button
-            onClick={() => setViewMode('month')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              viewMode === 'month'
-                ? 'bg-primary text-text-inverted'
-                : 'text-[var(--text-muted)] hover:bg-[var(--background)]'
-            }`}
-          >
-            {t("month")}
-          </button>
-          <button
-            onClick={() => setViewMode('timeline')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              viewMode === 'timeline'
-                ? 'bg-primary text-text-inverted'
-                : 'text-[var(--text-muted)] hover:bg-[var(--background)]'
-            }`}
-          >
-            {t("dayView")}
-          </button>
-        </div>
-      </div>
-
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleCalendarDragStart}
-        onDragEnd={handleCalendarDragEnd}
-        onDragCancel={handleCalendarDragCancel}
-      >
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-180px)] min-h-[500px]">
-          {/* Month Calendar - Hidden on mobile if in timeline mode */}
+    <>
+      <div className="flex h-[calc(100dvh-64px)] overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8 -mt-8 -mb-8">
+        {/* Sidebar — desktop only */}
+        {isDesktop && (
           <div
-            className={`lg:col-span-4 flex flex-col ${viewMode === 'timeline' ? 'hidden lg:flex' : 'flex'}`}
+            className="w-[272px] shrink-0 flex flex-col"
+            style={{ background: "var(--card-bg)" }}
           >
-            <div
-              className="rounded-xl p-4 shadow-sm border border-[var(--card-border)] bg-[var(--card-bg)] h-fit"
-            >
-              {renderHeader()}
-              {renderDays()}
-              {renderCells()}
-            </div>
+            <CalendarSidebar
+              currentMonth={currentMonth}
+              selectedDate={selectedDate}
+              reminders={tasks}
+              tasksByDate={tasksByDate}
+              onMonthChange={setCurrentMonth}
+              onDateSelect={setSelectedDate}
+              onReminderClick={setSelectedTaskId}
+              onToggleComplete={toggleComplete}
+              onQuickAdd={() =>
+                handleSlotClick(
+                  format(selectedDate, "yyyy-MM-dd"),
+                  new Date().getHours(),
+                  0
+                )
+              }
+            />
+          </div>
+        )}
 
-            {/* Legend / Quick Stats */}
-            <div className="mt-4 p-4 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)]">
-              <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>{t("statsFor", { date: format(selectedDate, 'MMM d') })}</h3>
-              <div className="flex gap-4 text-xs">
-                 <div className="flex items-center gap-2">
-                   <div className="w-2 h-2 rounded-full bg-primary"></div>
-                   <span style={{ color: "var(--text-secondary)" }}>{selectedDateTasks.filter(t => !t.completed).length} {t("pending")}</span>
-                 </div>
-                 <div className="flex items-center gap-2">
-                   <div className="w-2 h-2 rounded-full bg-success"></div>
-                   <span style={{ color: "var(--text-secondary)" }}>{selectedDateTasks.filter(t => t.completed).length} {t("done")}</span>
-                 </div>
+        {/* Main content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Top bar — desktop + tablet */}
+          {!isMobile && (
+            <div
+              className="shrink-0 flex items-center justify-between gap-3 px-4 py-2 border-b"
+              style={{ borderColor: "var(--card-border)" }}
+            >
+              <h2
+                className="text-base font-semibold truncate"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {topBarTitle}
+              </h2>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={goToToday}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
+                  style={{
+                    borderColor: "var(--card-border)",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  {t("today")}
+                </button>
+                <button
+                  onClick={navigateBack}
+                  className="p-1.5 rounded-lg transition-colors hover:opacity-70"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <FaChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={navigateForward}
+                  className="p-1.5 rounded-lg transition-colors hover:opacity-70"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <FaChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <ViewTabs
+                  activeView={viewMode}
+                  onViewChange={setViewMode}
+                  availableViews={["day", "week", "monthView", "agenda"]}
+                />
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Timeline View - Hidden on mobile if in month mode */}
-          <div
-            className={`lg:col-span-8 flex flex-col h-full ${viewMode === 'month' ? 'hidden lg:flex' : 'flex'}`}
-          >
-            <div className="flex flex-col h-full rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm overflow-hidden">
-              {/* Minimalist Header */}
-              <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--card-border)]">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-                    {isToday(selectedDate) ? t("today") : format(selectedDate, "EEE")}
-                  </span>
-                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    {format(selectedDate, "MMM d")}
-                  </span>
-                </div>
-                {selectedDateTasks.length > 0 && (
-                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                    {selectedDateTasks.length}
-                  </span>
+          {/* Mobile header */}
+          {isMobile && (
+            <div
+              className="shrink-0 border-b"
+              style={{ borderColor: "var(--card-border)" }}
+            >
+              <div className="flex items-center justify-between px-4 pt-2 pb-1">
+                <span
+                  className="text-sm font-semibold"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {isToday(selectedDate) ? t("today") : format(selectedDate, "EEEE, MMM d")}
+                </span>
+                <ViewTabs
+                  activeView={viewMode}
+                  onViewChange={setViewMode}
+                  availableViews={["day", "agenda"]}
+                />
+              </div>
+              <WeekStrip
+                date={selectedDate}
+                selectedDate={selectedDate}
+                onDateSelect={setSelectedDate}
+                tasksByDate={tasksByDate}
+              />
+            </div>
+          )}
+
+          {/* Active view — wrapped in DndContext */}
+          <div className="flex-1 min-h-0 relative">
+            <DndContext
+              sensors={isMobile ? [] : sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+            >
+              <div className="h-full overflow-hidden">
+                {viewMode === "day" && (
+                  <DayView
+                    date={selectedDate}
+                    reminders={tasks}
+                    onSlotClick={handleSlotClick}
+                    onReminderClick={setSelectedTaskId}
+                    onToggleComplete={toggleComplete}
+                  />
+                )}
+                {viewMode === "week" && (
+                  <WeekView
+                    date={selectedDate}
+                    reminders={tasks}
+                    onSlotClick={handleSlotClick}
+                    onReminderClick={setSelectedTaskId}
+                    onToggleComplete={toggleComplete}
+                  />
+                )}
+                {viewMode === "monthView" && (
+                  <MonthView
+                    currentMonth={currentMonth}
+                    selectedDate={selectedDate}
+                    onDateSelect={(date) => {
+                      setSelectedDate(date);
+                      setCurrentMonth(date);
+                    }}
+                    tasksByDate={tasksByDate}
+                    onViewDay={(date) => {
+                      setSelectedDate(date);
+                      setViewMode("day");
+                    }}
+                  />
+                )}
+                {viewMode === "agenda" && (
+                  <AgendaView
+                    date={selectedDate}
+                    reminders={tasks}
+                    onReminderClick={setSelectedTaskId}
+                    onToggleComplete={toggleComplete}
+                  />
                 )}
               </div>
 
-              <DayTimeline
-                date={selectedDate}
-                tasks={selectedDateTasks}
-                onToggleComplete={toggleComplete}
-                onDelete={deleteTask}
-                onEdit={handleEditTask}
-              />
-            </div>
+              <DragOverlay dropAnimation={DROP_ANIMATION_CONFIG}>
+                {activeDragTask ? (
+                  <div className="px-2 py-1 text-xs font-medium bg-[var(--accent)] text-white rounded shadow-lg max-w-[120px] truncate">
+                    {activeDragTask.title}
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+
+            {/* QuickAddPopover backdrop + popover */}
+            {quickAddSlot && (
+              <>
+                <div
+                  className="fixed inset-0 z-20"
+                  onClick={() => setQuickAddSlot(null)}
+                />
+                <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30">
+                  <QuickAddPopover
+                    dateStr={quickAddSlot.dateStr}
+                    hour={quickAddSlot.hour}
+                    minute={quickAddSlot.minute}
+                    onSubmit={handleQuickAddSubmit}
+                    onClose={() => setQuickAddSlot(null)}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
-
-        {/* DragOverlay for month view */}
-        <DragOverlay dropAnimation={DROP_ANIMATION_CONFIG}>
-          {activeDragTask ? (
-            <div className="px-2 py-1 text-xs font-medium bg-primary text-white rounded shadow-lg max-w-[120px] truncate">
-              {activeDragTask.title}
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+      </div>
 
       <TaskDetailPanel
         taskId={selectedTaskId}
@@ -419,6 +430,6 @@ export default function CalendarPage() {
         onClose={() => setSelectedTaskId(null)}
         onSave={refetch}
       />
-    </div>
+    </>
   );
 }
