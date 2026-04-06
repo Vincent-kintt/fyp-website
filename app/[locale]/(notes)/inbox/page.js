@@ -24,6 +24,7 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState(null);
   const [extractedTasks, setExtractedTasks] = useState([]);
+  const [confirmedTasks, setConfirmedTasks] = useState([]);
   const [isExtracting, setIsExtracting] = useState(false);
 
   const editorRef = useRef(null);
@@ -41,6 +42,8 @@ export default function InboxPage() {
         const data = await res.json();
         if (data.success) {
           setInboxNote(data.data);
+          if (data.data.extractedTasks) setExtractedTasks(data.data.extractedTasks);
+          if (data.data.confirmedTasks) setConfirmedTasks(data.data.confirmedTasks);
         }
       } catch (err) {
         console.error("Failed to load inbox note:", err);
@@ -64,6 +67,18 @@ export default function InboxPage() {
       throw err;
     }
   }, []);
+
+  // Sync extraction state to MongoDB
+  const syncExtractionState = useCallback(
+    (tasks, confirmed) => {
+      fetch("/api/inbox/note", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extractedTasks: tasks, confirmedTasks: confirmed }),
+      }).catch(() => {});
+    },
+    [],
+  );
 
   // Extract tasks from editor content
   const handleExtract = useCallback(async () => {
@@ -89,13 +104,16 @@ export default function InboxPage() {
         body: JSON.stringify({
           text,
           language: locale === "zh-TW" ? "zh" : "en",
+          confirmedTasks,
         }),
       });
       const data = await res.json();
       if (data.success && data.data.tasks.length > 0) {
         setExtractedTasks(data.data.tasks);
+        syncExtractionState(data.data.tasks, confirmedTasks);
       } else {
         setExtractedTasks([]);
+        syncExtractionState([], confirmedTasks);
         toast.info(t("noTasks"));
       }
     } catch {
@@ -103,7 +121,7 @@ export default function InboxPage() {
     } finally {
       setIsExtracting(false);
     }
-  }, [extractedTasks.length, locale, t]);
+  }, [extractedTasks.length, confirmedTasks, locale, t, syncExtractionState]);
 
   // Confirm a single task → create reminder
   const handleConfirm = useCallback(
@@ -122,14 +140,18 @@ export default function InboxPage() {
           }),
         });
         if (!res.ok) throw new Error("Failed");
-        setExtractedTasks((prev) => prev.filter((t) => t !== task));
+        const newExtracted = extractedTasks.filter((t) => t !== task);
+        const newConfirmed = [...confirmedTasks, task.title];
+        setExtractedTasks(newExtracted);
+        setConfirmedTasks(newConfirmed);
+        syncExtractionState(newExtracted, newConfirmed);
         queryClient.invalidateQueries({ queryKey: reminderKeys.all });
         toast.success(t("confirmed"));
       } catch {
         toast.error(t("confirmFailed"));
       }
     },
-    [queryClient, t],
+    [extractedTasks, confirmedTasks, queryClient, t, syncExtractionState],
   );
 
   // Confirm all tasks
@@ -137,6 +159,7 @@ export default function InboxPage() {
     let success = 0;
     let failed = 0;
     const remaining = [...extractedTasks];
+    const newConfirmed = [...confirmedTasks];
 
     for (const task of extractedTasks) {
       try {
@@ -154,6 +177,7 @@ export default function InboxPage() {
         });
         if (!res.ok) throw new Error("Failed");
         success++;
+        newConfirmed.push(task.title);
         const idx = remaining.indexOf(task);
         if (idx !== -1) remaining.splice(idx, 1);
       } catch {
@@ -162,6 +186,8 @@ export default function InboxPage() {
     }
 
     setExtractedTasks(remaining);
+    setConfirmedTasks(newConfirmed);
+    syncExtractionState(remaining, newConfirmed);
     queryClient.invalidateQueries({ queryKey: reminderKeys.all });
 
     if (failed === 0) {
@@ -169,15 +195,17 @@ export default function InboxPage() {
     } else {
       toast.error(t("partialSuccess", { success, failed }));
     }
-  }, [extractedTasks, queryClient, t]);
+  }, [extractedTasks, confirmedTasks, queryClient, t, syncExtractionState]);
 
   // Dismiss a task
   const handleDismiss = useCallback(
     (task) => {
-      setExtractedTasks((prev) => prev.filter((t) => t !== task));
+      const newExtracted = extractedTasks.filter((t) => t !== task);
+      setExtractedTasks(newExtracted);
+      syncExtractionState(newExtracted, confirmedTasks);
       toast(t("dismissed"));
     },
-    [t],
+    [extractedTasks, confirmedTasks, t, syncExtractionState],
   );
 
   if (status === "loading" || loading) {

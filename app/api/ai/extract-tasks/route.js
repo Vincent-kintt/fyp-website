@@ -16,7 +16,7 @@ export async function POST(request) {
       );
     }
 
-    const { text, language = "zh" } = await request.json();
+    const { text, language = "zh", confirmedTasks = [] } = await request.json();
 
     if (!text?.trim()) {
       return NextResponse.json(
@@ -62,7 +62,7 @@ Rules:
 - Priority: HIGH for urgent/deadline/ASAP, LOW for whenever/maybe, MEDIUM default
 - Tags: infer 1-2 relevant tags per task (e.g., "work", "school", "shopping", "social")
 - If no tasks found, return empty array []
-- Return ONLY the JSON array, no markdown fences, no explanation`;
+- Return ONLY the JSON array, no markdown fences, no explanation${confirmedTasks.length > 0 ? `\n\nIMPORTANT: The following tasks have ALREADY been created. Do NOT extract them again:\n${confirmedTasks.map((t) => `- ${t}`).join("\n")}` : ""}`;
 
     const { text: content } = await generateText({
       model: getModel(EXTRACT_MODEL),

@@ -46,17 +46,22 @@ export async function PATCH(request) {
     }
 
     const body = await request.json();
-    const { content } = body;
+    const { content, extractedTasks, confirmedTasks } = body;
 
     if (content !== undefined && !Array.isArray(content)) {
       return apiError("content must be an array", 400);
     }
 
+    const updateFields = { updatedAt: new Date() };
+    if (content !== undefined) updateFields.content = content;
+    if (extractedTasks !== undefined) updateFields.extractedTasks = extractedTasks;
+    if (confirmedTasks !== undefined) updateFields.confirmedTasks = confirmedTasks;
+
     const notesCollection = await getNotesCollection();
 
     const updated = await notesCollection.findOneAndUpdate(
       { userId: session.user.id, type: "inbox" },
-      { $set: { content, updatedAt: new Date() } },
+      { $set: updateFields },
       { returnDocument: "after" },
     );
 
