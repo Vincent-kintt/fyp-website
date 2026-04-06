@@ -1,13 +1,11 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { useTranslations, useLocale } from "next-intl";
 import {
   FaBell,
-  FaUser,
-  FaSignOutAlt,
   FaMoon,
   FaSun,
   FaGlobe,
@@ -16,7 +14,6 @@ import {
 } from "react-icons/fa";
 import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "@/i18n/navigation";
-import Button from "../ui/Button";
 import GlobalSearch from "../search/GlobalSearch";
 import NotificationBell from "./NotificationBell";
 
@@ -44,11 +41,6 @@ export default function Navbar() {
     if (overflowOpen) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [overflowOpen]);
-
-  const handleSignOut = async () => {
-    const prefix = locale === "zh-TW" ? "" : `/${locale}`;
-    await signOut({ callbackUrl: `${prefix}/login` });
-  };
 
   const toggleTheme = () => {
     setTheme(currentTheme === "dark" ? "light" : "dark");
@@ -95,29 +87,6 @@ export default function Navbar() {
                 <GlobalSearch />
 
                 <NotificationBell />
-
-                {/* User Info */}
-                <div className="flex items-center space-x-3 border-l border-border pl-6">
-                  <div className="flex items-center space-x-2">
-                    <FaUser className="text-text-secondary" />
-                    <span className="text-sm font-medium text-text-primary" data-testid="navbar-username">
-                      {session.user?.username}
-                      {session.user?.role === "admin" && (
-                        <span className="ml-2 text-xs bg-info-light text-info px-2 py-1 rounded font-semibold">
-                          {t("admin")}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={handleSignOut}
-                    className="flex items-center space-x-2 px-3 py-1 text-sm"
-                  >
-                    <FaSignOutAlt />
-                    <span>{t("logout")}</span>
-                  </Button>
-                </div>
               </>
             ) : (
               <>
