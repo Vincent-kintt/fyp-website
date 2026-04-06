@@ -330,7 +330,9 @@
     "editorPlaceholder": "Enter text or type '/' for commands",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
-    "resizeSidebar": "Resize sidebar"
+    "resizeSidebar": "Resize sidebar",
+    "aiGenerating": "Generating...",
+    "aiError": "Failed to get AI response."
   },
   "common": {
     "save": "Save",

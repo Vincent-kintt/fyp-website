@@ -330,7 +330,9 @@
     "editorPlaceholder": "輸入文字或輸入 '/' 使用指令",
     "collapseSidebar": "收合側邊欄",
     "expandSidebar": "展開側邊欄",
-    "resizeSidebar": "調整側邊欄寬度"
+    "resizeSidebar": "調整側邊欄寬度",
+    "aiGenerating": "生成中...",
+    "aiError": "AI 回應失敗。"
   },
   "common": {
     "save": "儲存",
