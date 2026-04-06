@@ -200,8 +200,6 @@ export default function GlobalSearch() {
         <DialogPrimitive.Title className="sr-only">
           {t("title")}
         </DialogPrimitive.Title>
-        {/* Overlay */}
-        <div className="cmdk-overlay" onClick={() => setOpen(false)} />
 
         <div className="cmdk-panel">
           {/* Input */}
