@@ -13,6 +13,11 @@ import {
 import { filterSuggestionItems, SuggestionMenu } from "@blocknote/core";
 import { en as bnEn } from "@blocknote/core/locales";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
+import {
+  parseJsonEventStream,
+  consumeStream,
+  uiMessageChunkSchema,
+} from "ai";
 import { parseCommand } from "@/lib/notes/commands.js";
 import { blocksToText } from "@/lib/notes/blocksToText.js";
 import "@blocknote/mantine/style.css";
@@ -29,67 +34,6 @@ const TOOL_PROGRESS_LABELS = {
   searchWeb: "agentSearchingWeb",
 };
 
-async function* parseUIMessageStream(response) {
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop();
-
-    for (const part of parts) {
-      if (!part.trim()) continue;
-      const lines = part.split("\n");
-      let eventType = null;
-      let data = null;
-
-      for (const line of lines) {
-        if (line.startsWith("event:")) {
-          eventType = line.slice(6).trim();
-        } else if (line.startsWith("data:")) {
-          const raw = line.slice(5).trim();
-          if (raw) {
-            try {
-              data = JSON.parse(raw);
-            } catch {
-              data = raw;
-            }
-          }
-        }
-      }
-
-      if (data !== null) {
-        yield { event: eventType, data };
-      }
-    }
-  }
-
-  buffer += decoder.decode();
-  if (buffer.trim()) {
-    const lines = buffer.split("\n");
-    let data = null;
-    for (const line of lines) {
-      if (line.startsWith("data:")) {
-        const raw = line.slice(5).trim();
-        if (raw) {
-          try {
-            data = JSON.parse(raw);
-          } catch {
-            data = raw;
-          }
-        }
-      }
-    }
-    if (data !== null) {
-      yield { event: null, data };
-    }
-  }
-}
 
 export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconChange, hideTitle, editorRef, disableAiCommands }) {
   const t = useTranslations("notes");
@@ -202,61 +146,68 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
 
         let accumulatedText = "";
         const sideEffects = [];
+        let aborted = false;
 
-        for await (const { event, data } of parseUIMessageStream(res)) {
-          if (typeof data === "object" && data !== null) {
-            if (data.type === "tool-call" || event === "tool-call") {
-              const toolName = data.toolName || data.name;
-              const labelKey = TOOL_PROGRESS_LABELS[toolName];
-              if (labelKey) {
-                try {
-                  editor.updateBlock(loadingBlock, {
-                    type: "paragraph",
-                    content: t(labelKey),
-                  });
-                } catch {
-                  break;
-                }
-              }
-            }
+        await consumeStream({
+          stream: parseJsonEventStream({
+            stream: res.body,
+            schema: uiMessageChunkSchema,
+          }).pipeThrough(
+            new TransformStream({
+              transform(part) {
+                if (aborted || !part.success) return;
+                const chunk = part.value;
 
-            if (data.type === "tool-result" || event === "tool-result") {
-              const toolName = data.toolName || data.name;
-              if (toolName === "createReminder") {
-                try {
-                  const result =
-                    typeof data.result === "string"
-                      ? JSON.parse(data.result)
-                      : data.result;
-                  if (result?.success && result?.reminder) {
-                    sideEffects.push({
-                      tool: "createReminder",
-                      title: result.reminder.title,
-                      dateTime: result.reminder.dateTime,
-                    });
+                // Tool call started — show progress label
+                if (chunk.type === "tool-input-available") {
+                  const labelKey = TOOL_PROGRESS_LABELS[chunk.toolName];
+                  if (labelKey) {
+                    try {
+                      editor.updateBlock(loadingBlock, {
+                        type: "paragraph",
+                        content: t(labelKey),
+                      });
+                    } catch {
+                      aborted = true;
+                    }
                   }
-                } catch {}
-              }
-            }
+                }
 
-            if (data.type === "text-delta" || event === "text-delta") {
-              accumulatedText += data.textDelta || data.delta || "";
-              const displayText = accumulatedText
-                .replace(/^#{1,6}\s+/gm, "")
-                .replace(/\*\*([^*]+)\*\*/g, "$1")
-                .replace(/\*([^*]+)\*/g, "$1")
-                .replace(/^[-*+]\s+/gm, "— ");
-              try {
-                editor.updateBlock(loadingBlock, {
-                  type: "paragraph",
-                  content: displayText,
-                });
-              } catch {
-                break;
-              }
-            }
-          }
-        }
+                // Tool result — check for side effects
+                if (chunk.type === "tool-output-available") {
+                  try {
+                    const output = typeof chunk.output === "string" ? JSON.parse(chunk.output) : chunk.output;
+                    if (output?.success && output?.reminder) {
+                      sideEffects.push({
+                        tool: "createReminder",
+                        title: output.reminder.title,
+                        dateTime: output.reminder.dateTime,
+                      });
+                    }
+                  } catch {}
+                }
+
+                // Text delta — accumulate and display
+                if (chunk.type === "text-delta") {
+                  accumulatedText += chunk.delta;
+                  const displayText = accumulatedText
+                    .replace(/^#{1,6}\s+/gm, "")
+                    .replace(/\*\*([^*]+)\*\*/g, "$1")
+                    .replace(/\*([^*]+)\*/g, "$1")
+                    .replace(/^[-*+]\s+/gm, "— ");
+                  try {
+                    editor.updateBlock(loadingBlock, {
+                      type: "paragraph",
+                      content: displayText,
+                    });
+                  } catch {
+                    aborted = true;
+                  }
+                }
+              },
+            }),
+          ),
+        });
 
         if (accumulatedText.trim()) {
           const parsedBlocks =
