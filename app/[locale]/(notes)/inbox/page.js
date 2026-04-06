@@ -140,7 +140,9 @@ export default function InboxPage() {
           }),
         });
         if (!res.ok) throw new Error("Failed");
-        const newExtracted = extractedTasks.filter((t) => t !== task);
+        const newExtracted = extractedTasks.map((t) =>
+          t === task ? { ...t, confirmed: true } : t,
+        );
         const newConfirmed = [...confirmedTasks, task.title];
         setExtractedTasks(newExtracted);
         setConfirmedTasks(newConfirmed);
@@ -158,10 +160,11 @@ export default function InboxPage() {
   const handleConfirmAll = useCallback(async () => {
     let success = 0;
     let failed = 0;
-    const remaining = [...extractedTasks];
+    const pending = extractedTasks.filter((t) => !t.confirmed);
+    const updated = [...extractedTasks];
     const newConfirmed = [...confirmedTasks];
 
-    for (const task of extractedTasks) {
+    for (const task of pending) {
       try {
         const hasDate = !!task.dateTime;
         const res = await fetch("/api/reminders", {
@@ -178,16 +181,16 @@ export default function InboxPage() {
         if (!res.ok) throw new Error("Failed");
         success++;
         newConfirmed.push(task.title);
-        const idx = remaining.indexOf(task);
-        if (idx !== -1) remaining.splice(idx, 1);
+        const idx = updated.findIndex((t) => t === task);
+        if (idx !== -1) updated[idx] = { ...task, confirmed: true };
       } catch {
         failed++;
       }
     }
 
-    setExtractedTasks(remaining);
+    setExtractedTasks(updated);
     setConfirmedTasks(newConfirmed);
-    syncExtractionState(remaining, newConfirmed);
+    syncExtractionState(updated, newConfirmed);
     queryClient.invalidateQueries({ queryKey: reminderKeys.all });
 
     if (failed === 0) {
