@@ -13,6 +13,7 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaSignOutAlt,
+  FaSearch,
 } from "react-icons/fa";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { FiChevronDown, FiChevronRight, FiPlus } from "react-icons/fi";
@@ -258,6 +259,38 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 flex flex-col min-h-0 px-2.5 pt-1.5 pb-2">
+        {/* Search */}
+        <div className="mb-1">
+          <button
+            onClick={() =>
+              window.dispatchEvent(new Event("open-global-search"))
+            }
+            title={collapsed ? t("search") : undefined}
+            className={`
+              w-full relative flex items-center ${collapsed ? "justify-center" : "gap-3"}
+              ${collapsed ? "px-0 py-2" : "px-3 py-2"} rounded-lg text-[14px] font-medium
+              transition-colors duration-150
+              text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]
+            `}
+          >
+            <FaSearch size={16} aria-hidden="true" />
+            {!collapsed && (
+              <>
+                <span>{t("search")}</span>
+                <kbd
+                  className="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded flex-shrink-0"
+                  style={{
+                    backgroundColor: "var(--surface-hover)",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  ⌘K
+                </kbd>
+              </>
+            )}
+          </button>
+        </div>
+
         <div className="space-y-1">
           {PRIMARY_ITEMS.map(renderItem)}
         </div>
