@@ -6,7 +6,7 @@
 
 **Architecture:** Remove `pendingAskRef` dual-path mechanism. All typed commands (`/ask`, `/summarize`, `/digest`) are detected by `parseCommand()` on Enter via a ProseMirror `handleKeyDown` plugin. Slash menu items for no-input commands (Summarize, Digest) call `executeAiCommand` directly as a convenience shortcut. Streaming display strips markdown during generation, then converts to proper BlockNote blocks on completion.
 
-**Tech Stack:** BlockNote 0.47.3, Tiptap/ProseMirror plugins, `@blocknote/core` `createExtension` API, Vercel AI SDK streaming
+**Tech Stack:** BlockNote 0.47.3, ProseMirror Plugin via `@tiptap/pm/state`, Vercel AI SDK streaming
 
 **Spec:** `docs/superpowers/specs/2026-04-06-inline-ai-redesign.md`
 
@@ -128,12 +128,12 @@ At the top of `NoteEditor.js`, add these imports:
 
 ```js
 import { SuggestionMenu } from "@blocknote/core";
-import { Plugin, PluginKey } from "@blocknote/core/pm";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { parseCommand } from "@/lib/notes/commands.js";
 import { blocksToText } from "@/lib/notes/blocksToText.js";
 ```
 
-Note: `@blocknote/core/pm` re-exports ProseMirror's `Plugin` and `PluginKey` — no need to install `prosemirror-state` separately. `SuggestionMenu` is exported from `@blocknote/core` extensions.
+Note: `Plugin` and `PluginKey` come from `@tiptap/pm/state` (Tiptap's ProseMirror re-export, already installed as a transitive dependency of BlockNote). `SuggestionMenu` is exported from `@blocknote/core` extensions.
 
 - [ ] **Step 2: Add refs for stale closure prevention and consumed tracking**
 
@@ -143,20 +143,17 @@ Inside the `NoteEditor` component, after the existing refs, add:
 const titleRef = useRef(title);
 const localeRef = useRef(locale);
 const executedCommandsRef = useRef(new Map());
-```
-
-Add a ref for `executeAiCommand` to avoid stale closure in the ProseMirror plugin:
-
-```js
 const executeAiCommandRef = useRef(null);
 ```
 
-Add effects to keep all refs in sync:
+In the existing `useEffect` that resets on `note?.id` change (the one with `setTitle(note?.title || "")` and `setSaveStatus(null)`), add `executedCommandsRef.current.clear()` to reset consumed tracking when switching notes.
+
+Add effects to keep `titleRef` and `localeRef` in sync. **Important:** the `executeAiCommandRef` sync effect is added in Step 4 below, AFTER the `executeAiCommand` declaration — placing it here would cause a TDZ error since `const` declarations are not hoisted.
 
 ```js
 useEffect(() => { titleRef.current = title; }, [title]);
 useEffect(() => { localeRef.current = locale; }, [locale]);
-useEffect(() => { executeAiCommandRef.current = executeAiCommand; }, [executeAiCommand]);
+// executeAiCommandRef sync effect goes AFTER executeAiCommand declaration — see Step 4
 ```
 
 - [ ] **Step 3: Add the `disableAiCommands` prop**
@@ -194,7 +191,7 @@ const executeAiCommand = useCallback(
       [
         {
           type: "paragraph",
-          content: [{ type: "text", text: `⏳ ${t("aiGenerating")}` }],
+          content: `⏳ ${t("aiGenerating")}`,
         },
       ],
       commandBlock,
@@ -233,7 +230,7 @@ const executeAiCommand = useCallback(
         try {
           editor.updateBlock(loadingBlock, {
             type: "paragraph",
-            content: [{ type: "text", text: displayText }],
+            content: displayText,
           });
         } catch {
           // Block was deleted by user mid-stream — abort
@@ -244,7 +241,7 @@ const executeAiCommand = useCallback(
 
       // Convert full markdown to proper BlockNote blocks
       if (accumulated.trim()) {
-        const parsedBlocks = await editor.tryParseMarkdownToBlocks(accumulated);
+        const parsedBlocks = editor.tryParseMarkdownToBlocks(accumulated);
         if (editor.getBlock(loadingBlock.id)) {
           editor.removeBlocks([loadingBlock]);
         }
@@ -261,7 +258,7 @@ const executeAiCommand = useCallback(
       try {
         editor.updateBlock(loadingBlock, {
           type: "paragraph",
-          content: [{ type: "text", text: `❌ ${t("aiError")}` }],
+          content: `❌ ${t("aiError")}`,
         });
       } catch {
         // Loading block already deleted
@@ -270,6 +267,9 @@ const executeAiCommand = useCallback(
   },
   [editor, t],
 );
+
+// Sync executeAiCommandRef AFTER the declaration to avoid TDZ
+useEffect(() => { executeAiCommandRef.current = executeAiCommand; }, [executeAiCommand]);
 ```
 
 - [ ] **Step 5: Register ProseMirror handleKeyDown plugin**
@@ -328,7 +328,10 @@ useEffect(() => {
     },
   });
 
-  tiptap.registerPlugin(plugin);
+  // Prepend plugin so it runs BEFORE BlockNote's KeyboardShortcutsExtension
+  // which handles Enter for block splitting. Without prepend, BlockNote's
+  // handler returns true first and our plugin never fires.
+  tiptap.registerPlugin(plugin, (newPlugin, plugins) => [newPlugin, ...plugins]);
 
   return () => {
     tiptap.unregisterPlugin(pluginKey);
@@ -336,7 +339,7 @@ useEffect(() => {
 }, [editor, disableAiCommands]);
 ```
 
-Note: the plugin reads `executeAiCommandRef.current` (not a closure over `executeAiCommand`) so the plugin doesn't need to be re-registered when `executeAiCommand` changes. The effect only depends on `editor` (stable) and `disableAiCommands`.
+Note: the plugin reads `executeAiCommandRef.current` (not a closure over `executeAiCommand`) so the plugin doesn't need to be re-registered when `executeAiCommand` changes. The effect only depends on `editor` (stable) and `disableAiCommands`. The prepend strategy via `registerPlugin`'s second argument ensures our `handleKeyDown` runs before BlockNote's default Enter handler.
 
 - [ ] **Step 6: Verify typed commands work**
 
@@ -396,13 +399,28 @@ const getSlashMenuItems = useCallback(
       {
         title: t("askAi"),
         onItemClick: () => {
+          // After slash menu closes and clearQuery() runs, the block may
+          // still have residual text. Use insertOrUpdateBlock pattern:
+          // if the block is empty (just had "/"), update in-place;
+          // otherwise insert a new block after.
           const currentBlock = editorInstance.getTextCursorPosition().block;
-          // Update current block with "/ask " prefix
-          editorInstance.updateBlock(currentBlock, {
-            type: "paragraph",
-            content: [{ type: "text", text: "/ask " }],
-          });
-          editorInstance.setTextCursorPosition(currentBlock, "end");
+          const blockText = currentBlock.content?.map((c) => c.text || "").join("") || "";
+          if (!blockText.trim()) {
+            // Empty block — update in place
+            editorInstance.updateBlock(currentBlock, {
+              type: "paragraph",
+              content: "/ask ",
+            });
+            editorInstance.setTextCursorPosition(currentBlock, "end");
+          } else {
+            // Non-empty block — insert new block after
+            const [newBlock] = editorInstance.insertBlocks(
+              [{ type: "paragraph", content: "/ask " }],
+              currentBlock,
+              "after",
+            );
+            editorInstance.setTextCursorPosition(newBlock, "end");
+          }
         },
         subtext: t("askAiSubtext"),
         aliases: ["ask", "ai"],
@@ -413,11 +431,21 @@ const getSlashMenuItems = useCallback(
         title: t("summarize"),
         onItemClick: () => {
           const currentBlock = editorInstance.getTextCursorPosition().block;
-          editorInstance.updateBlock(currentBlock, {
-            type: "paragraph",
-            content: [{ type: "text", text: "/summarize" }],
-          });
-          executeAiCommand("summarize", "", currentBlock.id);
+          const blockText = currentBlock.content?.map((c) => c.text || "").join("") || "";
+          if (!blockText.trim()) {
+            editorInstance.updateBlock(currentBlock, {
+              type: "paragraph",
+              content: "/summarize",
+            });
+            executeAiCommand("summarize", "", currentBlock.id);
+          } else {
+            const [newBlock] = editorInstance.insertBlocks(
+              [{ type: "paragraph", content: "/summarize" }],
+              currentBlock,
+              "after",
+            );
+            executeAiCommand("summarize", "", newBlock.id);
+          }
         },
         subtext: t("summarizeSubtext"),
         aliases: ["summarize", "summary"],
@@ -428,11 +456,21 @@ const getSlashMenuItems = useCallback(
         title: t("digestLabel"),
         onItemClick: () => {
           const currentBlock = editorInstance.getTextCursorPosition().block;
-          editorInstance.updateBlock(currentBlock, {
-            type: "paragraph",
-            content: [{ type: "text", text: "/digest" }],
-          });
-          executeAiCommand("digest", "", currentBlock.id);
+          const blockText = currentBlock.content?.map((c) => c.text || "").join("") || "";
+          if (!blockText.trim()) {
+            editorInstance.updateBlock(currentBlock, {
+              type: "paragraph",
+              content: "/digest",
+            });
+            executeAiCommand("digest", "", currentBlock.id);
+          } else {
+            const [newBlock] = editorInstance.insertBlocks(
+              [{ type: "paragraph", content: "/digest" }],
+              currentBlock,
+              "after",
+            );
+            executeAiCommand("digest", "", newBlock.id);
+          }
         },
         subtext: t("digestSubtext"),
         aliases: ["digest"],
@@ -492,7 +530,7 @@ useEffect(() => {
     editorRef.current = {
       getContent: () => editor.document,
       resetContent: (blocks) => {
-        const newContent = blocks || [{ type: "paragraph", content: [] }];
+        const newContent = blocks?.length ? blocks : [{ type: "paragraph", content: [] }];
         editor.replaceBlocks(editor.document, newContent);
       },
     };
