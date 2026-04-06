@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { format, isToday } from "date-fns";
 import {
   HOUR_HEIGHT,
@@ -25,6 +25,7 @@ export default function TimeGrid({
   locale = "zh-TW",
 }) {
   const [currentTime, setCurrentTime] = useState(null);
+  const [hoverSlot, setHoverSlot] = useState(null); // { dateStr, slotIndex }
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -45,6 +46,20 @@ export default function TimeGrid({
   const currentTimePx = currentTime
     ? (currentTime.getHours() + currentTime.getMinutes() / 60) * HOUR_HEIGHT
     : null;
+
+  // Hover handler: track which slot the cursor is over
+  const handleColumnHover = useCallback((dateStr, e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const slotIndex = Math.max(0, Math.min(47, Math.floor(y / SLOT_HEIGHT)));
+    setHoverSlot((prev) =>
+      prev?.dateStr === dateStr && prev?.slotIndex === slotIndex
+        ? prev
+        : { dateStr, slotIndex },
+    );
+  }, []);
+
+  const handleColumnLeave = useCallback(() => setHoverSlot(null), []);
 
   // Click handler: determine which half-hour slot was clicked
   const handleColumnClick = useCallback(
@@ -126,7 +141,7 @@ export default function TimeGrid({
             return (
               <div
                 key={dateStr}
-                className="flex-1 relative min-w-0 cursor-pointer"
+                className="flex-1 relative min-w-0 cursor-pointer group"
                 style={{
                   borderLeft: "1px solid color-mix(in srgb, var(--card-border) 60%, transparent)",
                   height: GRID_TOTAL_HEIGHT,
@@ -148,7 +163,22 @@ export default function TimeGrid({
                   "--grid-line-minor": "color-mix(in srgb, var(--card-border) 35%, transparent)",
                 }}
                 onClick={(e) => handleColumnClick(dateStr, e)}
+                onMouseMove={(e) => handleColumnHover(dateStr, e)}
+                onMouseLeave={handleColumnLeave}
               >
+                {/* Hover highlight indicator */}
+                {hoverSlot?.dateStr === dateStr && (
+                  <div
+                    className="absolute left-0 right-0 pointer-events-none rounded-sm transition-opacity duration-100"
+                    style={{
+                      top: hoverSlot.slotIndex * SLOT_HEIGHT,
+                      height: SLOT_HEIGHT,
+                      background: "color-mix(in srgb, var(--accent) 8%, transparent)",
+                      zIndex: 1,
+                    }}
+                  />
+                )}
+
                 {/* Event blocks */}
                 {reminders.map((reminder) => {
                   const clipped = clipReminderToDay(reminder, dateStr);
