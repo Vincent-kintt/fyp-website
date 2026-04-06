@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { ChevronRight, MoreHorizontal, Plus, Trash2, Pencil, Copy } from "lucide-react";
@@ -25,9 +25,32 @@ export default function PageTreeItem({
 }) {
   const t = useTranslations("notes");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState(null);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const menuRef = useClickOutside(() => setMenuOpen(false));
+  const actionBtnRef = useRef(null);
+
+  const openMenu = useCallback(() => {
+    if (!actionBtnRef.current) return;
+    const rect = actionBtnRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const flipUp = spaceBelow < 180;
+    setMenuPos(
+      flipUp
+        ? { bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right }
+        : { top: rect.bottom + 4, right: window.innerWidth - rect.right },
+    );
+    setMenuOpen(true);
+  }, []);
+
+  // Close dropdown on scroll
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    window.addEventListener("scroll", close, true);
+    return () => window.removeEventListener("scroll", close, true);
+  }, [menuOpen]);
 
   const {
     attributes,
@@ -44,10 +67,6 @@ export default function PageTreeItem({
   const sortableStyle = {};
 
   const isActive = note.id === activeNoteId;
-  const setSortableRowRef = (node) => {
-    setNodeRef(node);
-    setActivatorNodeRef(node);
-  };
 
   if (isOverlay) {
     return (
@@ -84,7 +103,7 @@ export default function PageTreeItem({
       {dropIndicator === "before" && (
         <div className="notes-drop-indicator" style={{ marginLeft: `${12 + depth * 16}px` }} />
       )}
-      <div ref={setSortableRowRef} style={sortableStyle} {...attributes} {...listeners}>
+      <div ref={setNodeRef} style={sortableStyle} {...attributes}>
         <div
           className="notes-tree-item group"
           style={{ paddingLeft: `${12 + depth * 16}px` }}
@@ -92,8 +111,10 @@ export default function PageTreeItem({
           data-dragging={isDragging}
           data-drop-target={dropIndicator === "into"}
         >
-          {/* Drag handle area: chevron + icon */}
+          {/* Drag handle area: chevron + icon — listeners scoped here so action buttons receive clicks */}
           <div
+            ref={setActivatorNodeRef}
+            {...listeners}
             className="flex items-center gap-1 flex-shrink-0 cursor-grab active:cursor-grabbing"
           >
             <button
@@ -161,12 +182,13 @@ export default function PageTreeItem({
           )}
 
           <div className="relative flex-shrink-0" ref={menuRef}>
-            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100" style={{ transition: "opacity 150ms ease" }}>
+            <div className="flex gap-0.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto" style={{ transition: "opacity 150ms ease" }}>
               <button
+                ref={actionBtnRef}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setMenuOpen((prev) => !prev);
+                  menuOpen ? setMenuOpen(false) : openMenu();
                 }}
                 className="p-1 rounded"
                 style={{ color: "var(--text-muted)" }}
@@ -194,10 +216,11 @@ export default function PageTreeItem({
               </button>
             </div>
 
-            {menuOpen && (
+            {menuOpen && menuPos && (
               <div
-                className="absolute right-0 top-full mt-1 py-1 rounded-lg shadow-lg z-20 min-w-[160px]"
+                className="fixed py-1 rounded-lg shadow-lg z-50 min-w-[160px]"
                 style={{
+                  ...menuPos,
                   background: "var(--surface)",
                   border: "1px solid var(--border)",
                 }}
