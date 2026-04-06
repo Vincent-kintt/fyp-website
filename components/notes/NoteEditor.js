@@ -220,11 +220,6 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             return false;
           }
 
-          // Don't intercept if suggestion menu is open
-          if (editor.getExtension(SuggestionMenu)?.shown()) {
-            return false;
-          }
-
           const pos = editor.getTextCursorPosition();
           const block = pos.block;
 
@@ -235,13 +230,21 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
           const { from, to } = view.state.selection;
           if (from !== to) return false;
 
-          // Read block text
+          // Read block text and check command BEFORE menu check
           const blockText = block.content?.map((c) => c.text || "").join("") || "";
           const parsed = parseCommand(blockText);
           if (!parsed) return false;
 
           // /ask with empty prompt — let Enter pass through
           if (parsed.type === "ask" && !parsed.input) return false;
+
+          // If slash menu is open and command has no user input
+          // (e.g. /summarize, /digest typed manually), let menu handle Enter
+          // since the menu item also auto-executes. But if command HAS input
+          // (e.g. /ask hello), user clearly wants to execute — skip menu check.
+          if (!parsed.input && editor.getExtension(SuggestionMenu)?.shown()) {
+            return false;
+          }
 
           // Check consumed tracking
           const prevText = executedCommandsRef.current.get(block.id);
