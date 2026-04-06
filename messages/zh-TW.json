@@ -114,7 +114,8 @@
     "confirmFailed": "任務建立失敗",
     "dismissed": "已忽略",
     "reExtractWarning": "未確認的任務將被替換。",
-    "partialSuccess": "已建立 {success} 項，{failed} 項失敗"
+    "partialSuccess": "已建立 {success} 項，{failed} 項失敗",
+    "clearTasks": "清除已提取的任務"
   },
   "calendar": {
     "title": "行事曆",

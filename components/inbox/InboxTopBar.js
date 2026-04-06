@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Inbox, Download, MoreHorizontal, Loader2 } from "lucide-react";
+import { Inbox, Download, MoreHorizontal, Loader2, Trash2 } from "lucide-react";
+import { useClickOutside } from "@/hooks/useClickOutside";
 
-export default function InboxTopBar({ saveStatus, onExtract, isExtracting }) {
+export default function InboxTopBar({ saveStatus, onExtract, isExtracting, onClearTasks }) {
   const t = useTranslations("inbox");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useClickOutside(() => setMenuOpen(false));
 
   const getStatusText = () => {
     if (saveStatus === "saving") return t("subtitle");
@@ -52,13 +56,46 @@ export default function InboxTopBar({ saveStatus, onExtract, isExtracting }) {
           {isExtracting ? t("extracting") : t("extractTasks")}
         </button>
 
-        <button aria-label="Actions" className="p-1 rounded">
-          <MoreHorizontal
-            size={14}
-            strokeWidth={1.5}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((p) => !p)}
+            aria-label="Actions"
+            aria-haspopup="true"
+            aria-expanded={menuOpen}
+            className="p-1 rounded transition-colors"
             style={{ color: "var(--text-muted)" }}
-          />
-        </button>
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--surface-hover)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+          >
+            <MoreHorizontal size={14} strokeWidth={1.5} />
+          </button>
+
+          {menuOpen && (
+            <div
+              className="absolute right-0 top-full mt-1 py-1 rounded-lg shadow-lg z-20 min-w-[160px]"
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+              }}
+              role="menu"
+            >
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onClearTasks?.();
+                }}
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left transition-colors"
+                style={{ color: "var(--danger)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                role="menuitem"
+              >
+                <Trash2 size={14} strokeWidth={1.5} />
+                {t("clearTasks")}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

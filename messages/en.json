@@ -114,7 +114,8 @@
     "confirmFailed": "Failed to create task",
     "dismissed": "Dismissed",
     "reExtractWarning": "Unconfirmed tasks will be replaced.",
-    "partialSuccess": "{success} created, {failed} failed"
+    "partialSuccess": "{success} created, {failed} failed",
+    "clearTasks": "Clear extracted tasks"
   },
   "calendar": {
     "title": "Calendar",

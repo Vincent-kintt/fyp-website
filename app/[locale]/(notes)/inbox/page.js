@@ -211,6 +211,13 @@ export default function InboxPage() {
     [extractedTasks, confirmedTasks, t, syncExtractionState],
   );
 
+  // Clear all extracted tasks and confirmed history
+  const handleClearTasks = useCallback(() => {
+    setExtractedTasks([]);
+    setConfirmedTasks([]);
+    syncExtractionState([], []);
+  }, [syncExtractionState]);
+
   if (status === "loading" || loading) {
     return (
       <div className="flex h-full">
@@ -246,6 +253,7 @@ export default function InboxPage() {
         saveStatus={saveStatus}
         onExtract={handleExtract}
         isExtracting={isExtracting}
+        onClearTasks={handleClearTasks}
       />
 
       <div className="flex-1 overflow-y-auto">
