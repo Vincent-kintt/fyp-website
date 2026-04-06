@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Bot } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { BlockNoteView } from "@blocknote/mantine";
@@ -18,6 +18,78 @@ import { blocksToText } from "@/lib/notes/blocksToText.js";
 import "@blocknote/mantine/style.css";
 import NoteIcon from "./NoteIcon";
 import IconPicker from "./IconPicker";
+
+const TOOL_PROGRESS_LABELS = {
+  searchNotes: "agentSearchingNotes",
+  readNote: "agentReadingNote",
+  listReminders: "agentCheckingReminders",
+  findConflicts: "agentCheckingConflicts",
+  summarizeUpcoming: "agentSummarizing",
+  createReminder: "agentCreatingReminder",
+  searchWeb: "agentSearchingWeb",
+};
+
+async function* parseUIMessageStream(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop();
+
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      const lines = part.split("\n");
+      let eventType = null;
+      let data = null;
+
+      for (const line of lines) {
+        if (line.startsWith("event:")) {
+          eventType = line.slice(6).trim();
+        } else if (line.startsWith("data:")) {
+          const raw = line.slice(5).trim();
+          if (raw) {
+            try {
+              data = JSON.parse(raw);
+            } catch {
+              data = raw;
+            }
+          }
+        }
+      }
+
+      if (data !== null) {
+        yield { event: eventType, data };
+      }
+    }
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    const lines = buffer.split("\n");
+    let data = null;
+    for (const line of lines) {
+      if (line.startsWith("data:")) {
+        const raw = line.slice(5).trim();
+        if (raw) {
+          try {
+            data = JSON.parse(raw);
+          } catch {
+            data = raw;
+          }
+        }
+      }
+    }
+    if (data !== null) {
+      yield { event: null, data };
+    }
+  }
+}
 
 export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconChange, hideTitle, editorRef, disableAiCommands }) {
   const t = useTranslations("notes");
@@ -88,9 +160,169 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     }, 1000);
   }, [editor, onSave]);
 
+  const executeAgentCommand = useCallback(
+    async (input, commandBlockId) => {
+      const noteContext = blocksToText(editor.document);
+      const commandBlock = commandBlockId
+        ? editor.getBlock(commandBlockId)
+        : editor.getTextCursorPosition().block;
+
+      if (!commandBlock) return;
+
+      const blockText =
+        commandBlock.content?.map((c) => c.text || "").join("") || "";
+      executedCommandsRef.current.set(commandBlock.id, blockText);
+
+      const [loadingBlock] = editor.insertBlocks(
+        [{ type: "paragraph", content: t("agentSearchingWeb") }],
+        commandBlock,
+        "after",
+      );
+
+      try {
+        const res = await fetch("/api/ai/notes-agentic", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input,
+            noteTitle: titleRef.current,
+            noteContext,
+            language: localeRef.current?.startsWith("zh") ? "zh" : "en",
+          }),
+        });
+
+        if (!res.ok) {
+          let errMsg = `HTTP ${res.status}`;
+          try {
+            const errBody = await res.json();
+            errMsg = errBody.error || errMsg;
+          } catch {}
+          throw new Error(errMsg);
+        }
+
+        let accumulatedText = "";
+        const sideEffects = [];
+
+        for await (const { event, data } of parseUIMessageStream(res)) {
+          if (typeof data === "object" && data !== null) {
+            if (data.type === "tool-call" || event === "tool-call") {
+              const toolName = data.toolName || data.name;
+              const labelKey = TOOL_PROGRESS_LABELS[toolName];
+              if (labelKey) {
+                try {
+                  editor.updateBlock(loadingBlock, {
+                    type: "paragraph",
+                    content: t(labelKey),
+                  });
+                } catch {
+                  break;
+                }
+              }
+            }
+
+            if (data.type === "tool-result" || event === "tool-result") {
+              const toolName = data.toolName || data.name;
+              if (toolName === "createReminder") {
+                try {
+                  const result =
+                    typeof data.result === "string"
+                      ? JSON.parse(data.result)
+                      : data.result;
+                  if (result?.success && result?.reminder) {
+                    sideEffects.push({
+                      tool: "createReminder",
+                      title: result.reminder.title,
+                      dateTime: result.reminder.dateTime,
+                    });
+                  }
+                } catch {}
+              }
+            }
+
+            if (data.type === "text-delta" || event === "text-delta") {
+              accumulatedText += data.textDelta || data.delta || "";
+              const displayText = accumulatedText
+                .replace(/^#{1,6}\s+/gm, "")
+                .replace(/\*\*([^*]+)\*\*/g, "$1")
+                .replace(/\*([^*]+)\*/g, "$1")
+                .replace(/^[-*+]\s+/gm, "— ");
+              try {
+                editor.updateBlock(loadingBlock, {
+                  type: "paragraph",
+                  content: displayText,
+                });
+              } catch {
+                break;
+              }
+            }
+          }
+        }
+
+        if (accumulatedText.trim()) {
+          const parsedBlocks =
+            editor.tryParseMarkdownToBlocks(accumulatedText);
+          if (editor.getBlock(loadingBlock.id)) {
+            editor.removeBlocks([loadingBlock]);
+          }
+          if (parsedBlocks.length > 0 && editor.getBlock(commandBlock.id)) {
+            const insertedBlocks = editor.insertBlocks(
+              parsedBlocks,
+              commandBlock,
+              "after",
+            );
+
+            if (sideEffects.length > 0) {
+              const lastBlock = insertedBlocks[insertedBlocks.length - 1];
+              for (const effect of sideEffects) {
+                const label = `${t("agentSideEffect")} ${effect.title}${effect.dateTime ? ` (${effect.dateTime})` : ""}`;
+                editor.insertBlocks(
+                  [
+                    {
+                      type: "paragraph",
+                      content: [
+                        {
+                          type: "text",
+                          text: label,
+                          styles: { italic: true },
+                        },
+                      ],
+                    },
+                  ],
+                  lastBlock,
+                  "after",
+                );
+              }
+            }
+          }
+        } else {
+          try {
+            editor.updateBlock(loadingBlock, {
+              type: "paragraph",
+              content: t("aiError"),
+            });
+          } catch {}
+        }
+      } catch (err) {
+        console.error("Agent command error:", err);
+        try {
+          editor.updateBlock(loadingBlock, {
+            type: "paragraph",
+            content: `${t("aiError")}${err?.message ? ` — ${err.message}` : ""}`,
+          });
+        } catch {}
+      }
+    },
+    [editor, t],
+  );
+
   const executeAiCommand = useCallback(
     async (type, input, commandBlockId) => {
       const noteContext = blocksToText(editor.document);
+
+      if (type === "agent") {
+        return executeAgentCommand(input, commandBlockId);
+      }
+
       let commandBlock;
 
       if (commandBlockId) {
@@ -198,7 +430,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
         }
       }
     },
-    [editor, t],
+    [editor, t, executeAgentCommand],
   );
 
   // Sync executeAiCommandRef AFTER the declaration to avoid TDZ
