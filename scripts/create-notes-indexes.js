@@ -17,6 +17,11 @@ async function createNotesIndexes() {
     { name: "notes_user_updated" },
   );
 
+  await col.createIndex(
+    { userId: 1, title: "text" },
+    { name: "notes_user_title_text" },
+  );
+
   console.log("Notes indexes created successfully.");
   process.exit(0);
 }
