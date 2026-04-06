@@ -14,7 +14,7 @@ import {
 } from "react-icons/fa";
 import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "@/i18n/navigation";
-import NotificationBell from "./NotificationBell";
+
 
 export default function Navbar() {
   const { data: session, status } = useSession();
@@ -81,11 +81,7 @@ export default function Navbar() {
 
           {/* Utility Items */}
           <div className="flex items-center space-x-4 sm:space-x-6">
-            {session ? (
-              <>
-                <NotificationBell />
-              </>
-            ) : (
+            {!session && (
               <>
                 <Link
                   href="/login"
