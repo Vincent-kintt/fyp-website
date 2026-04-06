@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useTranslations } from "next-intl";
-import { useSession } from "next-auth/react";
-import { Link, usePathname } from "@/i18n/navigation";
+import { useTranslations, useLocale } from "next-intl";
+import { useSession, signOut } from "next-auth/react";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
   FaInbox,
   FaHome,
@@ -12,7 +12,9 @@ import {
   FaList,
   FaChevronLeft,
   FaChevronRight,
+  FaSignOutAlt,
 } from "react-icons/fa";
+import { useClickOutside } from "@/hooks/useClickOutside";
 import { FiChevronDown, FiChevronRight, FiPlus } from "react-icons/fi";
 import useNotes from "@/hooks/useNotes";
 import PageTree from "@/components/notes/PageTree";
@@ -60,6 +62,20 @@ export default function Sidebar() {
     if (stored === "true") setCollapsed(true);
   }, []);
 
+  const locale = useLocale();
+  const router = useRouter();
+  const [wsPopoverOpen, setWsPopoverOpen] = useState(false);
+  const wsPopoverRef = useClickOutside(() => setWsPopoverOpen(false));
+
+  useEffect(() => {
+    if (!wsPopoverOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setWsPopoverOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [wsPopoverOpen]);
+
   useEffect(() => {
     if (isNotesPage) setNotesExpanded(true);
   }, [isNotesPage]);
@@ -70,6 +86,11 @@ export default function Sidebar() {
       localStorage.setItem("sidebar-collapsed", String(next));
       return next;
     });
+  };
+
+  const handleSignOut = async () => {
+    const prefix = locale === "zh-TW" ? "" : `/${locale}`;
+    await signOut({ callbackUrl: `${prefix}/login` });
   };
 
   const renderItem = ({ href, icon: Icon, labelKey }) => {
@@ -115,21 +136,117 @@ export default function Sidebar() {
       role="navigation"
       aria-label={t("mainNavigation")}
     >
-      <div className="flex items-center justify-end px-2.5 pt-3 pb-1">
-        <button
-          onClick={toggleCollapse}
-          className="p-1.5 rounded-md transition-colors"
-          style={{ color: "var(--text-muted)" }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "var(--surface-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "transparent")
-          }
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? <FaChevronRight size={12} /> : <FaChevronLeft size={12} />}
-        </button>
+      <div className="flex items-center justify-between px-2.5 pt-2 pb-1">
+        {session?.user ? (
+          <div className="relative" ref={wsPopoverRef}>
+            <button
+              onClick={() => setWsPopoverOpen((p) => !p)}
+              className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} rounded-md transition-colors px-1.5 py-1`}
+              style={{ color: "var(--text-secondary)" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor =
+                  "var(--surface-hover)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = "transparent")
+              }
+            >
+              <div
+                className="w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+                style={{
+                  backgroundColor: "var(--primary-light)",
+                  color: "var(--primary)",
+                }}
+              >
+                {(session.user.name || "U")[0].toUpperCase()}
+              </div>
+              {!collapsed && (
+                <>
+                  <span
+                    className="text-[12.5px] font-medium truncate max-w-[100px]"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {session.user.name}
+                  </span>
+                  {session.user.role === "admin" && (
+                    <span
+                      className="text-[9px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
+                      style={{
+                        backgroundColor: "var(--info-light)",
+                        color: "var(--info)",
+                      }}
+                    >
+                      {t("admin")}
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+
+            {wsPopoverOpen && (
+              <div
+                className={`absolute ${collapsed ? "left-full ml-1" : "left-0"} top-full mt-1 w-48 rounded-lg shadow-lg border z-50 py-1`}
+                style={{
+                  backgroundColor: "var(--card-bg)",
+                  borderColor: "var(--card-border)",
+                }}
+              >
+                <div
+                  className="px-3 py-2 border-b"
+                  style={{ borderColor: "var(--card-border)" }}
+                >
+                  <div
+                    className="text-[12px] font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {session.user.name}
+                  </div>
+                  {session.user.role === "admin" && (
+                    <div
+                      className="text-[10px] mt-0.5"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {t("admin")}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] transition-colors"
+                  style={{ color: "var(--text-secondary)" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      "var(--surface-hover)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = "transparent")
+                  }
+                >
+                  <FaSignOutAlt size={12} />
+                  {t("logout")}
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div />
+        )}
+        {!collapsed && (
+          <button
+            onClick={toggleCollapse}
+            className="p-1.5 rounded-md transition-colors"
+            style={{ color: "var(--text-muted)" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "var(--surface-hover)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <FaChevronLeft size={12} />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 px-2.5 py-4 space-y-1">
@@ -199,34 +316,6 @@ export default function Sidebar() {
 
       </nav>
 
-      {session?.user && (
-        <div
-          className={`${collapsed ? "px-2" : "px-3"} py-3 border-t`}
-          style={{ borderColor: "var(--navbar-border)" }}
-        >
-          <div
-            className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5 px-2"}`}
-          >
-            <div
-              className="w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0"
-              style={{
-                backgroundColor: "var(--primary-light)",
-                color: "var(--primary)",
-              }}
-            >
-              {(session.user.name || "U")[0].toUpperCase()}
-            </div>
-            {!collapsed && (
-              <span
-                className="text-[12.5px]"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {session.user.name}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
     </aside>
   );
 }
