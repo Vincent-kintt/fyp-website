@@ -332,7 +332,19 @@
     "expandSidebar": "Expand sidebar",
     "resizeSidebar": "Resize sidebar",
     "aiGenerating": "Generating...",
-    "aiError": "Failed to get AI response."
+    "aiError": "Failed to get AI response.",
+    "agent": "Agent",
+    "agentSubtext": "Execute complex tasks with AI tools",
+    "agentSearchingNotes": "Searching notes...",
+    "agentReadingNote": "Reading note...",
+    "agentCheckingReminders": "Checking reminders...",
+    "agentCheckingConflicts": "Checking conflicts...",
+    "agentSummarizing": "Summarizing upcoming...",
+    "agentCreatingReminder": "Creating reminder...",
+    "agentSearchingWeb": "Searching web...",
+    "agentSideEffect": "Action performed:",
+    "agentAlreadyRunning": "An agent request is already running.",
+    "agentEmptyInput": "Type a prompt after /agent"
   },
   "common": {
     "save": "Save",

@@ -332,7 +332,19 @@
     "expandSidebar": "展開側邊欄",
     "resizeSidebar": "調整側邊欄寬度",
     "aiGenerating": "生成中...",
-    "aiError": "AI 回應失敗。"
+    "aiError": "AI 回應失敗。",
+    "agent": "Agent",
+    "agentSubtext": "使用 AI 工具執行複雜任務",
+    "agentSearchingNotes": "搜尋筆記中...",
+    "agentReadingNote": "讀取筆記中...",
+    "agentCheckingReminders": "查詢提醒中...",
+    "agentCheckingConflicts": "檢查時間衝突中...",
+    "agentSummarizing": "整理即將到來的事項...",
+    "agentCreatingReminder": "建立提醒中...",
+    "agentSearchingWeb": "搜尋網頁中...",
+    "agentSideEffect": "已執行操作：",
+    "agentAlreadyRunning": "Agent 請求正在執行中。",
+    "agentEmptyInput": "請在 /agent 後輸入指令"
   },
   "common": {
     "save": "儲存",
