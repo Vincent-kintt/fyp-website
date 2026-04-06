@@ -157,6 +157,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             return;
           }
         }
+        accumulated += decoder.decode(); // flush buffered multi-byte sequences
 
         // Convert full markdown to proper BlockNote blocks
         if (accumulated.trim()) {
@@ -235,7 +236,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
 
           // Execute the command via ref (avoids stale closure)
           event.preventDefault();
-          executeAiCommandRef.current(parsed.type, parsed.input, block.id);
+          executeAiCommandRef.current?.(parsed.type, parsed.input, block.id);
           return true;
         },
       },
