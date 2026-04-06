@@ -224,7 +224,6 @@ export default function InboxPage() {
             note={inboxNote}
             onSave={handleSave}
             onSaveStatusChange={setSaveStatus}
-            hideTitle
             editorRef={editorRef}
           />
         )}
