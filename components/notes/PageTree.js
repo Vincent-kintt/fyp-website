@@ -280,8 +280,8 @@ export default function PageTree({
       {/* New Page button */}
       <button
         onClick={() => onCreateNote?.()}
-        className="flex items-center gap-2 mx-1 px-3 py-1.5 rounded-md text-[13px]"
-        style={{ color: "var(--text-muted)" }}
+        className="flex items-center gap-[6px] mx-2 py-1.5 rounded-md text-[13px]"
+        style={{ color: "var(--text-muted)", paddingLeft: "32px", paddingRight: "8px" }}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = "var(--surface-hover)";
           e.currentTarget.style.color = "var(--text-secondary)";
@@ -296,11 +296,11 @@ export default function PageTree({
       </button>
 
       {/* Trash section — pinned to bottom */}
-      <div style={{ marginTop: "auto", borderTop: "1px solid var(--border)" }}>
+      <div className="flex flex-col mt-auto" style={{ borderTop: "1px solid var(--border)" }}>
         <button
           onClick={() => setTrashOpen((prev) => !prev)}
-          className="flex items-center gap-2 w-full px-3 py-2 text-[12.5px]"
-          style={{ color: "var(--text-muted)" }}
+          className="flex items-center gap-[6px] mx-2 py-2 rounded-md text-[13px]"
+          style={{ color: "var(--text-muted)", paddingLeft: "32px", paddingRight: "8px" }}
           onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
           onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
         >
