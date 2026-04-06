@@ -159,7 +159,7 @@ export default function Sidebar() {
                   color: "var(--primary)",
                 }}
               >
-                {(session.user.name || "U")[0].toUpperCase()}
+                {(session.user.username || "U")[0].toUpperCase()}
               </div>
               {!collapsed && (
                 <>
@@ -167,7 +167,7 @@ export default function Sidebar() {
                     className="text-[12.5px] font-medium truncate max-w-[100px]"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    {session.user.name}
+                    {session.user.username}
                   </span>
                   {session.user.role === "admin" && (
                     <span
@@ -180,6 +180,11 @@ export default function Sidebar() {
                       {t("admin")}
                     </span>
                   )}
+                  <FiChevronDown
+                    size={10}
+                    className="flex-shrink-0 ml-auto"
+                    style={{ color: "var(--text-muted)" }}
+                  />
                 </>
               )}
             </button>
@@ -200,7 +205,7 @@ export default function Sidebar() {
                     className="text-[12px] font-medium"
                     style={{ color: "var(--text-primary)" }}
                   >
-                    {session.user.name}
+                    {session.user.username}
                   </div>
                   {session.user.role === "admin" && (
                     <div
@@ -252,15 +257,17 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 px-2.5 pt-1.5 pb-2 space-y-1">
-        {PRIMARY_ITEMS.map(renderItem)}
+      <nav className="flex-1 flex flex-col min-h-0 px-2.5 pt-1.5 pb-2">
+        <div className="space-y-1">
+          {PRIMARY_ITEMS.map(renderItem)}
+        </div>
 
         <div className={collapsed ? "pt-3" : "mt-3"} />
 
         {/* Notes section */}
         {!collapsed ? (
-          <div>
-            <div className="flex items-center justify-between px-2 py-1">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between px-2 py-1 flex-shrink-0">
               <button
                 onClick={() => setNotesExpanded((p) => !p)}
                 className="flex items-center gap-1 text-[11px] font-medium"
@@ -282,7 +289,7 @@ export default function Sidebar() {
               </button>
             </div>
             {notesExpanded && notes.length > 0 && (
-              <div className="max-h-[300px] overflow-y-auto">
+              <div className="flex-1 min-h-0">
                 <PageTree
                   notes={notes}
                   activeNoteId={activeNoteId}
@@ -309,8 +316,6 @@ export default function Sidebar() {
         ) : (
           renderItem({ href: "/notes", icon: FaStickyNote, labelKey: "notes" })
         )}
-
-
       </nav>
 
     </aside>
