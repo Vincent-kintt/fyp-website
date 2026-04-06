@@ -130,7 +130,14 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
           }),
         });
 
-        if (!res.ok) throw new Error("AI request failed");
+        if (!res.ok) {
+          let errMsg = `HTTP ${res.status}`;
+          try {
+            const errBody = await res.json();
+            errMsg = errBody.error || errMsg;
+          } catch {}
+          throw new Error(errMsg);
+        }
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
@@ -179,11 +186,12 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             // Loading block already deleted
           }
         }
-      } catch {
+      } catch (err) {
+        console.error("Inline AI error:", err);
         try {
           editor.updateBlock(loadingBlock, {
             type: "paragraph",
-            content: `❌ ${t("aiError")}`,
+            content: `❌ ${t("aiError")}${err?.message ? ` (${err.message})` : ""}`,
           });
         } catch {
           // Loading block already deleted
