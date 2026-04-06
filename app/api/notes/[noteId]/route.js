@@ -97,6 +97,17 @@ export async function PATCH(request, segmentData) {
 
     const notesCollection = await getNotesCollection();
 
+    // Guard: prevent modifying inbox document properties via generic route
+    const existingNote = await notesCollection.findOne({
+      _id: new ObjectId(noteId),
+      userId: session.user.id,
+    });
+    if (existingNote?.type === "inbox") {
+      if (title !== undefined || parentId !== undefined || sortOrder !== undefined) {
+        return apiError("Cannot modify inbox note properties", 403);
+      }
+    }
+
     if (updateData.parentId) {
       const parentExists = await notesCollection.findOne({ _id: updateData.parentId, userId: session.user.id });
       if (!parentExists) return apiError("Parent note not found", 404);
@@ -145,6 +156,10 @@ export async function DELETE(request, segmentData) {
 
     if (!note) {
       return apiError("Note not found", 404);
+    }
+
+    if (note.type === "inbox") {
+      return apiError("Cannot delete inbox note", 403);
     }
 
     // Check if note is already in trash

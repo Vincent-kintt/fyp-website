@@ -38,8 +38,20 @@ export async function POST(request) {
     // Fetch all user's notes for relationship validation
     const userNotes = await notesCollection
       .find({ userId: session.user.id, deletedAt: null })
-      .project({ _id: 1, parentId: 1 })
+      .project({ _id: 1, parentId: 1, type: 1 })
       .toArray();
+
+    // Find inbox note to exclude from reorder
+    const inboxNote = userNotes.find((n) => n.type === "inbox");
+    const inboxId = inboxNote?._id.toString();
+
+    const filteredUpdates = inboxId
+      ? updates.filter((item) => item.id !== inboxId)
+      : updates;
+
+    if (filteredUpdates.length === 0) {
+      return apiSuccess({ matched: 0, modified: 0 });
+    }
 
     const noteIdSet = new Set(userNotes.map((n) => n._id.toString()));
 
@@ -48,14 +60,14 @@ export async function POST(request) {
     for (const note of userNotes) {
       parentMap.set(note._id.toString(), note.parentId?.toString() || null);
     }
-    for (const item of updates) {
+    for (const item of filteredUpdates) {
       if (item.parentId !== undefined) {
         parentMap.set(item.id, item.parentId || null);
       }
     }
 
     // Validate each update with a parentId
-    for (const item of updates) {
+    for (const item of filteredUpdates) {
       const resolvedParentId = item.parentId || null;
       if (!resolvedParentId) continue;
 
@@ -84,7 +96,7 @@ export async function POST(request) {
     }
 
     const now = new Date();
-    const ops = updates.map((item) => ({
+    const ops = filteredUpdates.map((item) => ({
       updateOne: {
         filter: {
           _id: new ObjectId(item.id),
