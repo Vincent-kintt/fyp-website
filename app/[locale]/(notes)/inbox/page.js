@@ -220,16 +220,9 @@ export default function InboxPage() {
 
   // Reset inbox — clear editor content + extracted tasks + confirmed history
   const handleResetInbox = useCallback(async () => {
-    const editor = editorRef.current;
-    if (editor) {
-      const blocks = editor.getContent();
-      if (blocks?.length > 0) {
-        // BlockNote: replace all blocks with a single empty paragraph
-        const bn = editor._editor;
-        if (bn) {
-          bn.replaceBlocks(bn.document, [{ type: "paragraph", content: [] }]);
-        }
-      }
+    const editorApi = editorRef.current;
+    if (editorApi) {
+      editorApi.resetContent();
     }
     setExtractedTasks([]);
     setConfirmedTasks([]);
@@ -289,6 +282,7 @@ export default function InboxPage() {
             onSave={handleSave}
             onSaveStatusChange={setSaveStatus}
             editorRef={editorRef}
+            disableAiCommands
           />
         )}
 

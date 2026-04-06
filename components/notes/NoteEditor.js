@@ -68,7 +68,10 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     if (editorRef) {
       editorRef.current = {
         getContent: () => editor.document,
-        _editor: editor,
+        resetContent: (blocks) => {
+          const newContent = blocks?.length ? blocks : [{ type: "paragraph", content: [] }];
+          editor.replaceBlocks(editor.document, newContent);
+        },
       };
     }
   }, [editor, editorRef]);
