@@ -49,12 +49,14 @@ export default function TimeGrid({
   // Click handler: determine which half-hour slot was clicked
   const handleColumnClick = useCallback(
     (dateStr, e) => {
+      // getBoundingClientRect already accounts for ancestor scroll,
+      // so e.clientY - rect.top gives the correct Y within the full column height
       const rect = e.currentTarget.getBoundingClientRect();
-      const y = e.clientY - rect.top + (e.currentTarget.parentElement?.parentElement?.scrollTop ?? 0);
+      const y = e.clientY - rect.top;
       const totalMinutes = (y / HOUR_HEIGHT) * 60;
-      const hour = Math.floor(totalMinutes / 60);
+      const hour = Math.max(0, Math.min(23, Math.floor(totalMinutes / 60)));
       const minute = totalMinutes % 60 >= 30 ? 30 : 0;
-      onSlotClick?.(dateStr, Math.min(hour, 23), minute);
+      onSlotClick?.(dateStr, hour, minute);
     },
     [onSlotClick],
   );
