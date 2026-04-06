@@ -102,7 +102,7 @@ export default function Sidebar() {
         title={collapsed ? t(labelKey) : undefined}
         className={`
           relative flex items-center ${collapsed ? "justify-center" : "gap-3"}
-          ${collapsed ? "px-0 py-2.5" : "px-3 py-2.5"} rounded-lg text-[14px] font-medium
+          ${collapsed ? "px-0 py-2" : "px-3 py-2"} rounded-lg text-[14px] font-medium
           transition-colors duration-150
           ${
             active
@@ -252,16 +252,10 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 px-2.5 py-4 space-y-1">
+      <nav className="flex-1 px-2.5 pt-1.5 pb-2 space-y-1">
         {PRIMARY_ITEMS.map(renderItem)}
 
-        {!collapsed && (
-          <div
-            className="mx-3 my-2"
-            style={{ height: "1px", backgroundColor: "var(--navbar-border)" }}
-          />
-        )}
-        {collapsed && <div className="pt-3" />}
+        <div className={collapsed ? "pt-3" : "mt-3"} />
 
         {/* Notes section */}
         {!collapsed ? (
@@ -269,7 +263,7 @@ export default function Sidebar() {
             <div className="flex items-center justify-between px-2 py-1">
               <button
                 onClick={() => setNotesExpanded((p) => !p)}
-                className="flex items-center gap-1 text-[11px] font-semibold"
+                className="flex items-center gap-1 text-[11px] font-medium"
                 style={{ color: "var(--text-muted)", letterSpacing: "0.5px" }}
               >
                 {notesExpanded ? (
