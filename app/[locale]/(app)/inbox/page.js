@@ -1,146 +1,241 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "@/i18n/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { reminderKeys } from "@/lib/queryKeys";
+import { blocksToText } from "@/lib/notes/blocksToText";
 
-import useInboxTasks from "@/hooks/useInboxTasks";
-import InboxInput from "@/components/inbox/InboxInput";
-import InboxTaskRow from "@/components/inbox/InboxTaskRow";
-import AIReminderModal from "@/components/reminders/AIReminderModal";
-import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
+import NoteEditor from "@/components/notes/NoteEditor";
+import InboxTopBar from "@/components/inbox/InboxTopBar";
+import ExtractedTasksSection from "@/components/inbox/ExtractedTasksSection";
 
 export default function InboxPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const t = useTranslations("inbox");
+  const locale = useLocale();
   const queryClient = useQueryClient();
-  const { tasks, loading, addTask, refetch } = useInboxTasks();
 
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const [inboxNote, setInboxNote] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saveStatus, setSaveStatus] = useState(null);
+  const [extractedTasks, setExtractedTasks] = useState([]);
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  const editorRef = useRef(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
-  // Cmd+J → AI modal
+  // Fetch or create inbox note
   useEffect(() => {
-    const handler = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
-        e.preventDefault();
-        setIsAIModalOpen((prev) => !prev);
+    if (!session?.user) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/inbox/note", { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          setInboxNote(data.data);
+        }
+      } catch (err) {
+        console.error("Failed to load inbox note:", err);
+      } finally {
+        setLoading(false);
       }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    })();
+  }, [session?.user]);
+
+  // Save handler for NoteEditor
+  const handleSave = useCallback(async (updates) => {
+    try {
+      const res = await fetch("/api/inbox/note", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error("Save failed");
+    } catch (err) {
+      throw err;
+    }
   }, []);
 
-  useEffect(() => {
-    const handler = () => setIsAIModalOpen(true);
-    window.addEventListener("open-ai-modal", handler);
-    return () => window.removeEventListener("open-ai-modal", handler);
-  }, []);
+  // Extract tasks from editor content
+  const handleExtract = useCallback(async () => {
+    const blocks = editorRef.current?.getContent();
+    if (!blocks) return;
 
-  const handleTaskAdded = useCallback(
-    async (taskData) => {
-      try {
-        await addTask(taskData);
-      } catch {
-        toast.error(t("addFailed"));
+    const text = blocksToText(blocks);
+    if (!text.trim()) {
+      toast.info(t("noTasks"));
+      return;
+    }
+
+    // Warn if there are unconfirmed tasks
+    if (extractedTasks.length > 0) {
+      toast.info(t("reExtractWarning"));
+    }
+
+    setIsExtracting(true);
+    try {
+      const res = await fetch("/api/ai/extract-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          language: locale === "zh-TW" ? "zh" : "en",
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data.tasks.length > 0) {
+        setExtractedTasks(data.data.tasks);
+      } else {
+        setExtractedTasks([]);
+        toast.info(t("noTasks"));
       }
-    },
-    [addTask, t],
-  );
+    } catch {
+      toast.error("Extraction failed");
+    } finally {
+      setIsExtracting(false);
+    }
+  }, [extractedTasks.length, locale, t]);
 
-  const handleToggleComplete = useCallback(
-    async (id, completed) => {
+  // Confirm a single task → create reminder
+  const handleConfirm = useCallback(
+    async (task) => {
       try {
-        await fetch(`/api/reminders/${id}`, {
-          method: "PATCH",
+        const hasDate = !!task.dateTime;
+        const res = await fetch("/api/reminders", {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ completed }),
+          body: JSON.stringify({
+            title: task.title,
+            dateTime: task.dateTime || null,
+            priority: task.priority || "medium",
+            tags: task.tags || [],
+            inboxState: hasDate ? "processed" : "inbox",
+          }),
         });
+        if (!res.ok) throw new Error("Failed");
+        setExtractedTasks((prev) => prev.filter((t) => t !== task));
         queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+        toast.success(t("confirmed"));
       } catch {
-        toast.error(t("addFailed"));
+        toast.error(t("confirmFailed"));
       }
     },
     [queryClient, t],
   );
 
-  const fetchTasks = useCallback(
-    ({ silent } = {}) => {
-      if (silent) refetch();
+  // Confirm all tasks
+  const handleConfirmAll = useCallback(async () => {
+    let success = 0;
+    let failed = 0;
+    const remaining = [...extractedTasks];
+
+    for (const task of extractedTasks) {
+      try {
+        const hasDate = !!task.dateTime;
+        const res = await fetch("/api/reminders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: task.title,
+            dateTime: task.dateTime || null,
+            priority: task.priority || "medium",
+            tags: task.tags || [],
+            inboxState: hasDate ? "processed" : "inbox",
+          }),
+        });
+        if (!res.ok) throw new Error("Failed");
+        success++;
+        const idx = remaining.indexOf(task);
+        if (idx !== -1) remaining.splice(idx, 1);
+      } catch {
+        failed++;
+      }
+    }
+
+    setExtractedTasks(remaining);
+    queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+
+    if (failed === 0) {
+      toast.success(t("confirmed"));
+    } else {
+      toast.error(t("partialSuccess", { success, failed }));
+    }
+  }, [extractedTasks, queryClient, t]);
+
+  // Dismiss a task
+  const handleDismiss = useCallback(
+    (task) => {
+      setExtractedTasks((prev) => prev.filter((t) => t !== task));
+      toast(t("dismissed"));
     },
-    [refetch],
+    [t],
   );
 
   if (status === "loading" || loading) {
     return (
-      <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-3">
-        <div className="h-8 w-32 rounded animate-pulse" style={{ backgroundColor: "var(--surface-hover)" }} />
-        <div className="h-14 rounded-xl animate-pulse" style={{ backgroundColor: "var(--surface-hover)" }} />
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-12 rounded-lg animate-pulse" style={{ backgroundColor: "var(--surface-hover)" }} />
-        ))}
+      <div className="flex h-full">
+        <section
+          className="flex-1 overflow-hidden"
+          style={{ background: "var(--surface)" }}
+        >
+          <div
+            className="flex items-center justify-between px-3"
+            style={{
+              minHeight: 40,
+              borderBottom: "1px solid var(--border)",
+            }}
+          >
+            <div className="skeleton-line h-3 w-24" />
+            <div className="skeleton-line h-3 w-20" />
+          </div>
+          <div className="px-6 pt-6">
+            <div className="space-y-3" style={{ paddingLeft: 54 }}>
+              <div className="skeleton-line h-4 w-full" />
+              <div className="skeleton-line h-4 w-5/6" />
+              <div className="skeleton-line h-4 w-3/5" />
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-0.5" style={{ color: "var(--text-primary)" }}>
-        {t("title")}
-      </h1>
-      {tasks.length > 0 && (
-        <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-          {t("unprocessed", { count: tasks.length })}
-        </p>
-      )}
-      {tasks.length === 0 && !loading && <div className="mb-4" />}
-
-      <InboxInput onTaskAdded={handleTaskAdded} />
-
-      {tasks.length === 0 ? (
-        <div className="py-16 text-center">
-          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-            {t("inboxZero")}
-          </p>
-          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-            {t("inboxZeroDesc")}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-0">
-          {tasks.map((task) => (
-            <InboxTaskRow
-              key={task._id || task.id}
-              task={task}
-              onToggleComplete={handleToggleComplete}
-              onClick={(id) => setSelectedTaskId(id)}
-            />
-          ))}
-        </div>
-      )}
-
-      {selectedTaskId && (
-        <TaskDetailPanel
-          taskId={selectedTaskId}
-          onClose={() => setSelectedTaskId(null)}
-          onUpdate={() => queryClient.invalidateQueries({ queryKey: reminderKeys.all })}
-        />
-      )}
-
-      <AIReminderModal
-        isOpen={isAIModalOpen}
-        onClose={() => setIsAIModalOpen(false)}
-        fetchTasks={fetchTasks}
+    <div className="flex flex-col h-full" style={{ background: "var(--surface)" }}>
+      <InboxTopBar
+        saveStatus={saveStatus}
+        onExtract={handleExtract}
+        isExtracting={isExtracting}
       />
+
+      <div className="flex-1 overflow-y-auto">
+        {inboxNote && (
+          <NoteEditor
+            key={inboxNote.id}
+            note={inboxNote}
+            onSave={handleSave}
+            onSaveStatusChange={setSaveStatus}
+            hideTitle
+            editorRef={editorRef}
+          />
+        )}
+
+        <ExtractedTasksSection
+          tasks={extractedTasks}
+          onConfirm={handleConfirm}
+          onConfirmAll={handleConfirmAll}
+          onDismiss={handleDismiss}
+        />
+      </div>
     </div>
   );
 }
