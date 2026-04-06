@@ -137,7 +137,19 @@
       "thu": "四",
       "fri": "五",
       "sat": "六"
-    }
+    },
+    "week": "週",
+    "agenda": "議程",
+    "day": "日",
+    "monthView": "月",
+    "allDay": "全天",
+    "noTasks": "沒有排程的任務",
+    "quickAddPlaceholder": "新增任務...",
+    "moreOptions": "更多選項",
+    "nMore": "+{count} 項",
+    "now": "現在",
+    "addTask": "新增任務",
+    "weekOf": "{start} — {end} 的週"
   },
   "reminders": {
     "title": "我的提醒",

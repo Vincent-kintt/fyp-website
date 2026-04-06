@@ -137,7 +137,19 @@
       "thu": "Thu",
       "fri": "Fri",
       "sat": "Sat"
-    }
+    },
+    "week": "Week",
+    "agenda": "Agenda",
+    "day": "Day",
+    "monthView": "Month",
+    "allDay": "All day",
+    "noTasks": "No tasks scheduled",
+    "quickAddPlaceholder": "Add a task...",
+    "moreOptions": "More options",
+    "nMore": "+{count} more",
+    "now": "Now",
+    "addTask": "Add new task",
+    "weekOf": "Week of {start} — {end}"
   },
   "reminders": {
     "title": "My Reminders",

@@ -140,6 +140,12 @@ a[href] {
     --cmdk-kbd-border: #e5e5e5;
     --cmdk-overlay: rgba(0, 0, 0, 0.3);
     --cmdk-shadow: 0 16px 48px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+
+    /* Calendar event tokens */
+    --event-bg: rgba(66, 133, 244, 0.1);
+    --event-border: #4285f4;
+    --event-text: #1a56c4;
+    --time-indicator: #ef4444;
   }
 
   .dark {
@@ -273,6 +279,12 @@ a[href] {
     --cmdk-kbd-border: #222222;
     --cmdk-overlay: rgba(0, 0, 0, 0.6);
     --cmdk-shadow: none;
+
+    /* Calendar event tokens */
+    --event-bg: rgba(66, 133, 244, 0.15);
+    --event-border: #4285f4;
+    --event-text: #4285f4;
+    --time-indicator: #ef4444;
   }
 }
 
