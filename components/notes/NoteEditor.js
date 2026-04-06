@@ -174,7 +174,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
       executedCommandsRef.current.set(commandBlock.id, blockText);
 
       const [loadingBlock] = editor.insertBlocks(
-        [{ type: "paragraph", content: t("agentSearchingWeb") }],
+        [{ type: "paragraph", content: t("aiGenerating") }],
         commandBlock,
         "after",
       );
@@ -468,7 +468,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
           if (!parsed) return false;
 
           // /ask with empty prompt — let Enter pass through
-          if (parsed.type === "ask" && !parsed.input) return false;
+          if ((parsed.type === "ask" || parsed.type === "agent") && !parsed.input) return false;
 
           // If slash menu is open and command has no user input
           // (e.g. /summarize, /digest typed manually), let menu handle Enter
@@ -579,6 +579,31 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
           aliases: ["digest"],
           group: "AI",
           icon: <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
+        },
+        {
+          title: t("agent"),
+          onItemClick: () => {
+            const currentBlock = editorInstance.getTextCursorPosition().block;
+            const blockText = currentBlock.content?.map((c) => c.text || "").join("") || "";
+            if (!blockText.trim()) {
+              editorInstance.updateBlock(currentBlock, {
+                type: "paragraph",
+                content: "/agent ",
+              });
+              editorInstance.setTextCursorPosition(currentBlock, "end");
+            } else {
+              const [newBlock] = editorInstance.insertBlocks(
+                [{ type: "paragraph", content: "/agent " }],
+                currentBlock,
+                "after",
+              );
+              editorInstance.setTextCursorPosition(newBlock, "end");
+            }
+          },
+          subtext: t("agentSubtext"),
+          aliases: ["agent"],
+          group: "AI",
+          icon: <Bot size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
         },
       ];
 
