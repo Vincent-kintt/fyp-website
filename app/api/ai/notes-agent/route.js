@@ -73,8 +73,9 @@ export async function POST(request) {
         );
     }
 
+    const notesModel = model || process.env.NOTES_AGENT_MODEL || process.env.PARSE_TASK_MODEL;
     const result = streamText({
-      model: getModel(model),
+      model: getModel(notesModel),
       system: getNotesSystemPrompt({ language, noteTitle, noteContext }),
       messages: [{ role: "user", content: userMessage }],
       maxRetries: 2,
