@@ -41,7 +41,7 @@ export default async function LocaleLayout({ children, params }) {
   return (
     <html lang={locale} suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen bg-background`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col h-screen overflow-hidden bg-background`}
       >
         <ThemeProvider>
           <NextIntlClientProvider messages={messages}>
@@ -51,11 +51,11 @@ export default async function LocaleLayout({ children, params }) {
               </a>
               <GlobalSearch />
               <Navbar />
-              <div className="flex flex-1">
+              <div className="flex flex-1 min-h-0">
                 <Sidebar />
                 <main
                   id="main-content"
-                  className="flex-1 w-full pb-[calc(60px+env(safe-area-inset-bottom,0px))] md:pb-0"
+                  className="flex-1 w-full overflow-y-auto pb-[calc(60px+env(safe-area-inset-bottom,0px))] md:pb-0"
                 >
                   {children}
                 </main>
