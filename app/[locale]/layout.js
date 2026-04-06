@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import "../globals.css";
 import Navbar from "@/components/layout/Navbar";
+import GlobalSearch from "@/components/search/GlobalSearch";
 import Sidebar from "@/components/layout/Sidebar";
 import BottomNav from "@/components/layout/BottomNav";
 import Providers from "../providers";
@@ -48,6 +49,7 @@ export default async function LocaleLayout({ children, params }) {
               <a href="#main-content" className="skip-to-content">
                 Skip to content
               </a>
+              <GlobalSearch />
               <Navbar />
               <div className="flex flex-1">
                 <Sidebar />
