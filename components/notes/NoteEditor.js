@@ -255,6 +255,8 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
         }
       } catch (err) {
         console.error("Agent command error:", err);
+        // Allow retry by clearing the consumed tracking for this block
+        executedCommandsRef.current.delete(commandBlock.id);
         try {
           editor.updateBlock(loadingBlock, {
             type: "paragraph",
