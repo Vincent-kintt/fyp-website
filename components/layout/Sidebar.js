@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useSession, signOut } from "next-auth/react";
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
+import { useTheme } from "next-themes";
 import {
   FaInbox,
   FaHome,
@@ -14,7 +15,11 @@ import {
   FaChevronRight,
   FaSignOutAlt,
   FaSearch,
+  FaMoon,
+  FaSun,
+  FaGlobe,
 } from "react-icons/fa";
+import NotificationBell from "./NotificationBell";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { FiChevronDown, FiChevronRight, FiPlus } from "react-icons/fi";
 import useNotes from "@/hooks/useNotes";
@@ -91,6 +96,19 @@ export default function Sidebar() {
   const handleSignOut = async () => {
     const prefix = locale === "zh-TW" ? "" : `/${locale}`;
     await signOut({ callbackUrl: `${prefix}/login` });
+  };
+
+  const router = useRouter();
+  const { theme, setTheme, systemTheme } = useTheme();
+  const currentTheme = theme === "system" ? systemTheme : theme;
+
+  const toggleTheme = () => {
+    setTheme(currentTheme === "dark" ? "light" : "dark");
+  };
+
+  const switchLocale = () => {
+    const next = locale === "zh-TW" ? "en" : "zh-TW";
+    router.replace(pathname, { locale: next });
   };
 
   const renderItem = ({ href, icon: Icon, labelKey }) => {
@@ -351,6 +369,95 @@ export default function Sidebar() {
         )}
       </nav>
 
+      {/* Bottom utility bar */}
+      {session?.user && (
+        <div
+          className={`flex items-center ${collapsed ? "flex-col justify-center px-2 gap-1" : "px-2.5"} py-2 border-t flex-shrink-0`}
+          style={{ borderColor: "var(--navbar-border)" }}
+        >
+          {!collapsed ? (
+            <>
+              <div className="flex-1 min-w-0">
+                <NotificationBell />
+              </div>
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={switchLocale}
+                  className="p-1.5 rounded-md transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      "var(--surface-hover)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = "transparent")
+                  }
+                  aria-label="Switch language"
+                >
+                  <FaGlobe size={14} />
+                </button>
+                <button
+                  onClick={toggleTheme}
+                  className="p-1.5 rounded-md transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      "var(--surface-hover)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = "transparent")
+                  }
+                  aria-label="Toggle theme"
+                >
+                  {currentTheme === "dark" ? (
+                    <FaSun size={14} className="text-warning" />
+                  ) : (
+                    <FaMoon size={14} />
+                  )}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <NotificationBell />
+              <button
+                onClick={switchLocale}
+                className="p-1.5 rounded-md transition-colors"
+                style={{ color: "var(--text-muted)" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    "var(--surface-hover)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
+                aria-label="Switch language"
+              >
+                <FaGlobe size={14} />
+              </button>
+              <button
+                onClick={toggleTheme}
+                className="p-1.5 rounded-md transition-colors"
+                style={{ color: "var(--text-muted)" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    "var(--surface-hover)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
+                aria-label="Toggle theme"
+              >
+                {currentTheme === "dark" ? (
+                  <FaSun size={14} className="text-warning" />
+                ) : (
+                  <FaMoon size={14} />
+                )}
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </aside>
   );
 }
