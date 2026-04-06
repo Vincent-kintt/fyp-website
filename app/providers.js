@@ -22,10 +22,19 @@ export default function Providers({ children }) {
 
   // Register service worker for push notifications
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
+    if (!("serviceWorker" in navigator)) return;
+
+    const register = () => {
       navigator.serviceWorker.register("/sw.js").catch((err) => {
-        console.error("[SW] Registration failed:", err);
+        console.warn("[SW] Registration deferred:", err.message);
       });
+    };
+
+    if (document.readyState === "complete") {
+      register();
+    } else {
+      window.addEventListener("load", register);
+      return () => window.removeEventListener("load", register);
     }
   }, []);
 
