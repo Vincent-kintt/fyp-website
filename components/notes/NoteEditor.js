@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { BlockNoteView } from "@blocknote/mantine";
@@ -247,9 +248,91 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
 
   const getSlashMenuItems = useCallback(
     (editorInstance) => {
-      return getDefaultReactSlashMenuItems(editorInstance);
+      const defaultItems = getDefaultReactSlashMenuItems(editorInstance);
+
+      if (disableAiCommands) return defaultItems;
+
+      const aiItems = [
+        {
+          title: t("askAi"),
+          onItemClick: () => {
+            const currentBlock = editorInstance.getTextCursorPosition().block;
+            const blockText = currentBlock.content?.map((c) => c.text || "").join("") || "";
+            if (!blockText.trim()) {
+              editorInstance.updateBlock(currentBlock, {
+                type: "paragraph",
+                content: "/ask ",
+              });
+              editorInstance.setTextCursorPosition(currentBlock, "end");
+            } else {
+              const [newBlock] = editorInstance.insertBlocks(
+                [{ type: "paragraph", content: "/ask " }],
+                currentBlock,
+                "after",
+              );
+              editorInstance.setTextCursorPosition(newBlock, "end");
+            }
+          },
+          subtext: t("askAiSubtext"),
+          aliases: ["ask", "ai"],
+          group: "AI",
+          icon: <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
+        },
+        {
+          title: t("summarize"),
+          onItemClick: () => {
+            const currentBlock = editorInstance.getTextCursorPosition().block;
+            const blockText = currentBlock.content?.map((c) => c.text || "").join("") || "";
+            if (!blockText.trim()) {
+              editorInstance.updateBlock(currentBlock, {
+                type: "paragraph",
+                content: "/summarize",
+              });
+              executeAiCommand("summarize", "", currentBlock.id);
+            } else {
+              const [newBlock] = editorInstance.insertBlocks(
+                [{ type: "paragraph", content: "/summarize" }],
+                currentBlock,
+                "after",
+              );
+              executeAiCommand("summarize", "", newBlock.id);
+            }
+          },
+          subtext: t("summarizeSubtext"),
+          aliases: ["summarize", "summary"],
+          group: "AI",
+          icon: <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
+        },
+        {
+          title: t("digestLabel"),
+          onItemClick: () => {
+            const currentBlock = editorInstance.getTextCursorPosition().block;
+            const blockText = currentBlock.content?.map((c) => c.text || "").join("") || "";
+            if (!blockText.trim()) {
+              editorInstance.updateBlock(currentBlock, {
+                type: "paragraph",
+                content: "/digest",
+              });
+              executeAiCommand("digest", "", currentBlock.id);
+            } else {
+              const [newBlock] = editorInstance.insertBlocks(
+                [{ type: "paragraph", content: "/digest" }],
+                currentBlock,
+                "after",
+              );
+              executeAiCommand("digest", "", newBlock.id);
+            }
+          },
+          subtext: t("digestSubtext"),
+          aliases: ["digest"],
+          group: "AI",
+          icon: <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
+        },
+      ];
+
+      return [...defaultItems, ...aiItems];
     },
-    [],
+    [executeAiCommand, t, disableAiCommands],
   );
 
   const handleTitleChange = useCallback(
