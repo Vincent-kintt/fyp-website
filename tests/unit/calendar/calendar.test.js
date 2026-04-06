@@ -134,6 +134,18 @@ describe("clipReminderToDay", () => {
     expect(result).not.toBeNull();
     expect(result.startMinute).toBe(23 * 60 + 30);
   });
+
+  it("does NOT leak into next day when end equals midnight exactly", () => {
+    const reminder = { dateTime: "2026-04-07T23:30", duration: 30 };
+    const result = clipReminderToDay(reminder, "2026-04-08");
+    expect(result).toBeNull();
+  });
+
+  it("does NOT leak null-duration events into next day", () => {
+    const reminder = { dateTime: "2026-04-07T23:30", duration: null };
+    const result = clipReminderToDay(reminder, "2026-04-08");
+    expect(result).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

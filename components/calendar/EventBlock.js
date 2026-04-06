@@ -2,12 +2,6 @@
 
 import { format } from "date-fns";
 
-/**
- * EventBlock — a single timed reminder block rendered inside the TimeGrid.
- *
- * Absolutely positioned within its parent day-column.
- * Handles overlapping layout via `column` / `totalColumns`.
- */
 export default function EventBlock({
   reminder,
   top,
@@ -19,55 +13,33 @@ export default function EventBlock({
 }) {
   const isTask = !reminder.type || reminder.type === "one-time";
   const isCompleted = reminder.status === "completed" || reminder.completed;
-  const isSnoozed = reminder.status === "snoozed";
 
-  // ---------------------------------------------------------------------------
-  // Layout — side-by-side columns for overlapping events
-  // ---------------------------------------------------------------------------
+  // Overlap layout
   const overlapping = totalColumns > 1;
-  const leftPercent = overlapping ? (column / totalColumns) * 100 : 0;
-  const widthPercent = overlapping
-    ? (1 / totalColumns) * 100 - 1
-    : undefined;
-
   const positionStyle = overlapping
     ? {
-        left: `${leftPercent}%`,
-        width: `${widthPercent}%`,
+        left: `${(column / totalColumns) * 100}%`,
+        width: `${(1 / totalColumns) * 100 - 1}%`,
       }
-    : {
-        left: "3px",
-        width: "calc(100% - 6px)",
-      };
+    : { left: "2px", width: "calc(100% - 4px)" };
 
-  // ---------------------------------------------------------------------------
-  // Colors via CSS vars
-  // ---------------------------------------------------------------------------
-  const borderStyle = isTask ? "dashed" : "solid";
-
-  // ---------------------------------------------------------------------------
-  // Handlers
-  // ---------------------------------------------------------------------------
   function handleClick(e) {
     e.stopPropagation();
     onClick?.(reminder.id);
   }
 
-  function handleCheckboxClick(e) {
+  function handleCheckbox(e) {
     e.stopPropagation();
     onToggleComplete?.(reminder.id, !isCompleted);
   }
 
-  // ---------------------------------------------------------------------------
-  // Time label (only shown when block is tall enough)
-  // ---------------------------------------------------------------------------
-  const showTime = height >= 40 && reminder.dateTime;
+  const showTime = height >= 44 && reminder.dateTime;
   let timeLabel = "";
   if (showTime) {
     try {
       timeLabel = format(new Date(reminder.dateTime), "h:mm a");
     } catch {
-      timeLabel = "";
+      /* skip */
     }
   }
 
@@ -78,62 +50,66 @@ export default function EventBlock({
       aria-label={reminder.title}
       onClick={handleClick}
       onKeyDown={(e) => e.key === "Enter" && handleClick(e)}
-      className="absolute overflow-hidden rounded transition-shadow cursor-pointer hover:shadow-md select-none"
+      className="absolute overflow-hidden cursor-pointer select-none transition-shadow duration-150 hover:shadow-lg"
       style={{
         top: `${top}px`,
-        height: `${height}px`,
+        height: `${Math.max(height, 28)}px`,
         ...positionStyle,
-        backgroundColor: "var(--event-bg)",
-        borderLeft: `3px ${borderStyle} var(--event-border)`,
-        color: "var(--event-text)",
-        opacity: isCompleted ? 0.5 : 1,
+        background: "var(--event-bg)",
+        borderLeft: "3px solid var(--event-border)",
+        borderRadius: "6px",
+        opacity: isCompleted ? 0.45 : 1,
+        zIndex: 2,
       }}
     >
-      <div className="flex items-start gap-1 px-1.5 pt-0.5 h-full overflow-hidden">
-        {/* Checkbox for tasks */}
+      <div className="flex items-start gap-1.5 px-2 py-1 h-full">
         {isTask && (
           <span
             role="checkbox"
             aria-checked={isCompleted}
+            onClick={handleCheckbox}
+            onKeyDown={(e) => e.key === " " && handleCheckbox(e)}
             tabIndex={0}
-            onClick={handleCheckboxClick}
-            onKeyDown={(e) => e.key === " " && handleCheckboxClick(e)}
-            className="flex-shrink-0 mt-[2px] cursor-pointer"
+            className="flex-shrink-0 mt-[3px] cursor-pointer"
           >
-            <span
-              className="block w-3 h-3 rounded-sm border"
-              style={{
-                borderColor: "var(--event-border)",
-                backgroundColor: isCompleted
-                  ? "var(--event-border)"
-                  : "transparent",
-              }}
-            />
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect
+                x="1"
+                y="1"
+                width="12"
+                height="12"
+                rx="3"
+                stroke="var(--event-border)"
+                strokeWidth="1.5"
+                fill={isCompleted ? "var(--event-border)" : "none"}
+              />
+              {isCompleted && (
+                <path
+                  d="M4 7l2 2 4-4"
+                  stroke="#fff"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+            </svg>
           </span>
         )}
 
-        <div className="flex flex-col min-w-0 flex-1">
-          {/* Title */}
+        <div className="flex flex-col min-w-0 flex-1 gap-0.5">
           <span
-            className="text-[12px] font-semibold leading-tight truncate"
+            className="text-[12px] font-semibold leading-snug truncate"
             style={{
+              color: "var(--event-text)",
               textDecoration: isCompleted ? "line-through" : "none",
             }}
           >
-            {/* Snooze indicator */}
-            {isSnoozed && (
-              <span className="mr-1 opacity-70" aria-label="snoozed">
-                ⏰
-              </span>
-            )}
             {reminder.title}
           </span>
-
-          {/* Time label */}
           {showTime && (
             <span
-              className="text-[10px] leading-tight truncate"
-              style={{ opacity: 0.7 }}
+              className="text-[10px] leading-none tabular-nums"
+              style={{ color: "var(--event-text)", opacity: 0.6 }}
             >
               {timeLabel}
             </span>

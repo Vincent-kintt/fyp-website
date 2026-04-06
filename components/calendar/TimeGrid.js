@@ -161,7 +161,10 @@ export default function TimeGrid({
               <div
                 key={dateStr}
                 className="flex-1 relative border-l min-w-0"
-                style={{ borderColor: "var(--card-border)" }}
+                style={{
+                  borderColor: "var(--card-border)",
+                  background: isToday(date) ? "rgba(66,133,244,0.04)" : "transparent",
+                }}
               >
                 {/* Hour rows */}
                 {HOURS.map((hour) => (

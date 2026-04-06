@@ -52,9 +52,6 @@ export default function CalendarSidebar({
   return (
     <aside
       className="flex flex-col h-full"
-      style={{
-        borderRight: "1px solid var(--card-border)",
-      }}
     >
       {/* Mini calendar */}
       <div className="p-4 shrink-0">
@@ -163,15 +160,16 @@ export default function CalendarSidebar({
                   }}
                   className="shrink-0 cursor-pointer"
                 >
-                  <span
-                    className="block w-4 h-4 rounded border"
-                    style={{
-                      borderColor: "var(--card-border)",
-                      backgroundColor: isCompleted
-                        ? "var(--accent)"
-                        : "transparent",
-                    }}
-                  />
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <rect
+                      x="1.5" y="1.5" width="13" height="13" rx="3.5"
+                      stroke="var(--card-border)" strokeWidth="1.5"
+                      fill={isCompleted ? "var(--accent)" : "none"}
+                    />
+                    {isCompleted && (
+                      <path d="M5 8l2 2 4-4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    )}
+                  </svg>
                 </span>
               </button>
             );
