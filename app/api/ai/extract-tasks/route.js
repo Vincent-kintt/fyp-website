@@ -4,6 +4,7 @@ import { getModel } from "@/lib/ai/provider.js";
 import { generateText } from "ai";
 
 const MAX_INPUT_LENGTH = 8000;
+const EXTRACT_MODEL = process.env.PARSE_TASK_MODEL || "x-ai/grok-4.1-fast";
 
 export async function POST(request) {
   try {
@@ -64,7 +65,7 @@ Rules:
 - Return ONLY the JSON array, no markdown fences, no explanation`;
 
     const { text: content } = await generateText({
-      model: getModel(),
+      model: getModel(EXTRACT_MODEL),
       system: systemPrompt,
       prompt: input,
       temperature: 0.2,
