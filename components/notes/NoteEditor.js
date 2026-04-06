@@ -110,7 +110,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
         [
           {
             type: "paragraph",
-            content: `⏳ ${t("aiGenerating")}`,
+            content: `${t("aiGenerating")}`,
           },
         ],
         commandBlock,
@@ -180,7 +180,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
           try {
             editor.updateBlock(loadingBlock, {
               type: "paragraph",
-              content: `❌ ${t("aiError")}`,
+              content: `${t("aiError")}`,
             });
           } catch {
             // Loading block already deleted
@@ -191,7 +191,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
         try {
           editor.updateBlock(loadingBlock, {
             type: "paragraph",
-            content: `❌ ${t("aiError")}${err?.message ? ` (${err.message})` : ""}`,
+            content: `${t("aiError")}${err?.message ? ` — ${err.message}` : ""}`,
           });
         } catch {
           // Loading block already deleted
