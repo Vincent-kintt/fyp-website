@@ -218,6 +218,30 @@ export default function InboxPage() {
     syncExtractionState([], []);
   }, [syncExtractionState]);
 
+  // Reset inbox — clear editor content + extracted tasks + confirmed history
+  const handleResetInbox = useCallback(async () => {
+    const editor = editorRef.current;
+    if (editor) {
+      const blocks = editor.getContent();
+      if (blocks?.length > 0) {
+        // BlockNote: replace all blocks with a single empty paragraph
+        const bn = editor._editor;
+        if (bn) {
+          bn.replaceBlocks(bn.document, [{ type: "paragraph", content: [] }]);
+        }
+      }
+    }
+    setExtractedTasks([]);
+    setConfirmedTasks([]);
+    try {
+      await fetch("/api/inbox/note", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: [], extractedTasks: [], confirmedTasks: [] }),
+      });
+    } catch {}
+  }, []);
+
   if (status === "loading" || loading) {
     return (
       <div className="flex h-full">
@@ -254,6 +278,7 @@ export default function InboxPage() {
         onExtract={handleExtract}
         isExtracting={isExtracting}
         onClearTasks={handleClearTasks}
+        onResetInbox={handleResetInbox}
       />
 
       <div className="flex-1 overflow-y-auto">

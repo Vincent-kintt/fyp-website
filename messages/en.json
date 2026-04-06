@@ -115,7 +115,8 @@
     "dismissed": "Dismissed",
     "reExtractWarning": "Unconfirmed tasks will be replaced.",
     "partialSuccess": "{success} created, {failed} failed",
-    "clearTasks": "Clear extracted tasks"
+    "clearTasks": "Clear extracted tasks",
+    "resetInbox": "Reset inbox"
   },
   "calendar": {
     "title": "Calendar",

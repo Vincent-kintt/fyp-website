@@ -58,6 +58,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     if (editorRef) {
       editorRef.current = {
         getContent: () => editor.document,
+        _editor: editor,
       };
     }
   }, [editor, editorRef]);

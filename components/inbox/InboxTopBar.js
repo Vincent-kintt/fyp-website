@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Inbox, Download, MoreHorizontal, Loader2, Trash2 } from "lucide-react";
+import { Inbox, Download, MoreHorizontal, Loader2, Trash2, RotateCcw } from "lucide-react";
 import { useClickOutside } from "@/hooks/useClickOutside";
 
-export default function InboxTopBar({ saveStatus, onExtract, isExtracting, onClearTasks }) {
+export default function InboxTopBar({ saveStatus, onExtract, isExtracting, onClearTasks, onResetInbox }) {
   const t = useTranslations("inbox");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useClickOutside(() => setMenuOpen(false));
@@ -92,6 +92,20 @@ export default function InboxTopBar({ saveStatus, onExtract, isExtracting, onCle
               >
                 <Trash2 size={14} strokeWidth={1.5} />
                 {t("clearTasks")}
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onResetInbox?.();
+                }}
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left transition-colors"
+                style={{ color: "var(--danger)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                role="menuitem"
+              >
+                <RotateCcw size={14} strokeWidth={1.5} />
+                {t("resetInbox")}
               </button>
             </div>
           )}
