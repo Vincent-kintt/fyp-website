@@ -169,9 +169,14 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             editor.insertBlocks(parsedBlocks, commandBlock, "after");
           }
         } else {
-          // Empty response — just remove loading block
-          if (editor.getBlock(loadingBlock.id)) {
-            editor.removeBlocks([loadingBlock]);
+          // Empty response — show error instead of silently removing
+          try {
+            editor.updateBlock(loadingBlock, {
+              type: "paragraph",
+              content: `❌ ${t("aiError")}`,
+            });
+          } catch {
+            // Loading block already deleted
           }
         }
       } catch {
