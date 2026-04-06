@@ -340,7 +340,7 @@ export default function Sidebar() {
               </button>
             </div>
             {notesExpanded && notes.length > 0 && (
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 <PageTree
                   notes={notes}
                   activeNoteId={activeNoteId}
