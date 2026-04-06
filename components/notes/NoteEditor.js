@@ -12,7 +12,6 @@ import {
 import { filterSuggestionItems } from "@blocknote/core";
 import { en as bnEn } from "@blocknote/core/locales";
 import "@blocknote/mantine/style.css";
-import { Sparkles } from "lucide-react";
 import NoteIcon from "./NoteIcon";
 import IconPicker from "./IconPicker";
 
@@ -25,7 +24,6 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const saveTimerRef = useRef(null);
   const titleTimerRef = useRef(null);
-  const pendingAskRef = useRef(null);
 
   useEffect(() => {
     setTitle(note?.title || "");
@@ -75,190 +73,11 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     }, 1000);
   }, [editor, onSave]);
 
-  const executeAiCommand = useCallback(
-    async (type, input, afterBlockId) => {
-      const blocks = editor.document;
-      const noteContext = blocks
-        .map((b) => b.content?.map((c) => c.text || "").join("") || "")
-        .filter(Boolean)
-        .join("\n");
-
-      let commandBlock;
-      if (afterBlockId) {
-        commandBlock = editor.getBlock(afterBlockId);
-      } else {
-        const currentBlock = editor.getTextCursorPosition().block;
-        const commandText = `/${type}${input ? " " + input : ""}`;
-        [commandBlock] = editor.insertBlocks(
-          [
-            {
-              type: "paragraph",
-              content: [
-                {
-                  type: "text",
-                  text: commandText,
-                  styles: { italic: true, textColor: "purple" },
-                },
-              ],
-            },
-          ],
-          currentBlock,
-          "after",
-        );
-      }
-
-      const [loadingBlock] = editor.insertBlocks(
-        [
-          {
-            type: "paragraph",
-            content: [
-              {
-                type: "text",
-                text: "⏳ Generating...",
-                styles: { italic: true },
-              },
-            ],
-          },
-        ],
-        commandBlock,
-        "after",
-      );
-
-      try {
-        const res = await fetch("/api/ai/notes-agent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            command: type,
-            input: input || noteContext,
-            noteTitle: title,
-            noteContext,
-            language: locale?.startsWith("zh") ? "zh" : "en",
-          }),
-        });
-
-        if (!res.ok) throw new Error("AI request failed");
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let accumulated = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          accumulated += decoder.decode(value, { stream: true });
-          editor.updateBlock(loadingBlock, {
-            type: "paragraph",
-            content: [
-              { type: "text", text: accumulated, styles: { italic: true } },
-            ],
-          });
-        }
-
-        const parsedBlocks = await editor.tryParseMarkdownToBlocks(accumulated);
-        editor.removeBlocks([loadingBlock]);
-
-        if (parsedBlocks.length > 0) {
-          editor.insertBlocks(parsedBlocks, commandBlock, "after");
-        }
-      } catch {
-        editor.updateBlock(loadingBlock, {
-          type: "paragraph",
-          content: [
-            {
-              type: "text",
-              text: "❌ Failed to get AI response.",
-              styles: { italic: true },
-            },
-          ],
-        });
-      }
-    },
-    [editor, title, locale],
-  );
-
   const getSlashMenuItems = useCallback(
     (editorInstance) => {
-      const defaultItems = getDefaultReactSlashMenuItems(editorInstance);
-
-      const aiItems = [
-        {
-          title: t("askAi"),
-          onItemClick: () => {
-            const currentBlock = editorInstance.getTextCursorPosition().block;
-            const [promptBlock] = editorInstance.insertBlocks(
-              [{ type: "paragraph", content: [] }],
-              currentBlock,
-              "after",
-            );
-            editorInstance.setTextCursorPosition(promptBlock, "end");
-            pendingAskRef.current = promptBlock.id;
-          },
-          subtext: t("askAiSubtext"),
-          aliases: ["ask", "ai", "question"],
-          group: "AI",
-          icon: <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
-        },
-        {
-          title: t("summarize"),
-          onItemClick: () => {
-            executeAiCommand("summarize", "");
-          },
-          subtext: t("summarizeSubtext"),
-          aliases: ["summarize", "summary"],
-          group: "AI",
-          icon: <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
-        },
-        {
-          title: t("digestLabel"),
-          onItemClick: () => {
-            executeAiCommand("digest", "");
-          },
-          subtext: t("digestSubtext"),
-          aliases: ["digest", "overview"],
-          group: "AI",
-          icon: <Sparkles size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
-        },
-      ];
-
-      return [...defaultItems, ...aiItems];
+      return getDefaultReactSlashMenuItems(editorInstance);
     },
-    [executeAiCommand, t],
-  );
-
-  const handleEditorKeyDown = useCallback(
-    (e) => {
-      if (e.key === "Enter" && !e.shiftKey && pendingAskRef.current) {
-        const blockId = pendingAskRef.current;
-        const block = editor.getBlock(blockId);
-        if (!block) {
-          pendingAskRef.current = null;
-          return;
-        }
-        const question = block.content
-          ?.map((c) => c.text || "")
-          .join("")
-          .trim();
-        if (!question) return;
-
-        e.preventDefault();
-        pendingAskRef.current = null;
-
-        editor.updateBlock(blockId, {
-          type: "paragraph",
-          content: [
-            {
-              type: "text",
-              text: `/ask ${question}`,
-              styles: { italic: true, textColor: "purple" },
-            },
-          ],
-        });
-
-        executeAiCommand("ask", question, blockId);
-      }
-    },
-    [editor, executeAiCommand],
+    [],
   );
 
   const handleTitleChange = useCallback(
@@ -288,10 +107,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   }, []);
 
   return (
-    <div
-      className="px-6 pt-6 pb-[30vh]"
-      onKeyDown={handleEditorKeyDown}
-    >
+    <div className="px-6 pt-6 pb-[30vh]">
       {!hideTitle && (
         <>
           {/* Icon area */}
