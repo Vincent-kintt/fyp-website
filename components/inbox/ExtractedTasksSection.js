@@ -26,12 +26,12 @@ export default function ExtractedTasksSection({
 
   return (
     <div
-      className="px-4 py-3"
+      className="px-6 py-4"
       style={{ borderTop: "1px solid var(--border)" }}
     >
-      <div className="flex items-center justify-between mb-2.5">
+      <div className="flex items-center justify-between mb-3">
         <span
-          className="text-[11px] font-medium uppercase tracking-wide"
+          className="text-xs font-medium uppercase tracking-wide"
           style={{ color: "var(--text-muted)", letterSpacing: "0.5px" }}
         >
           {t("extractedTasks")}
@@ -39,7 +39,7 @@ export default function ExtractedTasksSection({
         <button
           onClick={handleConfirmAll}
           disabled={confirmingAll}
-          className="px-2 py-0.5 rounded text-[10px] transition-colors disabled:opacity-50"
+          className="px-3 py-1 rounded-md text-xs transition-colors disabled:opacity-50"
           style={{
             border: "1px solid var(--border)",
             color: "var(--text-secondary)",
@@ -48,7 +48,7 @@ export default function ExtractedTasksSection({
           {t("confirmAll")}
         </button>
       </div>
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-1">
         {tasks.map((task, index) => (
           <ExtractedTaskCard
             key={`${task.title}-${index}`}

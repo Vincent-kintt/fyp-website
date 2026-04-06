@@ -23,32 +23,34 @@ const ExtractedTaskCard = memo(function ExtractedTaskCard({
 
   return (
     <div
-      className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors"
+      className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors"
       style={{ backgroundColor: "var(--surface)" }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--surface-hover)")}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--surface)")}
     >
       <div
-        className="w-[18px] h-[18px] rounded-full flex-shrink-0"
+        className="w-5 h-5 rounded-full flex-shrink-0"
         style={{
           border: `2px solid ${priorityConfig?.color || "var(--text-muted)"}`,
         }}
       />
       <div className="flex-1 min-w-0">
         <div
-          className="text-[13px] truncate"
+          className="text-sm font-medium truncate"
           style={{ color: "var(--text-primary)" }}
         >
           {task.title}
         </div>
-        <div className="flex gap-1.5 mt-0.5 flex-wrap">
+        <div className="flex gap-2 mt-1 flex-wrap">
           {task.dateTime && (
-            <span className="text-[10px]" style={{ color: "var(--primary)" }}>
+            <span className="text-[11px]" style={{ color: "var(--primary)" }}>
               {task.dateTime}
             </span>
           )}
           {task.tags?.map((tag) => (
             <span
               key={tag}
-              className="text-[10px]"
+              className="text-[11px]"
               style={{ color: "var(--text-muted)" }}
             >
               #{tag}
@@ -56,7 +58,7 @@ const ExtractedTaskCard = memo(function ExtractedTaskCard({
           ))}
           {task.priority !== "medium" && (
             <span
-              className="text-[10px]"
+              className="text-[11px] font-medium"
               style={{
                 color:
                   task.priority === "high"
@@ -69,11 +71,11 @@ const ExtractedTaskCard = memo(function ExtractedTaskCard({
           )}
         </div>
       </div>
-      <div className="flex gap-0.5 flex-shrink-0">
+      <div className="flex gap-1 flex-shrink-0">
         <button
           onClick={handleConfirm}
           disabled={confirming}
-          className="p-1 rounded transition-colors"
+          className="p-1.5 rounded-md transition-colors"
           style={{ color: "var(--text-muted)" }}
           onMouseEnter={(e) =>
             (e.currentTarget.style.color = "var(--success)")
@@ -83,11 +85,11 @@ const ExtractedTaskCard = memo(function ExtractedTaskCard({
           }
           aria-label="Confirm"
         >
-          <Check size={14} strokeWidth={2} />
+          <Check size={16} strokeWidth={2} />
         </button>
         <button
           onClick={() => onDismiss(task)}
-          className="p-1 rounded transition-colors"
+          className="p-1.5 rounded-md transition-colors"
           style={{ color: "var(--text-muted)" }}
           onMouseEnter={(e) =>
             (e.currentTarget.style.color = "var(--danger)")
@@ -97,7 +99,7 @@ const ExtractedTaskCard = memo(function ExtractedTaskCard({
           }
           aria-label="Dismiss"
         >
-          <X size={14} strokeWidth={2} />
+          <X size={16} strokeWidth={2} />
         </button>
       </div>
     </div>
