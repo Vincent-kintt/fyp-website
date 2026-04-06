@@ -16,7 +16,7 @@ import { Sparkles } from "lucide-react";
 import NoteIcon from "./NoteIcon";
 import IconPicker from "./IconPicker";
 
-export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconChange }) {
+export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconChange, hideTitle, editorRef }) {
   const t = useTranslations("notes");
   const locale = useLocale();
   const { theme } = useTheme();
@@ -52,6 +52,15 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
       ]);
     }
   }, [note?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Expose editor content to parent via ref callback
+  useEffect(() => {
+    if (editorRef) {
+      editorRef.current = {
+        getContent: () => editor.document,
+      };
+    }
+  }, [editor, editorRef]);
 
   const handleContentChange = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -282,44 +291,48 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
       className="px-6 pt-6 pb-[30vh]"
       onKeyDown={handleEditorKeyDown}
     >
-      {/* Icon area */}
-      <div className="relative" style={{ paddingLeft: "54px" }}>
-        {note?.icon ? (
-          <button
-            onClick={() => setIconPickerOpen((prev) => !prev)}
-            className="p-1 rounded-md mb-1 transition-opacity hover:opacity-80"
-            style={{ cursor: "pointer" }}
-          >
-            <NoteIcon icon={note.icon} hasChildren={false} expanded={false} size={32} />
-          </button>
-        ) : (
-          <button
-            onClick={() => setIconPickerOpen((prev) => !prev)}
-            className="notes-add-icon-hint flex items-center gap-1.5 px-2 py-1 rounded-md mb-1 text-xs"
-          >
-            <NoteIcon icon={null} hasChildren={false} expanded={false} size={14} fallbackOpacity={0.4} />
-            {t("addIcon")}
-          </button>
-        )}
-        {iconPickerOpen && (
-          <IconPicker
-            currentIcon={note?.icon}
-            onSelect={(icon) => {
-              onIconChange?.(icon);
-              setIconPickerOpen(false);
-            }}
-            onClose={() => setIconPickerOpen(false)}
-          />
-        )}
-      </div>
+      {!hideTitle && (
+        <>
+          {/* Icon area */}
+          <div className="relative" style={{ paddingLeft: "54px" }}>
+            {note?.icon ? (
+              <button
+                onClick={() => setIconPickerOpen((prev) => !prev)}
+                className="p-1 rounded-md mb-1 transition-opacity hover:opacity-80"
+                style={{ cursor: "pointer" }}
+              >
+                <NoteIcon icon={note.icon} hasChildren={false} expanded={false} size={32} />
+              </button>
+            ) : (
+              <button
+                onClick={() => setIconPickerOpen((prev) => !prev)}
+                className="notes-add-icon-hint flex items-center gap-1.5 px-2 py-1 rounded-md mb-1 text-xs"
+              >
+                <NoteIcon icon={null} hasChildren={false} expanded={false} size={14} fallbackOpacity={0.4} />
+                {t("addIcon")}
+              </button>
+            )}
+            {iconPickerOpen && (
+              <IconPicker
+                currentIcon={note?.icon}
+                onSelect={(icon) => {
+                  onIconChange?.(icon);
+                  setIconPickerOpen(false);
+                }}
+                onClose={() => setIconPickerOpen(false)}
+              />
+            )}
+          </div>
 
-      <input
-        className="notes-title-input mb-4"
-        value={title}
-        onChange={(e) => handleTitleChange(e.target.value)}
-        placeholder={t("untitled")}
-        aria-label="Page title"
-      />
+          <input
+            className="notes-title-input mb-4"
+            value={title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            placeholder={t("untitled")}
+            aria-label="Page title"
+          />
+        </>
+      )}
 
       <BlockNoteView
         editor={editor}
