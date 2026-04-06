@@ -2,7 +2,7 @@
 import { useMemo } from "react";
 import { startOfWeek, addDays, format } from "date-fns";
 import TimeGrid from "./TimeGrid";
-import { getRemindersForDate } from "@/lib/calendar";
+import { getActiveRemindersForDate } from "@/lib/calendar";
 
 export default function WeekView({
   date,
@@ -21,7 +21,7 @@ export default function WeekView({
     const map = {};
     for (const d of dates) {
       const dateStr = format(d, "yyyy-MM-dd");
-      map[dateStr] = getRemindersForDate(reminders, d);
+      map[dateStr] = getActiveRemindersForDate(reminders, d);
     }
     return map;
   }, [dates, reminders]);

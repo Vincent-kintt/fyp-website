@@ -2,7 +2,7 @@
 import { useMemo } from "react";
 import { format } from "date-fns";
 import TimeGrid from "./TimeGrid";
-import { getRemindersForDate } from "@/lib/calendar";
+import { getActiveRemindersForDate } from "@/lib/calendar";
 
 export default function DayView({
   date,
@@ -16,7 +16,7 @@ export default function DayView({
 
   const remindersByDate = useMemo(() => {
     const dateStr = format(date, "yyyy-MM-dd");
-    return { [dateStr]: getRemindersForDate(reminders, date) };
+    return { [dateStr]: getActiveRemindersForDate(reminders, date) };
   }, [date, reminders]);
 
   return (

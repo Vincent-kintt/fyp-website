@@ -1,26 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { format, isToday } from "date-fns";
 import {
   HOUR_HEIGHT,
+  SLOT_HEIGHT,
   TIME_LABEL_WIDTH,
-  getBlockTop,
-  getBlockHeight,
   clipReminderToDay,
+  getBlockHeight,
   groupOverlappingReminders,
   formatHourLabel,
 } from "@/lib/calendar";
 import EventBlock from "./EventBlock";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const GRID_TOTAL_HEIGHT = 24 * HOUR_HEIGHT; // 2304px
 
-/**
- * TimeGrid — the shared scrollable time grid used by DayView and WeekView.
- *
- * @param {{ dates: Date[], remindersByDate: Object, onSlotClick: Function,
- *           onReminderClick: Function, onToggleComplete: Function, locale: string }} props
- */
 export default function TimeGrid({
   dates = [],
   remindersByDate = {},
@@ -29,185 +24,135 @@ export default function TimeGrid({
   onToggleComplete,
   locale = "zh-TW",
 }) {
-  // Current time — null on first render to avoid SSR/hydration mismatch
   const [currentTime, setCurrentTime] = useState(null);
   const scrollRef = useRef(null);
 
-  // Hydrate current time after mount, then tick every 60s
   useEffect(() => {
     setCurrentTime(new Date());
     const id = setInterval(() => setCurrentTime(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
 
-  // Scroll to hour 7 on mount (shows 8 AM area)
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 7 * HOUR_HEIGHT;
     }
   }, []);
 
-  // Is today in this grid's date range?
   const todayIndex = dates.findIndex((d) => isToday(d));
   const hasToday = todayIndex !== -1;
 
-  // Current time indicator position (px from top)
   const currentTimePx = currentTime
     ? (currentTime.getHours() + currentTime.getMinutes() / 60) * HOUR_HEIGHT
     : null;
 
+  // Click handler: determine which half-hour slot was clicked
+  const handleColumnClick = useCallback(
+    (dateStr, e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const y = e.clientY - rect.top + (e.currentTarget.parentElement?.parentElement?.scrollTop ?? 0);
+      const totalMinutes = (y / HOUR_HEIGHT) * 60;
+      const hour = Math.floor(totalMinutes / 60);
+      const minute = totalMinutes % 60 >= 30 ? 30 : 0;
+      onSlotClick?.(dateStr, Math.min(hour, 23), minute);
+    },
+    [onSlotClick],
+  );
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {/* ------------------------------------------------------------------ */}
-      {/* Sticky day-header row                                               */}
-      {/* ------------------------------------------------------------------ */}
+      {/* Day headers */}
       <div
-        className="flex flex-shrink-0 sticky top-0 z-20 border-b"
-        style={{
-          backgroundColor: "var(--card-bg)",
-          borderColor: "var(--card-border)",
-        }}
+        className="flex flex-shrink-0 border-b"
+        style={{ backgroundColor: "var(--card-bg)", borderColor: "var(--card-border)" }}
       >
-        {/* Spacer aligns headers with the time-label column */}
         <div style={{ width: TIME_LABEL_WIDTH, flexShrink: 0 }} />
-
         {dates.map((date) => {
           const isCurrentDay = isToday(date);
-          const dayName = format(date, "EEE").toUpperCase();
-          const dayNumber = format(date, "d");
-
           return (
             <div
               key={date.toISOString()}
-              className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5"
+              className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 border-l"
+              style={{ borderColor: "var(--card-border)" }}
             >
               <span
-                className="text-[11px] font-medium tracking-wide"
-                style={{ color: "var(--text-muted)" }}
+                className="text-[11px] font-medium tracking-wide uppercase"
+                style={{ color: isCurrentDay ? "var(--accent)" : "var(--text-muted)" }}
               >
-                {dayName}
+                {format(date, "EEE")}
               </span>
               <span
                 className="text-[15px] font-semibold leading-none flex items-center justify-center w-7 h-7 rounded-full"
                 style={{
-                  backgroundColor: isCurrentDay
-                    ? "var(--accent)"
-                    : "transparent",
-                  color: isCurrentDay ? "#ffffff" : "var(--text-primary)",
+                  backgroundColor: isCurrentDay ? "var(--accent)" : "transparent",
+                  color: isCurrentDay ? "#fff" : "var(--text-primary)",
                 }}
               >
-                {dayNumber}
+                {format(date, "d")}
               </span>
             </div>
           );
         })}
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Scrollable time-grid body                                           */}
-      {/* ------------------------------------------------------------------ */}
-      <div ref={scrollRef} className="flex flex-1 min-h-0 overflow-y-auto">
-        {/* Time labels column */}
-        <div
-          className="flex-shrink-0 relative"
-          style={{ width: TIME_LABEL_WIDTH }}
-        >
-          {HOURS.map((hour) => (
-            <div
-              key={hour}
-              className="relative"
-              style={{ height: HOUR_HEIGHT }}
-            >
-              {/* Only show label for hours > 0 to avoid overlap with top edge */}
-              {hour > 0 && (
-                <span
-                  className="absolute -top-2 right-2 text-[11px] select-none"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {formatHourLabel(hour, locale)}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
+      {/* Scrollable grid body */}
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <div className="flex" style={{ height: GRID_TOTAL_HEIGHT, position: "relative" }}>
+          {/* Time labels */}
+          <div className="flex-shrink-0" style={{ width: TIME_LABEL_WIDTH }}>
+            {HOURS.map((hour) => (
+              <div key={hour} className="relative" style={{ height: HOUR_HEIGHT }}>
+                {hour > 0 && (
+                  <span
+                    className="absolute -top-[7px] right-2 text-[11px] select-none tabular-nums"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {formatHourLabel(hour, locale)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
 
-        {/* Day columns */}
-        <div className="flex flex-1 relative min-w-0">
-          {/* Current time indicator line (spans all columns) */}
-          {hasToday && currentTimePx !== null && (
-            <div
-              className="absolute left-0 right-0 z-10 flex items-center pointer-events-none"
-              style={{ top: currentTimePx }}
-            >
-              <div
-                className="w-2.5 h-2.5 rounded-full flex-shrink-0 -ml-1.5"
-                style={{ backgroundColor: "var(--time-indicator, #ef4444)" }}
-              />
-              <div
-                className="flex-1 h-[2px]"
-                style={{ backgroundColor: "var(--time-indicator, #ef4444)" }}
-              />
-            </div>
-          )}
-
+          {/* Day columns — grid lines via CSS background */}
           {dates.map((date) => {
             const dateStr = format(date, "yyyy-MM-dd");
             const reminders = remindersByDate[dateStr] ?? [];
-
-            // Compute overlap layout for this day's reminders
             const overlapMap = groupOverlappingReminders(reminders);
+            const isCurrentDay = isToday(date);
 
             return (
               <div
                 key={dateStr}
-                className="flex-1 relative border-l min-w-0"
+                className="flex-1 relative min-w-0 cursor-pointer"
                 style={{
-                  borderColor: "var(--card-border)",
-                  background: isToday(date) ? "rgba(66,133,244,0.04)" : "transparent",
+                  borderLeft: "1px solid color-mix(in srgb, var(--card-border) 60%, transparent)",
+                  height: GRID_TOTAL_HEIGHT,
+                  // Grid lines via CSS background — Google Calendar pattern
+                  backgroundImage: [
+                    // Hour lines (solid, 1px)
+                    `linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px)`,
+                    // Half-hour lines (dotted appearance via thinner + lower opacity)
+                    `linear-gradient(to bottom, var(--grid-line-minor) 1px, transparent 1px)`,
+                    // Today column tint
+                    isCurrentDay
+                      ? `linear-gradient(rgba(66,133,244,0.05), rgba(66,133,244,0.05))`
+                      : "none",
+                  ].join(", "),
+                  backgroundSize: `100% ${HOUR_HEIGHT}px, 100% ${SLOT_HEIGHT}px, 100% 100%`,
+                  backgroundPosition: `0 ${HOUR_HEIGHT}px, 0 ${SLOT_HEIGHT}px, 0 0`,
+                  // Grid line CSS vars — matches Material Design 3 dark/light divider spec
+                  "--grid-line": "var(--card-border)",
+                  "--grid-line-minor": "color-mix(in srgb, var(--card-border) 35%, transparent)",
                 }}
+                onClick={(e) => handleColumnClick(dateStr, e)}
               >
-                {/* Hour rows */}
-                {HOURS.map((hour) => (
-                  <div
-                    key={hour}
-                    className="relative border-b"
-                    style={{
-                      height: HOUR_HEIGHT,
-                      borderColor: "var(--card-border)",
-                    }}
-                  >
-                    {/* Half-hour dashed line */}
-                    <div
-                      className="absolute left-0 right-0 border-b border-dashed"
-                      style={{
-                        top: "50%",
-                        borderColor: "var(--card-border)",
-                        opacity: 0.5,
-                      }}
-                    />
-
-                    {/* Top half clickable slot */}
-                    <div
-                      className="absolute left-0 right-0 top-0 cursor-pointer hover:bg-[var(--accent)]/5 transition-colors"
-                      style={{ height: "50%" }}
-                      onClick={() => onSlotClick?.(dateStr, hour, 0)}
-                    />
-
-                    {/* Bottom half clickable slot */}
-                    <div
-                      className="absolute left-0 right-0 bottom-0 cursor-pointer hover:bg-[var(--accent)]/5 transition-colors"
-                      style={{ height: "50%" }}
-                      onClick={() => onSlotClick?.(dateStr, hour, 30)}
-                    />
-                  </div>
-                ))}
-
-                {/* Event blocks — rendered above the hour grid */}
+                {/* Event blocks */}
                 {reminders.map((reminder) => {
                   const clipped = clipReminderToDay(reminder, dateStr);
                   if (!clipped) return null;
 
-                  const top = (clipped.startMinute / 30) * (HOUR_HEIGHT / 2);
+                  const top = (clipped.startMinute / 30) * SLOT_HEIGHT;
                   const height = getBlockHeight(clipped.durationMinutes);
                   const overlap = overlapMap.get(reminder.id) ?? {
                     column: 0,
@@ -230,6 +175,27 @@ export default function TimeGrid({
               </div>
             );
           })}
+
+          {/* Current time indicator */}
+          {hasToday && currentTimePx !== null && (
+            <div
+              className="absolute z-10 flex items-center pointer-events-none"
+              style={{
+                top: currentTimePx,
+                left: TIME_LABEL_WIDTH,
+                right: 0,
+              }}
+            >
+              <div
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0 -ml-[5px]"
+                style={{ backgroundColor: "var(--time-indicator)" }}
+              />
+              <div
+                className="flex-1 h-[2px]"
+                style={{ backgroundColor: "var(--time-indicator)" }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
