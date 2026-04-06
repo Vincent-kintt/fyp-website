@@ -34,6 +34,21 @@ describe("Inline AI command detection", () => {
       expect(result).toEqual({ type: "digest", input: "" });
     });
 
+    it("detects /agent with prompt", () => {
+      const result = parseCommand("/agent search for Next.js middleware docs");
+      expect(result).toEqual({ type: "agent", input: "search for Next.js middleware docs" });
+    });
+
+    it("detects /agent with empty prompt", () => {
+      const result = parseCommand("/agent");
+      expect(result).toEqual({ type: "agent", input: "" });
+    });
+
+    it("detects /agent with only spaces after", () => {
+      const result = parseCommand("/agent   ");
+      expect(result).toEqual({ type: "agent", input: "" });
+    });
+
     it("ignores text that starts with / but is not a command", () => {
       expect(parseCommand("/unknown hello")).toBeNull();
       expect(parseCommand("/rewrite this")).toBeNull();
