@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useSession, signOut } from "next-auth/react";
-import { Link, usePathname, useRouter } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import {
   FaInbox,
   FaHome,
@@ -63,7 +63,6 @@ export default function Sidebar() {
   }, []);
 
   const locale = useLocale();
-  const router = useRouter();
   const [wsPopoverOpen, setWsPopoverOpen] = useState(false);
   const wsPopoverRef = useClickOutside(() => setWsPopoverOpen(false));
 
@@ -150,6 +149,8 @@ export default function Sidebar() {
               onMouseLeave={(e) =>
                 (e.currentTarget.style.backgroundColor = "transparent")
               }
+              aria-label="Workspace menu"
+              aria-expanded={wsPopoverOpen}
             >
               <div
                 className="w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-bold flex-shrink-0"
@@ -231,22 +232,24 @@ export default function Sidebar() {
         ) : (
           <div />
         )}
-        {!collapsed && (
-          <button
-            onClick={toggleCollapse}
-            className="p-1.5 rounded-md transition-colors"
-            style={{ color: "var(--text-muted)" }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "var(--surface-hover)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "transparent")
-            }
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
+        <button
+          onClick={toggleCollapse}
+          className="p-1.5 rounded-md transition-colors"
+          style={{ color: "var(--text-muted)" }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundColor = "var(--surface-hover)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "transparent")
+          }
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? (
+            <FaChevronRight size={12} />
+          ) : (
             <FaChevronLeft size={12} />
-          </button>
-        )}
+          )}
+        </button>
       </div>
 
       <nav className="flex-1 px-2.5 py-4 space-y-1">
