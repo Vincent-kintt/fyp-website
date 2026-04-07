@@ -44,14 +44,17 @@ Both follow the existing `EditReminderModal` pattern:
 - Escape key closes
 - Auto-focus on confirm button (ConfirmDialog) or input field (PromptDialog)
 - Body scroll lock while open
+- Focus trap: Tab/Shift+Tab cycles within the dialog (cancel ↔ confirm buttons, input if present)
+- Focus restore: on close, return focus to the element that triggered the dialog
+- `aria-labelledby` pointing to the title element, `role="dialog"`, `aria-modal="true"`
 
 ### Replacement Plan
 
-1. **`useNotes.js` deleteNote** — remove the `confirm()` call from the hook. The hook becomes a pure API caller. Callers (`PageTreeItem` context menu, `NoteTopBar` delete, `page.js` handleDeleteNote) each manage their own `<ConfirmDialog>` state.
+1. **`useNotes.js` deleteNote** — remove the `confirm()` call from the hook. Make `deleteNote` return a boolean (`true` on success, `false` on failure). The hook becomes a pure API caller. Callers (`PageTreeItem` context menu, `NoteTopBar` delete, `page.js` handleDeleteNote) each manage their own `<ConfirmDialog>` state. Note: `page.js` handleDeleteNote currently does `router.replace("/notes")` regardless of delete success — fix this to only navigate on `true` return.
 
 2. **`TrashSection.js` permanent delete** — add `<ConfirmDialog variant="danger">` state inside TrashSection. The `confirm()` inline in onClick becomes `setDeleteTarget(note.id)` which opens the dialog.
 
-3. **`page.js` rename** — add `<PromptDialog>` state. The `prompt()` call becomes `setShowRenameDialog(true)`, and `onSubmit` calls `renameNote()`.
+3. **`page.js` rename** — add `<PromptDialog>` state. The `prompt()` call becomes `setShowRenameDialog(true)`, and `onSubmit` calls `renameNote()`. PromptDialog should disable the submit button when input is empty/whitespace-only (same behavior as the current `prompt()` path which checks `newTitle?.trim()`).
 
 ### i18n Keys (notes namespace)
 
@@ -87,26 +90,34 @@ createReactInlineContentSpec({
 
 The render component:
 - Receives `inlineContent.props.noteId`
-- Looks up the note title from React Query cache (`queryClient.getQueryData(noteKeys.lists())`) — notes are already cached by `useNotes`
+- Looks up the note title reactively via `useQuery(noteKeys.lists())` — this subscribes to cache updates, so renames propagate automatically
 - Renders a small chip: `[icon] Note Title` with subtle background, rounded corners
-- If note not found in cache (deleted or not loaded), shows "Deleted note" in muted style
+- If query is loading (cache cold), show a small skeleton/placeholder — do NOT assume "deleted"
+- If query loaded but note not found in list, shows "Deleted note" in muted style
 - `onClick` → `router.push(/notes/${noteId})`
 - Hover: underline + pointer cursor
 - IMPORTANT: use `useRouter` from `@/i18n/navigation`, not `next/navigation`
 
 **Accessing notes list inside the chip component:**
 
-The chip is a React component rendered by BlockNote. It can use hooks. Use `useQueryClient` from TanStack Query to read the cached notes list. No extra API call needed — notes are already in cache from the sidebar's `useNotes()`.
+The chip is a React component rendered by BlockNote. It can use hooks. Use `useQuery` (not `getQueryData`) to subscribe to cache changes reactively — `getQueryData` is a one-shot snapshot that won't re-render when notes are renamed.
 
 ```js
 function NoteLinkChip({ noteId }) {
-  const queryClient = useQueryClient();
+  const { data: notes = [], isLoading } = useQuery({
+    queryKey: noteKeys.lists(),
+    queryFn: fetchNotes,
+    enabled: true,
+  });
   const router = useRouter();
-  const notes = queryClient.getQueryData(noteKeys.lists()) || [];
   const note = notes.find(n => n.id === noteId);
+  if (isLoading) return <span className="...">...</span>;
+  if (!note) return <span className="...">{t("noteLinkDeleted")}</span>;
   // render chip...
 }
 ```
+
+The `fetchNotes` function is the same one used by `useNotes`. Since `noteKeys.lists()` is already being fetched by the sidebar, this `useQuery` will read from cache (no extra API call) and stay subscribed to updates.
 
 **Editor schema registration:**
 
@@ -153,9 +164,11 @@ NoteEditor currently doesn't receive the notes list. Two options:
 - A: Pass `notes` as a prop from `page.js` (which already has them from `useNotes`)
 - B: Call `useNotes()` inside NoteEditor
 
-Go with **A** — prop drilling is explicit and NoteEditor shouldn't own data fetching. `page.js` already has `notes` from `useNotes()`, just pass it down. The Inbox page passes `disableAiCommands` which also disables the @ menu, so no issue there.
+Go with **A** — prop drilling is explicit and NoteEditor shouldn't own data fetching. `page.js` already has `notes` from `useNotes()`, just pass it down.
 
-**blocksToText update:**
+**Inbox gating:** `disableAiCommands` currently only hides AI slash items and disables the keydown plugin. It does NOT automatically hide the `@` SuggestionMenuController. Add explicit gating: only render the `@` SuggestionMenuController when `notes` prop is provided and non-empty. Inbox page does not pass `notes`, so the `@` menu is naturally disabled there.
+
+**blocksToText + extractPreview update:**
 
 In `lib/notes/blocksToText.js`, handle `noteLink` inline content type:
 ```js
@@ -165,6 +178,13 @@ if (inline.type === "noteLink") {
 ```
 
 This ensures AI tools can see that a note reference exists, even though they can't resolve the title server-side (they'd need to use `readNote` tool for that).
+
+In `lib/notes/preview.js`, also handle `noteLink` so note previews in the sidebar/list aren't blank when a block only contains mentions:
+```js
+if (inline.type === "noteLink") {
+  inlineTexts.push("[note]");
+}
+```
 
 ### i18n Keys
 
@@ -206,7 +226,7 @@ In `components/notes/PageTree.js`:
   - Each item: click navigates to `/notes/${id}`
   - Show "No results" if nothing matches
 - When query is empty: show normal tree view (current behavior, unchanged)
-- Escape key clears the filter and returns to tree view
+- Escape key clears the filter and returns to tree view. IMPORTANT: `e.stopPropagation()` on the filter input's Escape handler — MobileSidebar has its own global Escape listener (MobileSidebar.js:24-31) that would otherwise close the drawer simultaneously
 - The search input should NOT trigger on Cmd+K (that's for GlobalSearch)
 
 ### i18n Keys
@@ -222,7 +242,7 @@ In `components/notes/PageTree.js`:
 - Full-text content search (title-only for now)
 - Note backlinks panel (showing which notes link to current note)
 - Hover preview for note-link chips
-- Real-time title sync for noteLink chips (read from cache, stale until refetch)
+- Unifying GlobalSearch cache with React Query (acceptable 30s staleness for a search dialog)
 - Replacing native dialogs in reminders code (only notes scope)
 
 ## Testing
