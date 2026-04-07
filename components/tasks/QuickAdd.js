@@ -55,7 +55,7 @@ export default function QuickAdd({
         const response = await fetch("/api/ai/parse-task", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, language }),
+          body: JSON.stringify({ text, language, tzOffset: new Date().getTimezoneOffset() }),
         });
 
         if (response.ok) {
@@ -135,6 +135,11 @@ export default function QuickAdd({
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 0, 0);
       data.dateTime = endOfDay.toISOString();
+    }
+
+    // Convert naive datetime to full ISO for timezone-safe storage
+    if (data.dateTime && !data.dateTime.includes("Z") && !data.dateTime.includes("+")) {
+      data.dateTime = new Date(data.dateTime).toISOString();
     }
 
     // Duration

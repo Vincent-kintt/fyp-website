@@ -110,7 +110,7 @@ export async function POST(request) {
       );
     }
 
-    const { text, language = "zh" } = await request.json();
+    const { text, language = "zh", tzOffset } = await request.json();
 
     if (!text?.trim()) {
       return NextResponse.json(
@@ -126,7 +126,11 @@ export async function POST(request) {
       );
     }
 
-    const now = new Date();
+    const serverNow = new Date();
+    // Shift to user's local time so chrono-node resolves "today"/"tomorrow" correctly
+    const now = typeof tzOffset === "number"
+      ? new Date(serverNow.getTime() + (serverNow.getTimezoneOffset() - tzOffset) * 60000)
+      : serverNow;
 
     const currentTimeStr = now.toLocaleString("en-US", {
       weekday: "long",
