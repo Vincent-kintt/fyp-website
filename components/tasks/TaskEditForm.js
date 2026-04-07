@@ -6,6 +6,11 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition, calculateEndTime } from "@/lib/utils";
 
+function toLocalDateTimeString(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function TaskEditForm({ reminder, isActive, onSave, onCancel, variant = "modal", className = "" }) {
   const t = useTranslations("editForm");
   const [formData, setFormData] = useState({
@@ -36,7 +41,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
         description: reminder.description || "",
         remark: reminder.remark || "",
         dateTime: reminder.dateTime
-          ? new Date(reminder.dateTime).toISOString().slice(0, 16)
+          ? toLocalDateTimeString(new Date(reminder.dateTime))
           : "",
         duration: reminder.duration || null,
         status: reminder.status || "pending",
@@ -77,10 +82,15 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
       setIsSubmitting(true);
       setError("");
 
+      const submitData = { ...formData };
+      if (submitData.dateTime) {
+        submitData.dateTime = new Date(submitData.dateTime).toISOString();
+      }
+
       const response = await fetch(`/api/reminders/${reminder.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       const data = await response.json();
