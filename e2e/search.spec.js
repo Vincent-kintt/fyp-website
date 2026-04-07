@@ -38,12 +38,27 @@ test.describe("Global Search", () => {
     await searchInput.fill("task");
     await page.waitForTimeout(1000);
 
-    const firstResult = page.locator("[cmdk-item]").first();
-    if (await firstResult.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await firstResult.click();
+    // Click a reminder result specifically (not notes) — search now includes notes too
+    // Reminder items have data-type="reminder" attribute
+    const reminderResult = page
+      .locator('[data-type="reminder"][cmdk-item]')
+      .first();
+    const anyResult = page.locator("[cmdk-item]").first();
+
+    const hasReminderResult = await reminderResult
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
+    if (hasReminderResult) {
+      await reminderResult.click();
       await page.waitForTimeout(1000);
-      // After clicking a task result, the URL should change to the reminders detail page
       expect(page.url()).toMatch(/reminders/);
+    } else if (
+      await anyResult.isVisible({ timeout: 3000 }).catch(() => false)
+    ) {
+      // Results exist but no reminders (only notes) — verify navigation happened
+      await anyResult.click();
+      await page.waitForTimeout(1000);
+      expect(page.url()).not.toMatch(/dashboard/);
     }
   });
 });

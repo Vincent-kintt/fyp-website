@@ -315,6 +315,7 @@ export default function GlobalSearch() {
                       value={n.title || "Untitled"}
                       onSelect={() => handleSelectNote(n.id)}
                       className="cmdk-item"
+                      data-type="note"
                     >
                       <File size={14} strokeWidth={1.5} style={{ color: "var(--text-muted)" }} />
                       <span className="cmdk-item-title flex-1 min-w-0 truncate">
@@ -346,6 +347,7 @@ export default function GlobalSearch() {
                     keywords={r.tags}
                     onSelect={() => handleSelect(r.id)}
                     className="cmdk-item"
+                    data-type="reminder"
                   >
                     <StatusDot status={r.status} />
                     <span className="cmdk-item-title flex-1 min-w-0 truncate">
@@ -378,6 +380,7 @@ export default function GlobalSearch() {
                       keywords={r.tags}
                       onSelect={() => handleSelect(r.id)}
                       className="cmdk-item"
+                      data-type="reminder"
                     >
                       <StatusDot status="snoozed" />
                       <span className="cmdk-item-title flex-1 min-w-0 truncate">
@@ -408,6 +411,7 @@ export default function GlobalSearch() {
                       keywords={r.tags}
                       onSelect={() => handleSelect(r.id)}
                       className="cmdk-item"
+                      data-type="reminder"
                     >
                       <StatusDot status="completed" />
                       <span className="cmdk-item-title flex-1 min-w-0 truncate">

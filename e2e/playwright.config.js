@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import path from "path";
+import { fileURLToPath } from "url";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isCI = !!process.env.CI;
 
 export default defineConfig({
@@ -22,14 +25,14 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        storageState: "../.playwright-auth/user.json",
+        storageState: path.join(__dirname, "../.playwright-auth/user.json"),
       },
       dependencies: ["setup"],
     },
   ],
   webServer: {
     command: isCI ? "npm run build && npm run start" : "npm run dev",
-    url: "http://localhost:3000",
+    url: "http://localhost:3000/login",
     reuseExistingServer: !isCI,
     timeout: 60000,
   },
