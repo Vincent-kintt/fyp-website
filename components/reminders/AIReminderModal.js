@@ -115,16 +115,6 @@ const modelOptions = [
     desc: "Fast, great at tool use",
   },
   {
-    value: "google/gemini-3-pro-preview",
-    label: "Gemini 3 Pro",
-    desc: "Strong reasoning, detailed answers",
-  },
-  {
-    value: "google/gemini-3-flash-preview",
-    label: "Gemini 3 Flash",
-    desc: "Lightweight, fastest response",
-  },
-  {
     value: "deepseek/deepseek-v3.2",
     label: "DeepSeek V3.2",
     desc: "Open-weight, good at Chinese",
