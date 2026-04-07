@@ -256,24 +256,22 @@ export default function Sidebar() {
         ) : (
           <div />
         )}
-        <button
-          onClick={toggleCollapse}
-          className="p-1.5 rounded-md transition-colors"
-          style={{ color: "var(--text-muted)" }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "var(--surface-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "transparent")
-          }
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? (
-            <FaChevronRight size={12} />
-          ) : (
+        {!collapsed && (
+          <button
+            onClick={toggleCollapse}
+            className="p-1.5 rounded-md transition-colors"
+            style={{ color: "var(--text-muted)" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "var(--surface-hover)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+            aria-label="Collapse sidebar"
+          >
             <FaChevronLeft size={12} />
-          )}
-        </button>
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 flex flex-col min-h-0 px-2.5 pt-1.5 pb-2">
