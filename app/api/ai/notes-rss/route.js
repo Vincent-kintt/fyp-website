@@ -80,7 +80,7 @@ export async function POST(request) {
         },
       ],
       tools,
-      stopWhen: stepCountIs(5),
+      stopWhen: stepCountIs(10),
       maxRetries: 2,
       abortSignal: request.signal,
       onStepFinish: ({ usage, toolResults }) => {

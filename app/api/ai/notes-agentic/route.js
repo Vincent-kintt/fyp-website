@@ -79,7 +79,8 @@ Rules:
 5. Use searchWeb when the user needs external information (documentation, articles, facts).
 6. Format responses in Markdown. Be concise — your output will be inserted into the note.
 7. When you create a reminder or perform any action, confirm what you did.
-8. You have a maximum of 7 agentic steps. Plan your tool usage efficiently.`;
+8. Never mention internal IDs (database IDs) to the user. Reference reminders by title, notes by title.
+9. You have a maximum of 10 agentic steps. Plan your tool usage efficiently.`;
 }
 
 export async function POST(request) {
@@ -133,7 +134,7 @@ export async function POST(request) {
       system: getNotesAgenticPrompt({ language, noteTitle, noteContext }),
       messages: [{ role: "user", content: input.trim() }],
       tools,
-      stopWhen: stepCountIs(7),
+      stopWhen: stepCountIs(10),
       maxRetries: 2,
       abortSignal: request.signal,
       onStepFinish: ({ usage, toolResults }) => {
