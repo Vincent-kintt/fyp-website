@@ -1,19 +1,24 @@
+import { forwardRef } from "react";
 import { FaSpinner } from "react-icons/fa";
 import { Link } from "@/i18n/navigation";
 
-export default function Button({
-  children,
-  onClick,
-  type = "button",
-  variant = "primary",
-  size = "md",
-  className = "",
-  disabled = false,
-  loading = false,
-  href,
-  ...props
-}) {
-  const baseStyles = "inline-flex items-center justify-center font-medium rounded-lg transition-[colors,transform] duration-200 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
+const Button = forwardRef(function Button(
+  {
+    children,
+    onClick,
+    type = "button",
+    variant = "primary",
+    size = "md",
+    className = "",
+    disabled = false,
+    loading = false,
+    href,
+    ...props
+  },
+  ref,
+) {
+  const baseStyles =
+    "inline-flex items-center justify-center font-medium rounded-lg transition-[colors,transform] duration-200 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
   const variants = {
     primary: "bg-primary text-text-inverted hover:bg-primary-hover",
@@ -34,7 +39,7 @@ export default function Button({
 
   if (href) {
     return (
-      <Link href={href} className={classes} {...props}>
+      <Link ref={ref} href={href} className={classes} {...props}>
         {children}
       </Link>
     );
@@ -42,6 +47,7 @@ export default function Button({
 
   return (
     <button
+      ref={ref}
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
@@ -52,4 +58,6 @@ export default function Button({
       {children}
     </button>
   );
-}
+});
+
+export default Button;
