@@ -5,6 +5,7 @@ import { Command } from "cmdk";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import { File } from "lucide-react";
 import { getTagClasses } from "@/lib/utils";
 import { formatDateShort } from "@/lib/format";
 
@@ -109,6 +110,7 @@ export default function GlobalSearch() {
   const t = useTranslations("search");
   const [open, setOpen] = useState(false);
   const [reminders, setReminders] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const cacheRef = useRef({ data: null, timestamp: 0 });
@@ -149,33 +151,58 @@ export default function GlobalSearch() {
 
     const now = Date.now();
     if (cacheRef.current.data && now - cacheRef.current.timestamp < CACHE_TTL) {
-      setReminders(cacheRef.current.data);
+      const cached = cacheRef.current.data;
+      // Handle both old (array) and new (object) cache shapes
+      if (Array.isArray(cached)) {
+        setReminders(cached);
+      } else {
+        setReminders(cached.reminders || []);
+        setNotes(cached.notes || []);
+      }
       return;
     }
 
-    const fetchReminders = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await fetch("/api/reminders");
-        const data = await response.json();
-        if (data.success) {
-          setReminders(data.data);
-          cacheRef.current = { data: data.data, timestamp: Date.now() };
+        const [remindersRes, notesRes] = await Promise.all([
+          fetch("/api/reminders"),
+          fetch("/api/notes"),
+        ]);
+        const remindersData = await remindersRes.json();
+        const notesData = await notesRes.json();
+        if (remindersData.success) {
+          setReminders(remindersData.data);
         }
+        if (notesData.success) {
+          setNotes(notesData.data || []);
+        }
+        cacheRef.current = {
+          data: { reminders: remindersData.data || [], notes: notesData.data || [] },
+          timestamp: Date.now(),
+        };
       } catch (err) {
-        console.error("Error fetching reminders:", err);
+        console.error("Error fetching search data:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchReminders();
+    fetchData();
   }, [open]);
 
   const handleSelect = useCallback(
     (id) => {
       setOpen(false);
       router.push(`/reminders/${id}`);
+    },
+    [router],
+  );
+
+  const handleSelectNote = useCallback(
+    (id) => {
+      setOpen(false);
+      router.push(`/notes/${id}`);
     },
     [router],
   );
@@ -276,6 +303,33 @@ export default function GlobalSearch() {
                 <span className="cmdk-item-title">{t("aiAssistant")}</span>
               </Command.Item>
             </Command.Group>
+
+            {/* Notes */}
+            {notes.length > 0 && (
+              <>
+                <div className="cmdk-divider" />
+                <Command.Group heading={t("notes")}>
+                  {(isBrowsing ? notes.slice(0, 5) : notes).map((n) => (
+                    <Command.Item
+                      key={`note-${n.id}`}
+                      value={n.title || "Untitled"}
+                      onSelect={() => handleSelectNote(n.id)}
+                      className="cmdk-item"
+                    >
+                      <File size={14} strokeWidth={1.5} style={{ color: "var(--text-muted)" }} />
+                      <span className="cmdk-item-title flex-1 min-w-0 truncate">
+                        <HighlightText text={n.title || "Untitled"} search={searchValue} />
+                      </span>
+                      {isBrowsing && n.updatedAt && (
+                        <span className="cmdk-item-date">
+                          {formatDateShort(n.updatedAt, locale)}
+                        </span>
+                      )}
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              </>
+            )}
 
             {/* Divider between actions and reminders */}
             {(upcoming.length > 0 ||
