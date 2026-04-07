@@ -263,7 +263,7 @@ export default function PageTree({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-2 px-1">
+      <div className="flex-1 overflow-y-auto pb-2 px-1">
         {filteredNotes ? (
           <div className="px-1 py-1">
             {filteredNotes.length === 0 ? (
