@@ -257,7 +257,8 @@
     "inProgress": "In Progress",
     "snoozed": "Snoozed",
     "snoozedUntil": "Snoozed until {date}",
-    "completed": "Completed"
+    "completed": "Completed",
+    "notes": "Notes"
   },
   "export": {
     "export": "Export",
@@ -356,7 +357,15 @@
     "agentSearchingWeb": "Searching web...",
     "agentSideEffect": "Action performed:",
     "agentAlreadyRunning": "An agent request is already running.",
-    "agentEmptyInput": "Type a prompt after /agent"
+    "agentEmptyInput": "Type a prompt after /agent",
+    "confirmDeleteTitle": "Delete Page",
+    "confirmPermanentDeleteTitle": "Delete Permanently",
+    "renameTitle": "Rename Page",
+    "noteLinkDeleted": "Deleted note",
+    "noteLinkLoading": "Loading...",
+    "mentionNotes": "Notes",
+    "filterPlaceholder": "Filter pages...",
+    "noFilterResults": "No matching pages"
   },
   "common": {
     "save": "Save",
@@ -378,6 +387,7 @@
     "snoozed": "Snoozed",
     "snoozeCancelled": "Snooze cancelled",
     "taskAdded": "Task added",
-    "addFailed": "Add failed"
+    "addFailed": "Add failed",
+    "confirm": "Confirm"
   }
 }

@@ -257,7 +257,8 @@
     "inProgress": "進行中",
     "snoozed": "已延後",
     "snoozedUntil": "延後至 {date}",
-    "completed": "已完成"
+    "completed": "已完成",
+    "notes": "筆記"
   },
   "export": {
     "export": "匯出",
@@ -356,7 +357,15 @@
     "agentSearchingWeb": "搜尋網頁中...",
     "agentSideEffect": "已執行操作：",
     "agentAlreadyRunning": "Agent 請求正在執行中。",
-    "agentEmptyInput": "請在 /agent 後輸入指令"
+    "agentEmptyInput": "請在 /agent 後輸入指令",
+    "confirmDeleteTitle": "刪除頁面",
+    "confirmPermanentDeleteTitle": "永久刪除",
+    "renameTitle": "重新命名頁面",
+    "noteLinkDeleted": "已刪除的筆記",
+    "noteLinkLoading": "載入中...",
+    "mentionNotes": "筆記",
+    "filterPlaceholder": "篩選頁面...",
+    "noFilterResults": "找不到符合的頁面"
   },
   "common": {
     "save": "儲存",
@@ -378,6 +387,7 @@
     "snoozed": "已延後提醒",
     "snoozeCancelled": "已取消延後",
     "taskAdded": "已新增任務",
-    "addFailed": "新增失敗"
+    "addFailed": "新增失敗",
+    "confirm": "確認"
   }
 }
