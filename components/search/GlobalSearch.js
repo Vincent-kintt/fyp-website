@@ -8,6 +8,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { File } from "lucide-react";
 import { getTagClasses } from "@/lib/utils";
 import { formatDateShort } from "@/lib/format";
+import { useAIModal } from "@/components/ai/AIModalProvider";
 
 const CACHE_TTL = 30_000; // 30 seconds
 
@@ -108,6 +109,7 @@ export default function GlobalSearch() {
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations("search");
+  const aiModal = useAIModal();
   const [open, setOpen] = useState(false);
   const [reminders, setReminders] = useState([]);
   const [notes, setNotes] = useState([]);
@@ -284,7 +286,7 @@ export default function GlobalSearch() {
                 value="create new reminder 建立新提醒"
                 onSelect={() => {
                   setOpen(false);
-                  window.dispatchEvent(new CustomEvent("open-ai-modal"));
+                  aiModal.open();
                 }}
                 className="cmdk-item"
               >
@@ -295,7 +297,7 @@ export default function GlobalSearch() {
                 value="open AI assistant AI 助手"
                 onSelect={() => {
                   setOpen(false);
-                  window.dispatchEvent(new CustomEvent("open-ai-modal"));
+                  aiModal.open();
                 }}
                 className="cmdk-item"
               >

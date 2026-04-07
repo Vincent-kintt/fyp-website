@@ -10,6 +10,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import BottomNav from "@/components/layout/BottomNav";
 import Providers from "../providers";
 import ThemeProvider from "@/components/ThemeProvider";
+import AIModalProvider from "@/components/ai/AIModalProvider";
 
 export async function generateMetadata() {
   const t = await getTranslations("metadata");
@@ -46,21 +47,23 @@ export default async function LocaleLayout({ children, params }) {
         <ThemeProvider>
           <NextIntlClientProvider messages={messages}>
             <Providers>
-              <a href="#main-content" className="skip-to-content">
-                Skip to content
-              </a>
-              <GlobalSearch />
-              <Navbar />
-              <div className="flex flex-1 min-h-0">
-                <Sidebar />
-                <main
-                  id="main-content"
-                  className="flex-1 w-full overflow-y-auto pb-[calc(60px+env(safe-area-inset-bottom,0px))] md:pb-0"
-                >
-                  {children}
-                </main>
-              </div>
-              <BottomNav />
+              <AIModalProvider>
+                <a href="#main-content" className="skip-to-content">
+                  Skip to content
+                </a>
+                <GlobalSearch />
+                <Navbar />
+                <div className="flex flex-1 min-h-0">
+                  <Sidebar />
+                  <main
+                    id="main-content"
+                    className="flex-1 w-full overflow-y-auto pb-[calc(60px+env(safe-area-inset-bottom,0px))] md:pb-0"
+                  >
+                    {children}
+                  </main>
+                </div>
+                <BottomNav />
+              </AIModalProvider>
             </Providers>
           </NextIntlClientProvider>
         </ThemeProvider>

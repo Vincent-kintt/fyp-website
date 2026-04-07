@@ -27,8 +27,8 @@ import TaskSection from "@/components/tasks/TaskSection";
 import QuickAdd from "@/components/tasks/QuickAdd";
 import NextTaskCard from "@/components/dashboard/NextTaskCard";
 import StatsOverview from "@/components/dashboard/StatsOverview";
-import AIReminderModal from "@/components/reminders/AIReminderModal";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
+import { useAIModal } from "@/components/ai/AIModalProvider";
 import {
   useDndSensors,
   computeSortOrders,
@@ -61,8 +61,7 @@ export default function DashboardPage() {
   } = useTasks();
   const queryClient = useQueryClient();
   const tasks = rawTasks;
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
-  const [aiInitialText, setAiInitialText] = useState("");
+  const aiModal = useAIModal();
   const [activeDragId, setActiveDragId] = useState(null);
   const [overSectionId, setOverSectionId] = useState(null);
   const [completingIds, setCompletingIds] = useState(new Set());
@@ -80,16 +79,13 @@ export default function DashboardPage() {
     }
   }, [status, router]);
 
+  // Refetch tasks when AI modal makes changes
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
-        e.preventDefault();
-        setIsAIModalOpen((prev) => !prev);
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
+    const handler = () => refetch();
+    window.addEventListener("ai-reminder-changed", handler);
+    return () => window.removeEventListener("ai-reminder-changed", handler);
+  }, [refetch]);
+
   const clearCompletingId = useCallback((id) => {
     clearTimeout(completingTimers.current.get(id));
     completingTimers.current.delete(id);
@@ -154,8 +150,7 @@ export default function DashboardPage() {
   );
 
   const handleOpenAIFromQuickAdd = (text) => {
-    setAiInitialText(text || "");
-    setIsAIModalOpen(true);
+    aiModal.open(text || "");
   };
 
   // Build task-to-section mapping for drag logic
@@ -670,7 +665,7 @@ export default function DashboardPage() {
           emptyAction={{
             text: t("planWithAI"),
             subtext: t("planWithAISubtext"),
-            onClick: () => setIsAIModalOpen(true),
+            onClick: () => aiModal.open(),
           }}
           sortable
           sectionId={SECTION_IDS.TODAY}
@@ -807,15 +802,6 @@ export default function DashboardPage() {
         onSave={handleUpdate}
       />
 
-      <AIReminderModal
-        isOpen={isAIModalOpen}
-        onClose={() => {
-          setIsAIModalOpen(false);
-          setAiInitialText("");
-        }}
-        onSuccess={() => refetch()}
-        initialText={aiInitialText}
-      />
     </div>
   );
 }
