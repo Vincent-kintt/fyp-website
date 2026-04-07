@@ -68,13 +68,17 @@ export default function useNotes() {
 
   const deleteNote = useCallback(
     async (id) => {
-      if (!confirm(t("confirmDelete"))) return;
       try {
         const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
         const data = await res.json();
-        if (data.success) await invalidateAll();
+        if (data.success) {
+          await invalidateAll();
+          return true;
+        }
+        return false;
       } catch {
         toast.error(t("deleteFailed"));
+        return false;
       }
     },
     [invalidateAll, t],

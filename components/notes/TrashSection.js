@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { File, RotateCcw, Trash2 } from "lucide-react";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 export default function TrashSection({
   trashedNotes,
@@ -9,6 +11,7 @@ export default function TrashSection({
   onPermanentDelete,
 }) {
   const t = useTranslations("notes");
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   if (!trashedNotes || trashedNotes.length === 0) {
     return (
@@ -41,11 +44,7 @@ export default function TrashSection({
               <RotateCcw size={13} strokeWidth={1.5} />
             </button>
             <button
-              onClick={() => {
-                if (confirm(t("confirmPermanentDelete"))) {
-                  onPermanentDelete?.(note.id);
-                }
-              }}
+              onClick={() => setDeleteTarget(note.id)}
               title={t("deletePermanently")}
               aria-label={t("deletePermanently")}
               style={{ color: "var(--danger)" }}
@@ -55,6 +54,18 @@ export default function TrashSection({
           </div>
         </div>
       ))}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          onPermanentDelete?.(deleteTarget);
+          setDeleteTarget(null);
+        }}
+        title={t("confirmPermanentDeleteTitle")}
+        message={t("confirmPermanentDelete")}
+        confirmLabel={t("deletePermanently")}
+        variant="danger"
+      />
     </div>
   );
 }
