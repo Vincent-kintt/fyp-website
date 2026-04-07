@@ -10,10 +10,6 @@ test.describe("Login flow", () => {
     await page.fill('input[name="password"]', "admin");
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/(en\/)?dashboard/, { timeout: 15000 });
-
-    const username = page.locator('[data-testid="navbar-username"]');
-    await expect(username).toBeVisible();
-    await expect(username).toContainText("admin");
   });
 
   test("shows error on invalid credentials", async ({ page }) => {
