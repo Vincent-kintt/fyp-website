@@ -35,4 +35,14 @@ describe("parseCommand", () => {
     const result = parseCommand("/ask   What is AI?  ");
     expect(result).toEqual({ type: "ask", input: "What is AI?" });
   });
+
+  it("parses /rss without input", () => {
+    const result = parseCommand("/rss");
+    expect(result).toEqual({ type: "rss", input: "" });
+  });
+
+  it("parses /rss today", () => {
+    const result = parseCommand("/rss today");
+    expect(result).toEqual({ type: "rss", input: "today" });
+  });
 });
