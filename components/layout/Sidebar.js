@@ -144,7 +144,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`hidden md:flex flex-col flex-shrink-0 border-r transition-[width] duration-200 ease-out ${
+      className={`hidden md:flex flex-col flex-shrink-0 border-r transition-[width] duration-200 ease-out relative ${
         collapsed ? "w-[56px]" : "w-[240px]"
       }`}
       style={{
@@ -256,24 +256,22 @@ export default function Sidebar() {
         ) : (
           <div />
         )}
-        <button
-          onClick={toggleCollapse}
-          className="p-1.5 rounded-md transition-colors"
-          style={{ color: "var(--text-muted)" }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "var(--surface-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "transparent")
-          }
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? (
-            <FaChevronRight size={12} />
-          ) : (
+        {!collapsed && (
+          <button
+            onClick={toggleCollapse}
+            className="p-1.5 rounded-md transition-colors"
+            style={{ color: "var(--text-muted)" }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "var(--surface-hover)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+            aria-label="Collapse sidebar"
+          >
             <FaChevronLeft size={12} />
-          )}
-        </button>
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 flex flex-col min-h-0 px-2.5 pt-1.5 pb-2">
@@ -458,6 +456,19 @@ export default function Sidebar() {
           )}
         </div>
       )}
+      {/* Notion-style edge toggle — clickable border to expand/collapse */}
+      <div
+        onClick={toggleCollapse}
+        className="absolute top-0 bottom-0 right-0 w-[6px] cursor-col-resize z-10 group/edge"
+        style={{ transform: "translateX(50%)" }}
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {/* Visible line on hover */}
+        <div
+          className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[2px] opacity-0 group-hover/edge:opacity-100 transition-opacity duration-150"
+          style={{ backgroundColor: "var(--accent)" }}
+        />
+      </div>
     </aside>
   );
 }

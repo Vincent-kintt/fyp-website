@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles, Bot } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
@@ -9,8 +9,11 @@ import {
   useCreateBlockNote,
   SuggestionMenuController,
   getDefaultReactSlashMenuItems,
+  useComponentsContext,
+  useDictionary,
 } from "@blocknote/react";
-import { filterSuggestionItems, SuggestionMenu } from "@blocknote/core";
+import { BlockNoteSchema, defaultInlineContentSpecs, filterSuggestionItems, SuggestionMenu, mergeCSSClasses } from "@blocknote/core";
+import { noteLinkSpec } from "./NoteLinkInlineContent";
 import { en as bnEn } from "@blocknote/core/locales";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import {
@@ -35,7 +38,68 @@ const TOOL_PROGRESS_LABELS = {
 };
 
 
-export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconChange, hideTitle, editorRef, disableAiCommands }) {
+// Custom SuggestionMenu that uses index-based keys instead of title-based keys.
+// BlockNote's default SuggestionMenu uses key={item.title} which breaks when
+// multiple notes share the same title (e.g. "Untitled").
+function MentionMenu({ items, loadingState, selectedIndex, onItemClick }) {
+  const Components = useComponentsContext();
+  const dict = useDictionary();
+
+  const renderedItems = useMemo(() => {
+    let currentGroup;
+    const result = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.group !== currentGroup) {
+        currentGroup = item.group;
+        result.push(
+          <Components.SuggestionMenu.Label
+            className="bn-suggestion-menu-label"
+            key={`group-${currentGroup}`}
+          >
+            {currentGroup}
+          </Components.SuggestionMenu.Label>,
+        );
+      }
+      result.push(
+        <Components.SuggestionMenu.Item
+          className={mergeCSSClasses(
+            "bn-suggestion-menu-item",
+            item.size === "small" ? "bn-suggestion-menu-item-small" : "",
+          )}
+          item={item}
+          id={`bn-suggestion-menu-item-${i}`}
+          isSelected={i === selectedIndex}
+          key={`${item.title}-${i}`}
+          onClick={() => onItemClick?.(item)}
+        />,
+      );
+    }
+
+    return result;
+  }, [Components, items, onItemClick, selectedIndex]);
+
+  return (
+    <Components.SuggestionMenu.Root
+      id="bn-suggestion-menu"
+      className="bn-suggestion-menu"
+    >
+      {renderedItems}
+      {renderedItems.length === 0 &&
+        (loadingState === "loading" || loadingState === "loaded") && (
+          <Components.SuggestionMenu.EmptyItem className="bn-suggestion-menu-item">
+            {dict.suggestion_menu.no_items_title}
+          </Components.SuggestionMenu.EmptyItem>
+        )}
+      {(loadingState === "loading-initial" || loadingState === "loading") && (
+        <Components.SuggestionMenu.Loader className="bn-suggestion-menu-loader" />
+      )}
+    </Components.SuggestionMenu.Root>
+  );
+}
+
+export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconChange, hideTitle, editorRef, disableAiCommands, notes }) {
   const t = useTranslations("notes");
   const locale = useLocale();
   const { theme } = useTheme();
@@ -58,7 +122,19 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   useEffect(() => { titleRef.current = title; }, [title]);
   useEffect(() => { localeRef.current = locale; }, [locale]);
 
+  const schema = useMemo(
+    () =>
+      BlockNoteSchema.create({
+        inlineContentSpecs: {
+          ...defaultInlineContentSpecs,
+          noteLink: noteLinkSpec,
+        },
+      }),
+    [],
+  );
+
   const editor = useCreateBlockNote({
+    schema,
     initialContent: note?.content?.length > 0 ? note.content : undefined,
     dictionary: {
       ...bnEn,
@@ -72,11 +148,8 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   useEffect(() => {
     if (note?.content?.length > 0) {
       editor.replaceBlocks(editor.document, note.content);
-    } else {
-      editor.replaceBlocks(editor.document, [
-        { type: "paragraph", content: [] },
-      ]);
     }
+    // Empty content — skip replaceBlocks so BlockNote keeps its default empty state with placeholder
   }, [note?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Expose editor content to parent via ref callback
@@ -565,6 +638,32 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     [executeAiCommand, t, disableAiCommands],
   );
 
+  const getMentionItems = useCallback(
+    (editorInstance) => {
+      if (!notes || notes.length === 0) return [];
+      return notes.map((n) => ({
+        title: n.title || t("untitled"),
+        onItemClick: () => {
+          editorInstance.insertInlineContent([
+            { type: "noteLink", props: { noteId: n.id } },
+            " ",
+          ]);
+        },
+        icon: (
+          <NoteIcon
+            icon={n.icon}
+            hasChildren={false}
+            expanded={false}
+            size={14}
+          />
+        ),
+        aliases: [],
+        group: t("mentionNotes"),
+      }));
+    },
+    [notes, t],
+  );
+
   const handleTitleChange = useCallback(
     (newTitle) => {
       setTitle(newTitle);
@@ -648,6 +747,15 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             filterSuggestionItems(getSlashMenuItems(editor), query)
           }
         />
+        {notes && notes.length > 0 && (
+          <SuggestionMenuController
+            triggerCharacter="@"
+            suggestionMenuComponent={MentionMenu}
+            getItems={async (query) =>
+              filterSuggestionItems(getMentionItems(editor), query)
+            }
+          />
+        )}
       </BlockNoteView>
     </div>
   );

@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import NotesLayout from "@/components/notes/NotesLayout";
 import NoteEditor from "@/components/notes/NoteEditor";
 import NoteTopBar from "@/components/notes/NoteTopBar";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import PromptDialog from "@/components/ui/PromptDialog";
 import { findAncestors } from "@/lib/notes/tree";
 import useNotes from "@/hooks/useNotes";
 
@@ -16,6 +18,7 @@ export default function NotePage() {
   const { noteId } = useParams();
   const router = useRouter();
   const t = useTranslations("notes");
+  const tc = useTranslations("common");
   const locale = useLocale();
 
   const {
@@ -33,6 +36,9 @@ export default function NotePage() {
   const [currentNote, setCurrentNote] = useState(null);
   const [editorSaveStatus, setEditorSaveStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
 
   const fetchCurrentNote = useCallback(async () => {
     try {
@@ -96,13 +102,18 @@ export default function NotePage() {
     [noteId, t],
   );
 
-  const handleDeleteNote = useCallback(
-    async (id) => {
-      await deleteNote(id);
-      if (id === noteId) router.replace("/notes");
-    },
-    [deleteNote, noteId, router],
-  );
+  const handleDeleteNote = useCallback((id) => {
+    setDeleteTargetId(id);
+    setShowDeleteDialog(true);
+  }, []);
+
+  const confirmDeleteNote = useCallback(async () => {
+    if (!deleteTargetId) return;
+    const success = await deleteNote(deleteTargetId);
+    if (success && deleteTargetId === noteId) {
+      router.replace("/notes");
+    }
+  }, [deleteNote, deleteTargetId, noteId, router]);
 
   const ancestors = currentNote
     ? findAncestors(notes, currentNote.id)
@@ -158,10 +169,7 @@ export default function NotePage() {
             ancestors={ancestors}
             saveStatus={editorSaveStatus}
             locale={locale}
-            onRename={() => {
-              const newTitle = prompt(t("rename"), currentNote.title);
-              if (newTitle?.trim()) renameNote(currentNote.id, newTitle.trim());
-            }}
+            onRename={() => setShowRenameDialog(true)}
             onDuplicate={() => duplicateNote(currentNote.id)}
             onDelete={() => handleDeleteNote(currentNote.id)}
           />
@@ -171,8 +179,31 @@ export default function NotePage() {
             onSave={handleSave}
             onSaveStatusChange={setEditorSaveStatus}
             onIconChange={handleIconChange}
+            notes={notes}
           />
         </>
+      )}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={confirmDeleteNote}
+        title={t("confirmDeleteTitle")}
+        message={t("confirmDelete")}
+        confirmLabel={t("delete")}
+        cancelLabel={tc("cancel")}
+        variant="danger"
+      />
+      {currentNote && (
+        <PromptDialog
+          open={showRenameDialog}
+          onClose={() => setShowRenameDialog(false)}
+          onSubmit={(newTitle) => renameNote(currentNote.id, newTitle)}
+          title={t("renameTitle")}
+          defaultValue={currentNote.title}
+          placeholder={t("untitled")}
+          cancelLabel={tc("cancel")}
+          confirmLabel={tc("confirm")}
+        />
       )}
     </NotesLayout>
   );

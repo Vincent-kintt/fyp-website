@@ -1,10 +1,51 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getModel } from "@/lib/ai/provider.js";
-import { generateText } from "ai";
+import { generateText, Output, NoObjectGeneratedError } from "ai";
+import { z } from "zod";
 
 const MAX_INPUT_LENGTH = 8000;
 const EXTRACT_MODEL = process.env.PARSE_TASK_MODEL || "x-ai/grok-4.1-fast";
+
+const taskElementSchema = z.object({
+  title: z.string(),
+  dateTime: z.string().nullable().default(null),
+  priority: z.enum(["high", "medium", "low"]).default("medium"),
+  tags: z.array(z.string()).default([]),
+});
+
+/**
+ * Attempt to salvage task array from raw text (fallback when Output.array fails).
+ * Strip code fences, JSON.parse, filter/sanitize each task.
+ */
+function salvageTasksFromText(rawText) {
+  if (!rawText) return [];
+  try {
+    let jsonString = rawText.trim();
+    const fenceMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (fenceMatch) jsonString = fenceMatch[1];
+
+    const parsed = JSON.parse(jsonString);
+    const tasks = Array.isArray(parsed) ? parsed : [];
+
+    return tasks
+      .filter((t) => t.title && typeof t.title === "string")
+      .map((t) => ({
+        title: t.title.trim(),
+        dateTime: typeof t.dateTime === "string" ? t.dateTime : null,
+        priority: ["high", "medium", "low"].includes(t.priority)
+          ? t.priority
+          : "medium",
+        tags: Array.isArray(t.tags)
+          ? t.tags
+              .filter((tag) => typeof tag === "string")
+              .map((tag) => tag.toLowerCase().trim())
+          : [],
+      }));
+  } catch {
+    return [];
+  }
+}
 
 export async function POST(request) {
   try {
@@ -45,56 +86,41 @@ export async function POST(request) {
 
 Analyze the user's free-form text and extract all actionable tasks/to-dos. Ignore observations, thoughts, and non-actionable content.
 
-Return a JSON array of tasks. Each task:
-{
-  "title": "Clean, concise task title in ${lang}",
-  "dateTime": "ISO format YYYY-MM-DDTHH:mm or null if no date mentioned",
-  "priority": "high" | "medium" | "low",
-  "tags": ["relevant", "tags"]
-}
-
 Rules:
 - Extract ONLY actionable items (things to do, schedule, complete, buy, submit, etc.)
 - Skip observations, notes, context, thoughts
+- Task titles should be in ${lang}
 - Normalize dates relative to current time. "tomorrow" = next day. "next week" = next Monday.
 - For ambiguous times (no AM/PM), use PM for hours 1-6
 - If no date/time is mentioned, set dateTime to null
 - Priority: HIGH for urgent/deadline/ASAP, LOW for whenever/maybe, MEDIUM default
 - Tags: infer 1-2 relevant tags per task (e.g., "work", "school", "shopping", "social")
-- If no tasks found, return empty array []
-- Return ONLY the JSON array, no markdown fences, no explanation${confirmedTasks.length > 0 ? `\n\nIMPORTANT: The following tasks have ALREADY been created. Do NOT extract them again:\n${confirmedTasks.map((t) => `- ${t}`).join("\n")}` : ""}`;
+- If no tasks found, return empty array${confirmedTasks.length > 0 ? `\n\nIMPORTANT: The following tasks have ALREADY been created. Do NOT extract them again:\n${confirmedTasks.map((t) => `- ${t}`).join("\n")}` : ""}`;
 
-    const { text: content } = await generateText({
-      model: getModel(EXTRACT_MODEL),
-      system: systemPrompt,
-      prompt: input,
-      temperature: 0.2,
-      maxTokens: 1000,
-    });
-
-    if (!content) {
-      return NextResponse.json({
-        success: true,
-        data: { tasks: [], truncated },
-      });
-    }
-
-    // Parse JSON from response
     let tasks;
-    try {
-      let jsonString = content.trim();
-      // Strip markdown code fences if present
-      const fenceMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (fenceMatch) jsonString = fenceMatch[1];
 
-      tasks = JSON.parse(jsonString);
-      if (!Array.isArray(tasks)) tasks = [];
-    } catch {
-      console.error("[extract-tasks] JSON parse error:", content);
-      tasks = [];
+    try {
+      const result = await generateText({
+        model: getModel(EXTRACT_MODEL),
+        output: Output.array({ element: taskElementSchema }),
+        system: systemPrompt,
+        prompt: input,
+        temperature: 0.2,
+        maxTokens: 1000,
+      });
+      tasks = result.output ?? [];
+    } catch (error) {
+      if (NoObjectGeneratedError.isInstance(error)) {
+        console.warn(
+          "[extract-tasks] Structured output failed, salvaging from text",
+        );
+        tasks = salvageTasksFromText(error.text);
+      } else {
+        throw error;
+      }
     }
 
-    // Validate and sanitize each task
+    // Sanitize tags (lowercase trim) — structured output gives raw values
     const validTasks = tasks
       .filter((t) => t.title && typeof t.title === "string")
       .map((t) => ({
