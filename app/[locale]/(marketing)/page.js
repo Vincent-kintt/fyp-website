@@ -182,7 +182,7 @@ export default async function Home() {
 
       {/* CTA */}
       <ScrollReveal>
-        <section className="relative py-24 px-6 text-center">
+        <section className="relative py-24 px-6 text-center overflow-hidden">
           <div
             className="absolute top-0 left-1/2 -translate-x-1/2 w-[480px] h-[480px] pointer-events-none"
             style={{
