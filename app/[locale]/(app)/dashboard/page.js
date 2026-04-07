@@ -79,13 +79,6 @@ export default function DashboardPage() {
     }
   }, [status, router]);
 
-  // Refetch tasks when AI modal makes changes
-  useEffect(() => {
-    const handler = () => refetch();
-    window.addEventListener("ai-reminder-changed", handler);
-    return () => window.removeEventListener("ai-reminder-changed", handler);
-  }, [refetch]);
-
   const clearCompletingId = useCallback((id) => {
     clearTimeout(completingTimers.current.get(id));
     completingTimers.current.delete(id);

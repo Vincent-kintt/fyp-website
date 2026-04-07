@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { reminderKeys } from "@/lib/queryKeys";
 import AIReminderModal from "@/components/reminders/AIReminderModal";
 
 const AIModalContext = createContext(null);
@@ -12,6 +14,7 @@ export function useAIModal() {
 }
 
 export default function AIModalProvider({ children }) {
+  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [initialText, setInitialText] = useState("");
 
@@ -45,8 +48,8 @@ export default function AIModalProvider({ children }) {
   }, [toggle]);
 
   const handleSuccess = useCallback(() => {
-    window.dispatchEvent(new Event("ai-reminder-changed"));
-  }, []);
+    queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+  }, [queryClient]);
 
   return (
     <AIModalContext.Provider value={{ open, close, toggle, isOpen }}>
