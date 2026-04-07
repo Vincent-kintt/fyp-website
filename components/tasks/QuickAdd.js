@@ -570,7 +570,7 @@ export default function QuickAdd({
                 className="px-3 py-1.5 text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   backgroundColor: !inputText.trim() || isSubmitting ? "var(--text-muted)" : "var(--text-primary)",
-                  color: "var(--bg-primary, #09090b)",
+                  color: "var(--background)",
                   opacity: !inputText.trim() || isSubmitting ? 0.4 : 1,
                 }}
                 title={isParsing ? t("parsingHint") : undefined}
