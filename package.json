@@ -20,7 +20,8 @@
     "create-push-indexes": "node --env-file=.env.local scripts/createPushIndexes.js",
     "create-notes-indexes": "node scripts/create-notes-indexes.js",
     "migrate-inbox-capture": "node --env-file=.env.local scripts/migrate-inbox-capture.js",
-    "create-inbox-index": "node --env-file=.env.local scripts/create-inbox-index.js"
+    "create-inbox-index": "node --env-file=.env.local scripts/create-inbox-index.js",
+    "setup-db": "node --env-file=.env.local scripts/initUsers.js && node --env-file=.env.local scripts/createPushIndexes.js && node --env-file=.env.local scripts/create-notes-indexes.js && node --env-file=.env.local scripts/create-inbox-index.js && node --env-file=.env.local scripts/seed-rss-feeds.js"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.37",
