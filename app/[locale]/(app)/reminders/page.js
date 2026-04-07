@@ -1,18 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { FaPlus } from "react-icons/fa";
 import ReminderList from "@/components/reminders/ReminderList";
 import ReminderFilter from "@/components/reminders/ReminderFilter";
-import AIReminderModal from "@/components/reminders/AIReminderModal";
 import ExportButton from "@/components/reminders/ExportButton";
 import { useTasks } from "@/hooks/useTasks";
 
 export default function RemindersPage() {
   const t = useTranslations("reminders");
   const { tasks: reminders, loading, deleteTask, refetch } = useTasks();
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
     category: "all",
@@ -20,17 +17,6 @@ export default function RemindersPage() {
     type: "all",
   });
 
-  // Cmd+J / Ctrl+J to toggle AI modal
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
-        e.preventDefault();
-        setIsPanelOpen((prev) => !prev);
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
   const filteredReminders = reminders.filter((reminder) => {
     const matchesSearch =
       reminder.title.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -108,22 +94,6 @@ export default function RemindersPage() {
         reminders={filteredReminders}
         onDelete={deleteTask}
         onUpdate={refetch}
-      />
-
-      {/* Floating Add Button */}
-      <button
-        onClick={() => setIsPanelOpen(true)}
-        className="fixed bottom-8 right-8 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-110 z-30 flex items-center justify-center"
-        aria-label={t("createNew")}
-      >
-        <FaPlus className="text-2xl" />
-      </button>
-
-      {/* AI Reminder Modal */}
-      <AIReminderModal
-        isOpen={isPanelOpen}
-        onClose={() => setIsPanelOpen(false)}
-        onSuccess={() => refetch()}
       />
     </div>
   );
