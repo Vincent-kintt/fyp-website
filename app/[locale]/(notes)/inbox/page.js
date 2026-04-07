@@ -26,6 +26,7 @@ export default function InboxPage() {
   const [extractedTasks, setExtractedTasks] = useState([]);
   const [confirmedTasks, setConfirmedTasks] = useState([]);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
 
   const editorRef = useRef(null);
 
@@ -220,12 +221,10 @@ export default function InboxPage() {
 
   // Reset inbox — clear editor content + extracted tasks + confirmed history
   const handleResetInbox = useCallback(async () => {
-    const editorApi = editorRef.current;
-    if (editorApi) {
-      editorApi.resetContent();
-    }
     setExtractedTasks([]);
     setConfirmedTasks([]);
+    setInboxNote((prev) => (prev ? { ...prev, content: [] } : prev));
+    setEditorKey((k) => k + 1);
     try {
       await fetch("/api/inbox/note", {
         method: "PATCH",
@@ -277,7 +276,7 @@ export default function InboxPage() {
       <div className="flex-1 overflow-y-auto">
         {inboxNote && (
           <NoteEditor
-            key={inboxNote.id}
+            key={`${inboxNote.id}-${editorKey}`}
             note={inboxNote}
             onSave={handleSave}
             onSaveStatusChange={setSaveStatus}
