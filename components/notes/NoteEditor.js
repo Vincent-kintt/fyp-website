@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, Bot } from "lucide-react";
+import { Sparkles, Bot, Rss } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { BlockNoteView } from "@blocknote/mantine";
@@ -26,6 +26,7 @@ import { blocksToText } from "@/lib/notes/blocksToText.js";
 import "@blocknote/mantine/style.css";
 import NoteIcon from "./NoteIcon";
 import IconPicker from "./IconPicker";
+import RSSOnboardingModal from "./RSSOnboardingModal";
 
 const TOOL_PROGRESS_LABELS = {
   searchNotes: "agentSearchingNotes",
@@ -35,6 +36,8 @@ const TOOL_PROGRESS_LABELS = {
   summarizeUpcoming: "agentSummarizing",
   createReminder: "agentCreatingReminder",
   searchWeb: "agentSearchingWeb",
+  getUserSubscriptions: "rssLoadingSubscriptions",
+  fetchRSSFeeds: "rssFetchingFeeds",
 };
 
 
@@ -106,6 +109,8 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   const [title, setTitle] = useState(note?.title || "");
   const [saveStatus, setSaveStatus] = useState(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [rssModalOpen, setRssModalOpen] = useState(false);
+  const rssModalCallbackRef = useRef(null);
   const saveTimerRef = useRef(null);
   const titleTimerRef = useRef(null);
   const titleRef = useRef(title);
@@ -341,12 +346,161 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     [editor, t],
   );
 
+  const doRSSFetch = useCallback(
+    async (commandBlock) => {
+      const [loadingBlock] = editor.insertBlocks(
+        [{ type: "paragraph", content: t("rssLoadingSubscriptions") }],
+        commandBlock,
+        "after",
+      );
+
+      try {
+        const res = await fetch("/api/ai/notes-rss", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            language: localeRef.current?.startsWith("zh") ? "zh" : "en",
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }),
+        });
+
+        if (!res.ok) {
+          let errMsg = `HTTP ${res.status}`;
+          try {
+            const errBody = await res.json();
+            errMsg = errBody.error || errMsg;
+          } catch {}
+          throw new Error(errMsg);
+        }
+
+        let accumulatedText = "";
+        let aborted = false;
+
+        await consumeStream({
+          stream: parseJsonEventStream({
+            stream: res.body,
+            schema: uiMessageChunkSchema,
+          }).pipeThrough(
+            new TransformStream({
+              transform(part) {
+                if (aborted || !part.success) return;
+                const chunk = part.value;
+
+                if (chunk.type === "tool-input-available") {
+                  const labelKey = TOOL_PROGRESS_LABELS[chunk.toolName];
+                  if (labelKey) {
+                    try {
+                      editor.updateBlock(loadingBlock, {
+                        type: "paragraph",
+                        content: t(labelKey),
+                      });
+                    } catch {
+                      aborted = true;
+                    }
+                  }
+                }
+
+                if (chunk.type === "text-delta") {
+                  accumulatedText += chunk.delta;
+                  const displayText = accumulatedText
+                    .replace(/^#{1,6}\s+/gm, "")
+                    .replace(/\*\*([^*]+)\*\*/g, "$1")
+                    .replace(/\*([^*]+)\*/g, "$1")
+                    .replace(/^[-*+]\s+/gm, "— ");
+                  try {
+                    editor.updateBlock(loadingBlock, {
+                      type: "paragraph",
+                      content: displayText,
+                    });
+                  } catch {
+                    aborted = true;
+                  }
+                }
+              },
+            }),
+          ),
+        });
+
+        if (accumulatedText.trim()) {
+          const parsedBlocks = editor.tryParseMarkdownToBlocks(accumulatedText);
+          if (editor.getBlock(loadingBlock.id)) {
+            editor.removeBlocks([loadingBlock]);
+          }
+          if (parsedBlocks.length > 0 && editor.getBlock(commandBlock.id)) {
+            editor.insertBlocks(parsedBlocks, commandBlock, "after");
+          }
+        } else {
+          try {
+            editor.updateBlock(loadingBlock, {
+              type: "paragraph",
+              content: t("aiError"),
+            });
+          } catch {}
+        }
+      } catch (err) {
+        console.error("RSS fetch error:", err);
+        executedCommandsRef.current.delete(commandBlock.id);
+        try {
+          editor.updateBlock(loadingBlock, {
+            type: "paragraph",
+            content: `${t("aiError")}${err?.message ? ` — ${err.message}` : ""}`,
+          });
+        } catch {}
+      }
+    },
+    [editor, t],
+  );
+
+  const executeRSSCommand = useCallback(
+    async (commandBlockId) => {
+      const commandBlock = commandBlockId
+        ? editor.getBlock(commandBlockId)
+        : editor.getTextCursorPosition().block;
+
+      if (!commandBlock) return;
+
+      const blockText =
+        commandBlock.content?.map((c) => c.text || "").join("") || "";
+      executedCommandsRef.current.set(commandBlock.id, blockText);
+
+      try {
+        const checkRes = await fetch("/api/rss");
+        if (!checkRes.ok) throw new Error(`HTTP ${checkRes.status}`);
+        const checkBody = await checkRes.json();
+
+        if (!checkBody.data || checkBody.data.length === 0) {
+          rssModalCallbackRef.current = async (categories) => {
+            const subRes = await fetch("/api/rss", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ categories }),
+            });
+            if (!subRes.ok) throw new Error("Failed to subscribe");
+            await doRSSFetch(commandBlock);
+          };
+          setRssModalOpen(true);
+          return;
+        }
+
+        await doRSSFetch(commandBlock);
+      } catch (err) {
+        console.error("RSS command error:", err);
+        executedCommandsRef.current.delete(commandBlock.id);
+      }
+    },
+    [editor, doRSSFetch],
+  );
+
   const executeAiCommand = useCallback(
     async (type, input, commandBlockId) => {
       const noteContext = blocksToText(editor.document);
 
       if (type === "agent") {
         return executeAgentCommand(input, commandBlockId);
+      }
+
+      if (type === "rss") {
+        return executeRSSCommand(commandBlockId);
       }
 
       let commandBlock;
@@ -456,7 +610,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
         }
       }
     },
-    [editor, t, executeAgentCommand],
+    [editor, t, executeAgentCommand, executeRSSCommand],
   );
 
   // Sync executeAiCommandRef AFTER the declaration to avoid TDZ
@@ -631,6 +785,31 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
           group: "AI",
           icon: <Bot size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
         },
+        {
+          title: t("rss"),
+          onItemClick: () => {
+            const currentBlock = editorInstance.getTextCursorPosition().block;
+            const blockText = currentBlock.content?.map((c) => c.text || "").join("") || "";
+            if (!blockText.trim()) {
+              editorInstance.updateBlock(currentBlock, {
+                type: "paragraph",
+                content: "/rss today",
+              });
+              executeAiCommand("rss", "today", currentBlock.id);
+            } else {
+              const [newBlock] = editorInstance.insertBlocks(
+                [{ type: "paragraph", content: "/rss today" }],
+                currentBlock,
+                "after",
+              );
+              executeAiCommand("rss", "today", newBlock.id);
+            }
+          },
+          subtext: t("rssSubtext"),
+          aliases: ["rss", "news", "feed"],
+          group: "AI",
+          icon: <Rss size={14} strokeWidth={1.5} style={{ color: "var(--accent)" }} />,
+        },
       ];
 
       return [...defaultItems, ...aiItems];
@@ -757,6 +936,14 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
           />
         )}
       </BlockNoteView>
+
+      <RSSOnboardingModal
+        open={rssModalOpen}
+        onClose={() => setRssModalOpen(false)}
+        onConfirm={async (categories) => {
+          await rssModalCallbackRef.current?.(categories);
+        }}
+      />
     </div>
   );
 }

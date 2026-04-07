@@ -3,12 +3,13 @@ import { getModel } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { createNoteTools } from "@/lib/ai/noteTools.js";
 import { auth } from "@/auth";
+import {
+  acquireNoteAILock,
+  releaseNoteAILock,
+} from "@/lib/ai/notesConcurrency.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// Concurrency guard: one active /agent request per user
-const activeAgentUsers = new Set();
 
 const ALLOWED_REMINDER_TOOLS = new Set([
   "listReminders",
@@ -94,7 +95,7 @@ export async function POST(request) {
   const userId = session.user.id;
 
   // Concurrency check
-  if (activeAgentUsers.has(userId)) {
+  if (!acquireNoteAILock(userId)) {
     return new Response(
       JSON.stringify({
         success: false,
@@ -103,8 +104,6 @@ export async function POST(request) {
       { status: 429, headers: { "Content-Type": "application/json" } },
     );
   }
-
-  activeAgentUsers.add(userId);
 
   try {
     const {
@@ -115,7 +114,7 @@ export async function POST(request) {
     } = await request.json();
 
     if (!input || !input.trim()) {
-      activeAgentUsers.delete(userId);
+      releaseNoteAILock(userId);
       return new Response(
         JSON.stringify({
           success: false,
@@ -149,7 +148,7 @@ export async function POST(request) {
         );
       },
       onFinish: ({ totalUsage, steps }) => {
-        activeAgentUsers.delete(userId);
+        releaseNoteAILock(userId);
         console.log(
           JSON.stringify({
             event: "notes_agent_complete",
@@ -161,7 +160,7 @@ export async function POST(request) {
         );
       },
       onError: ({ error }) => {
-        activeAgentUsers.delete(userId);
+        releaseNoteAILock(userId);
         console.error(
           JSON.stringify({
             event: "notes_agent_error",
@@ -174,7 +173,7 @@ export async function POST(request) {
 
     return result.toUIMessageStreamResponse();
   } catch (error) {
-    activeAgentUsers.delete(userId);
+    releaseNoteAILock(userId);
     console.error("POST /api/ai/notes-agentic error:", error);
     return new Response(
       JSON.stringify({ success: false, error: "Failed to process request" }),
