@@ -18,6 +18,16 @@ const parseTaskSchema = z.object({
   matched_text: z.string().default(""),
 });
 
+// Lenient schema for salvage path — .catch() falls back per-field instead of rejecting the whole object
+const salvageSchema = z.object({
+  title: z.string().catch(""),
+  tags: z.array(z.string()).catch([]),
+  priority: z.enum(["low", "medium", "high"]).catch("medium"),
+  date_expression: z.string().catch(""),
+  is_task: z.boolean().catch(false),
+  matched_text: z.string().catch(""),
+});
+
 // Custom chrono parser with smart AM/PM inference
 // When time is ambiguous (no AM/PM), assume PM for hours 1-6 (people rarely schedule at 1-6 AM)
 const customChrono = chrono.casual.clone();
@@ -164,7 +174,10 @@ Extract structured data from user input.
         console.warn(
           "[parse-task] Structured output failed, salvaging from text",
         );
-        llmParsed = salvageFromText(error.text);
+        const salvaged = salvageFromText(error.text);
+        if (salvaged) {
+          llmParsed = salvageSchema.parse(salvaged);
+        }
       }
       if (!llmParsed) {
         console.error(

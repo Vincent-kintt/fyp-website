@@ -95,6 +95,43 @@ describe("parse-task with Output.object()", () => {
     expect(json.data.title).toBe("do something");
   });
 
+  it("sanitizes invalid priority from salvage path to 'medium'", async () => {
+    const { NoObjectGeneratedError } = await import("ai");
+    const error = new NoObjectGeneratedError({
+      message: "Failed to parse",
+      text: '{"title": "Urgent task", "tags": ["work"], "priority": "urgent", "date_expression": "", "is_task": true, "matched_text": "urgent task"}',
+      usage: { promptTokens: 10, completionTokens: 20 },
+    });
+
+    mockGenerateText.mockRejectedValue(error);
+
+    const res = await POST(makeRequest({ text: "urgent task" }));
+    const json = await res.json();
+
+    expect(json.success).toBe(true);
+    expect(json.data.title).toBe("Urgent task");
+    expect(json.data.priority).toBe("medium");
+  });
+
+  it("sanitizes non-array tags from salvage path", async () => {
+    const { NoObjectGeneratedError } = await import("ai");
+    const error = new NoObjectGeneratedError({
+      message: "Failed to parse",
+      text: '{"title": "Some task", "tags": "not-an-array", "priority": "high", "is_task": true, "matched_text": "some task"}',
+      usage: { promptTokens: 10, completionTokens: 20 },
+    });
+
+    mockGenerateText.mockRejectedValue(error);
+
+    const res = await POST(makeRequest({ text: "some task" }));
+    const json = await res.json();
+
+    expect(json.success).toBe(true);
+    expect(json.data.title).toBe("Some task");
+    expect(json.data.tags).toEqual([]);
+    expect(json.data.priority).toBe("high");
+  });
+
   it("rejects unauthenticated requests", async () => {
     const { auth } = await import("@/auth");
     auth.mockResolvedValueOnce(null);
