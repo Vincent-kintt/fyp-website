@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronRight, File, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, File, Plus, Search, Trash2 } from "lucide-react";
+import { Link } from "@/i18n/navigation";
 import TrashSection from "./TrashSection";
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -28,6 +29,8 @@ export default function PageTree({
 }) {
   const t = useTranslations("notes");
   const [trashOpen, setTrashOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState("");
+  const filterInputRef = useRef(null);
   const sensors = useDndSensors();
 
   // Expand/collapse state — default: all notes with children are expanded
@@ -74,12 +77,24 @@ export default function PageTree({
     });
   }, []);
 
+  const handleFilterKeyDown = useCallback((e) => {
+    if (e.key === "Escape") {
+      e.stopPropagation(); // CRITICAL: prevent MobileSidebar from closing
+      setFilterQuery("");
+      filterInputRef.current?.blur();
+    }
+  }, []);
+
   // Build tree + flatten to visible rows
   const tree = useMemo(() => buildTree(notes), [notes]);
   const flatVisible = useMemo(
     () => flattenVisibleTree(tree, expandedIds),
     [tree, expandedIds],
   );
+
+  const filteredNotes = filterQuery
+    ? notes.filter((n) => (n.title || "").toLowerCase().includes(filterQuery.toLowerCase()))
+    : null;
 
   // During drag: filter out active item's descendants
   const sortableItems = useMemo(() => {
@@ -219,8 +234,75 @@ export default function PageTree({
 
   return (
     <div className="flex flex-col h-full">
+      {/* Filter input */}
+      <div className="px-2 pb-1">
+        <div className="relative">
+          <Search
+            size={13}
+            strokeWidth={1.5}
+            className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ color: "var(--text-muted)", opacity: 0.6 }}
+          />
+          <input
+            ref={filterInputRef}
+            type="text"
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            onKeyDown={handleFilterKeyDown}
+            placeholder={t("filterPlaceholder")}
+            className="w-full pl-7 pr-2 py-1 text-xs rounded"
+            style={{
+              background: "transparent",
+              border: "1px solid transparent",
+              color: "var(--text-primary)",
+              outline: "none",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = "transparent")}
+          />
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto py-2 px-1">
-        {flatVisible.length === 0 ? (
+        {filteredNotes ? (
+          <div className="px-1 py-1">
+            {filteredNotes.length === 0 ? (
+              <p
+                className="px-3 py-4 text-center text-xs"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {t("noFilterResults")}
+              </p>
+            ) : (
+              filteredNotes.map((n) => (
+                <Link
+                  key={n.id}
+                  href={`/notes/${n.id}`}
+                  onClick={() => setFilterQuery("")}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                    n.id === activeNoteId ? "font-medium" : ""
+                  }`}
+                  style={{
+                    color:
+                      n.id === activeNoteId ? "var(--text-primary)" : "var(--text-secondary)",
+                    background:
+                      n.id === activeNoteId ? "var(--surface-hover)" : "transparent",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "var(--surface-hover)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background =
+                      n.id === activeNoteId ? "var(--surface-hover)" : "transparent")
+                  }
+                >
+                  <File size={14} strokeWidth={1.5} style={{ opacity: 0.5 }} />
+                  <span className="truncate">{n.title || t("untitled")}</span>
+                </Link>
+              ))
+            )}
+          </div>
+        ) : flatVisible.length === 0 ? (
           <div className="flex flex-col items-center px-3 py-10 text-center gap-2">
             <File size={32} strokeWidth={1} style={{ color: "var(--text-muted)", opacity: 0.15 }} />
             <p className="text-xs" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
