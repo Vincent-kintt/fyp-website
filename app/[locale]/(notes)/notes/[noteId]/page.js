@@ -179,6 +179,7 @@ export default function NotePage() {
             onSave={handleSave}
             onSaveStatusChange={setEditorSaveStatus}
             onIconChange={handleIconChange}
+            notes={notes}
           />
         </>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles, Bot } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
@@ -10,7 +10,8 @@ import {
   SuggestionMenuController,
   getDefaultReactSlashMenuItems,
 } from "@blocknote/react";
-import { filterSuggestionItems, SuggestionMenu } from "@blocknote/core";
+import { BlockNoteSchema, defaultInlineContentSpecs, filterSuggestionItems, SuggestionMenu } from "@blocknote/core";
+import { noteLinkSpec } from "./NoteLinkInlineContent";
 import { en as bnEn } from "@blocknote/core/locales";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import {
@@ -35,7 +36,7 @@ const TOOL_PROGRESS_LABELS = {
 };
 
 
-export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconChange, hideTitle, editorRef, disableAiCommands }) {
+export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconChange, hideTitle, editorRef, disableAiCommands, notes }) {
   const t = useTranslations("notes");
   const locale = useLocale();
   const { theme } = useTheme();
@@ -58,7 +59,19 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   useEffect(() => { titleRef.current = title; }, [title]);
   useEffect(() => { localeRef.current = locale; }, [locale]);
 
+  const schema = useMemo(
+    () =>
+      BlockNoteSchema.create({
+        inlineContentSpecs: {
+          ...defaultInlineContentSpecs,
+          noteLink: noteLinkSpec,
+        },
+      }),
+    [],
+  );
+
   const editor = useCreateBlockNote({
+    schema,
     initialContent: note?.content?.length > 0 ? note.content : undefined,
     dictionary: {
       ...bnEn,
@@ -72,11 +85,8 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   useEffect(() => {
     if (note?.content?.length > 0) {
       editor.replaceBlocks(editor.document, note.content);
-    } else {
-      editor.replaceBlocks(editor.document, [
-        { type: "paragraph", content: [] },
-      ]);
     }
+    // Empty content — skip replaceBlocks so BlockNote keeps its default empty state with placeholder
   }, [note?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Expose editor content to parent via ref callback
@@ -565,6 +575,32 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     [executeAiCommand, t, disableAiCommands],
   );
 
+  const getMentionItems = useCallback(
+    (editorInstance) => {
+      if (!notes || notes.length === 0) return [];
+      return notes.map((n) => ({
+        title: n.title || t("untitled"),
+        onItemClick: () => {
+          editorInstance.insertInlineContent([
+            { type: "noteLink", props: { noteId: n.id } },
+            " ",
+          ]);
+        },
+        icon: (
+          <NoteIcon
+            icon={n.icon}
+            hasChildren={false}
+            expanded={false}
+            size={14}
+          />
+        ),
+        aliases: [],
+        group: t("mentionNotes"),
+      }));
+    },
+    [notes, t],
+  );
+
   const handleTitleChange = useCallback(
     (newTitle) => {
       setTitle(newTitle);
@@ -648,6 +684,14 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             filterSuggestionItems(getSlashMenuItems(editor), query)
           }
         />
+        {notes && notes.length > 0 && (
+          <SuggestionMenuController
+            triggerCharacter="@"
+            getItems={async (query) =>
+              filterSuggestionItems(getMentionItems(editor), query)
+            }
+          />
+        )}
       </BlockNoteView>
     </div>
   );
