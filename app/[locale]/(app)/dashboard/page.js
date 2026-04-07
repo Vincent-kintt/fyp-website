@@ -80,13 +80,6 @@ export default function DashboardPage() {
     }
   }, [status, router]);
 
-  // Listen for open-ai-modal event from GlobalSearch quick actions
-  useEffect(() => {
-    const handler = () => setIsAIModalOpen(true);
-    window.addEventListener("open-ai-modal", handler);
-    return () => window.removeEventListener("open-ai-modal", handler);
-  }, []);
-
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "j") {

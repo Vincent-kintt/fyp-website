@@ -94,33 +94,34 @@ a[href] {
     --modal-text-secondary: #4b5563;
     --modal-text-muted: #6b7280;
 
-    /* Modal accents */
-    --modal-accent: #8b5cf6;
-    --modal-accent-light: rgba(139, 92, 246, 0.1);
-    --modal-accent-border: rgba(139, 92, 246, 0.3);
-    --modal-accent-active: rgba(139, 92, 246, 0.8);
-    --modal-accent-active-border: rgba(139, 92, 246, 0.4);
+    /* Modal accents — monochrome */
+    --modal-accent: #4b5563;
+    --modal-accent-light: rgba(0, 0, 0, 0.06);
+    --modal-accent-border: rgba(0, 0, 0, 0.12);
+    --modal-accent-active: rgba(0, 0, 0, 0.7);
+    --modal-accent-active-border: rgba(0, 0, 0, 0.2);
     --modal-accent-completed: rgba(34, 197, 94, 0.8);
     --modal-accent-completed-border: rgba(34, 197, 94, 0.3);
 
-    /* User message bubble */
-    --user-bubble-bg: rgba(139, 92, 246, 0.12);
-    --user-bubble-border: rgba(139, 92, 246, 0.25);
+    /* User message */
+    --user-bubble-bg: rgba(0, 0, 0, 0.06);
+    --user-bubble-border: rgba(0, 0, 0, 0.1);
 
-    /* Agent message bubble */
-    --agent-bubble-bg: rgba(0, 0, 0, 0.04);
-    --agent-bubble-border: rgba(0, 0, 0, 0.08);
+    /* Agent message — no bubble */
+    --agent-bubble-bg: transparent;
+    --agent-bubble-border: transparent;
 
     /* Tool/Status colors */
     --tool-success-bg: rgba(34, 197, 94, 0.08);
     --tool-success-border: rgba(34, 197, 94, 0.2);
     --tool-error-bg: rgba(239, 68, 68, 0.08);
     --tool-error-border: rgba(239, 68, 68, 0.2);
+    --tool-step-border: rgba(0, 0, 0, 0.08);
 
     /* Input in modal */
-    --modal-input-bg: rgba(0, 0, 0, 0.04);
-    --modal-input-border: rgba(0, 0, 0, 0.12);
-    --modal-input-focus-border: rgba(139, 92, 246, 0.5);
+    --modal-input-bg: rgba(0, 0, 0, 0.03);
+    --modal-input-border: rgba(0, 0, 0, 0.08);
+    --modal-input-focus-border: rgba(0, 0, 0, 0.2);
 
     /* Select dropdown */
     --select-bg: rgba(0, 0, 0, 0.05);
@@ -233,33 +234,34 @@ a[href] {
     --modal-text-secondary: #a1a1aa;
     --modal-text-muted: #71717a;
 
-    /* Modal accents */
-    --modal-accent: #a78bfa;
-    --modal-accent-light: rgba(139, 92, 246, 0.2);
-    --modal-accent-border: rgba(139, 92, 246, 0.4);
-    --modal-accent-active: rgba(139, 92, 246, 1);
-    --modal-accent-active-border: rgba(139, 92, 246, 0.4);
+    /* Modal accents — monochrome */
+    --modal-accent: #a1a1aa;
+    --modal-accent-light: rgba(255, 255, 255, 0.06);
+    --modal-accent-border: rgba(255, 255, 255, 0.1);
+    --modal-accent-active: rgba(255, 255, 255, 0.8);
+    --modal-accent-active-border: rgba(255, 255, 255, 0.2);
     --modal-accent-completed: rgba(34, 197, 94, 1);
     --modal-accent-completed-border: rgba(34, 197, 94, 0.3);
 
-    /* User message bubble */
-    --user-bubble-bg: rgba(139, 92, 246, 0.15);
-    --user-bubble-border: rgba(139, 92, 246, 0.3);
+    /* User message */
+    --user-bubble-bg: rgba(255, 255, 255, 0.07);
+    --user-bubble-border: rgba(255, 255, 255, 0.1);
 
-    /* Agent message bubble */
-    --agent-bubble-bg: rgba(255, 255, 255, 0.06);
-    --agent-bubble-border: rgba(255, 255, 255, 0.1);
+    /* Agent message — no bubble */
+    --agent-bubble-bg: transparent;
+    --agent-bubble-border: transparent;
 
     /* Tool/Status colors */
     --tool-success-bg: rgba(34, 197, 94, 0.1);
     --tool-success-border: rgba(34, 197, 94, 0.25);
     --tool-error-bg: rgba(239, 68, 68, 0.1);
     --tool-error-border: rgba(239, 68, 68, 0.25);
+    --tool-step-border: rgba(255, 255, 255, 0.06);
 
     /* Input in modal */
-    --modal-input-bg: rgba(255, 255, 255, 0.08);
-    --modal-input-border: rgba(255, 255, 255, 0.15);
-    --modal-input-focus-border: rgba(139, 92, 246, 0.5);
+    --modal-input-bg: rgba(255, 255, 255, 0.03);
+    --modal-input-border: rgba(255, 255, 255, 0.06);
+    --modal-input-focus-border: rgba(255, 255, 255, 0.15);
 
     /* Select dropdown */
     --select-bg: rgba(255, 255, 255, 0.06);
@@ -393,6 +395,11 @@ body {
 :focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
+}
+
+/* QuickAdd input: no focus ring, container border highlights instead */
+[data-testid="quick-add-input"]:focus-visible {
+  outline: none;
 }
 
 /* ── Motion Design Tokens (Material Design 3) ── */

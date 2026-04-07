@@ -290,57 +290,57 @@ function ToolInvocationBlock({ part, language }) {
 
   return (
     <div style={{ width: "100%" }}>
+      {/* Tool step — left-bordered flat row */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
-          padding: "8px 12px",
-          background: "var(--glass-bg)",
-          border: "1px solid var(--glass-border)",
-          borderRadius: "10px",
+          padding: "6px 10px",
+          borderLeft: "2px solid var(--tool-step-border, var(--glass-border))",
+          marginLeft: "2px",
           marginBottom: isSuccess || isError ? "8px" : "0",
         }}
       >
         <div
           style={{
-            width: "18px",
-            height: "18px",
-            borderRadius: "50%",
+            width: "14px",
+            height: "14px",
+            borderRadius: "3px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
             background: isRunning
-              ? "transparent"
+              ? "var(--glass-bg)"
               : isError
-                ? "rgba(220,38,38,0.1)"
+                ? "var(--tool-error-bg)"
                 : isReadOnly
-                  ? "rgba(59,130,246,0.1)"
-                  : "rgba(22,163,74,0.1)",
+                  ? "rgba(59,130,246,0.08)"
+                  : "var(--tool-success-bg)",
           }}
         >
           {isRunning ? (
             <FaSpinner
               className="animate-spin"
-              style={{ color: "var(--modal-accent)", fontSize: "12px" }}
+              style={{ color: "var(--modal-text-muted)", fontSize: "8px" }}
             />
           ) : isSuccess ? (
             <FaCheck
               style={{
-                color: isReadOnly ? "#3b82f6" : "var(--success)",
-                fontSize: "10px",
+                color: isReadOnly ? "#60a5fa" : "var(--success)",
+                fontSize: "8px",
               }}
             />
           ) : (
-            <FaTimes style={{ color: "var(--danger)", fontSize: "10px" }} />
+            <FaTimes style={{ color: "var(--danger)", fontSize: "8px" }} />
           )}
         </div>
         <span
           style={{
             flex: 1,
             fontSize: "12px",
-            color: "var(--modal-text-secondary, #999)",
+            color: "var(--modal-text-muted)",
           }}
         >
           {description}
@@ -348,10 +348,11 @@ function ToolInvocationBlock({ part, language }) {
         <span
           style={{
             fontSize: "10px",
-            color: "var(--modal-text-muted, #555)",
-            padding: "2px 6px",
+            color: "var(--modal-text-muted)",
+            padding: "1px 5px",
             background: "var(--glass-bg)",
-            borderRadius: "4px",
+            borderRadius: "3px",
+            opacity: 0.6,
           }}
         >
           {toolName}
@@ -403,10 +404,10 @@ function ModelDropdown({ model, onChange, isOpen, onToggle }) {
             cursor: "pointer",
             marginBottom: "4px",
             background:
-              model === opt.value ? "rgba(139,92,246,0.1)" : "transparent",
+              model === opt.value ? "var(--glass-bg-hover)" : "transparent",
             border:
               model === opt.value
-                ? "1px solid rgba(139,92,246,0.25)"
+                ? "1px solid var(--glass-border-hover)"
                 : "1px solid transparent",
             display: "flex",
             alignItems: "center",
@@ -435,7 +436,7 @@ function ModelDropdown({ model, onChange, isOpen, onToggle }) {
           </div>
           {model === opt.value && (
             <FaCheck
-              style={{ color: "#8b5cf6", fontSize: "12px", flexShrink: 0 }}
+              style={{ color: "var(--modal-text-secondary)", fontSize: "12px", flexShrink: 0 }}
             />
           )}
         </div>
@@ -504,7 +505,7 @@ function SettingsPopover({
                   height: "22px",
                   borderRadius: "11px",
                   background: settings.reasoningEnabled
-                    ? "#7c3aed"
+                    ? "var(--modal-text-muted)"
                     : "var(--glass-border)",
                   padding: "2px",
                   cursor: "pointer",
@@ -549,13 +550,13 @@ function SettingsPopover({
                       cursor: "pointer",
                       color:
                         settings.reasoningEffort === level
-                          ? "#a78bfa"
+                          ? "var(--modal-text-secondary)"
                           : "var(--modal-text-muted)",
                       background:
                         settings.reasoningEffort === level
-                          ? "rgba(139,92,246,0.15)"
+                          ? "var(--glass-bg-hover)"
                           : "var(--glass-bg)",
-                      border: `1px solid ${settings.reasoningEffort === level ? "rgba(139,92,246,0.3)" : "var(--glass-border)"}`,
+                      border: `1px solid ${settings.reasoningEffort === level ? "var(--glass-border-hover)" : "var(--glass-border)"}`,
                     }}
                   >
                     {level === "low"
@@ -615,13 +616,13 @@ function SettingsPopover({
                 cursor: "pointer",
                 color:
                   settings.language === lang.value
-                    ? "#a78bfa"
+                    ? "var(--modal-text-secondary)"
                     : "var(--modal-text-muted)",
                 background:
                   settings.language === lang.value
-                    ? "rgba(139,92,246,0.15)"
+                    ? "var(--glass-bg-hover)"
                     : "var(--glass-bg)",
-                border: `1px solid ${settings.language === lang.value ? "rgba(139,92,246,0.3)" : "var(--glass-border)"}`,
+                border: `1px solid ${settings.language === lang.value ? "var(--glass-border-hover)" : "var(--glass-border)"}`,
               }}
             >
               {lang.label}
@@ -1119,6 +1120,63 @@ export default function AIReminderModal({
 
   if (!shouldRender) return null;
 
+  const emptyStateSuggestions = [
+    {
+      zh: "建立提醒",
+      en: "Create a reminder",
+      prompt: settings.language === "zh" ? "建立一個提醒" : "Create a reminder",
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      ),
+    },
+    {
+      zh: "今天的行程",
+      en: "Today's schedule",
+      prompt: settings.language === "zh" ? "列出今天的提醒" : "List today's reminders",
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+        </svg>
+      ),
+    },
+    {
+      zh: "規劃本週",
+      en: "Plan the week",
+      prompt: settings.language === "zh" ? "幫我規劃本週" : "Help me plan this week",
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+      ),
+    },
+    {
+      zh: "分析模式",
+      en: "Analyze patterns",
+      prompt: settings.language === "zh" ? "分析我的提醒模式" : "Analyze my reminder patterns",
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+      ),
+    },
+  ];
+
+  const headerBtnStyle = {
+    width: "28px",
+    height: "28px",
+    borderRadius: "6px",
+    border: "none",
+    background: "transparent",
+    color: "var(--modal-text-muted)",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "color 0.12s, background 0.12s",
+  };
+
   return (
     <>
       <div
@@ -1128,23 +1186,20 @@ export default function AIReminderModal({
           ...(isMobile
             ? {}
             : { left: `${position.x}px`, top: `${position.y}px` }),
-          borderRadius: isMobile ? "0" : "20px",
+          borderRadius: isMobile ? "0" : "14px",
           background: "var(--modal-bg)",
-          backdropFilter: "blur(20px) saturate(180%)",
-          WebkitBackdropFilter: "blur(20px) saturate(180%)",
           border: isMobile ? "none" : "1px solid var(--modal-border)",
           boxShadow: isMobile ? "none" : "var(--modal-shadow)",
-          transition: isDragging ? "none" : "none",
         }}
         onMouseDown={isMobile ? undefined : handleMouseDown}
       >
+        {/* ===== Header ===== */}
         <div
-          className={`modal-header flex items-center gap-3 ${isMobile ? "" : "cursor-move"} select-none`}
+          className={`modal-header flex items-center ${isMobile ? "" : "cursor-move"} select-none`}
           style={{
-            padding: "12px 20px",
-            borderRadius: isMobile ? "0" : "20px 20px 0 0",
-            background: "var(--modal-header-bg)",
-            backdropFilter: "blur(10px)",
+            padding: "0 14px",
+            height: "42px",
+            borderRadius: isMobile ? "0" : "14px 14px 0 0",
             borderBottom: "1px solid var(--modal-header-border)",
           }}
         >
@@ -1152,35 +1207,29 @@ export default function AIReminderModal({
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "10px",
+              gap: "8px",
               flex: 1,
               minWidth: 0,
             }}
           >
-            <div
-              style={{
-                width: isMobile ? "8px" : "10px",
-                height: isMobile ? "8px" : "10px",
-                borderRadius: "50%",
-                background: "#8b5cf6",
-                boxShadow: "0 0 8px rgba(139,92,246,0.4)",
-                flexShrink: 0,
-              }}
-            />
             <span
               style={{
-                fontSize: "14px",
-                fontWeight: 600,
-                color: "var(--modal-text)",
+                fontSize: "13px",
+                fontWeight: 500,
+                color: "var(--modal-text-secondary)",
                 whiteSpace: "nowrap",
               }}
             >
-              {isMobile
-                ? "AI"
-                : settings.language === "zh"
-                  ? "AI 助理"
-                  : "AI Assistant"}
+              {settings.language === "zh" ? "提醒助手" : "Reminders"}
             </span>
+            <div
+              style={{
+                width: "1px",
+                height: "14px",
+                background: "var(--glass-border)",
+                flexShrink: 0,
+              }}
+            />
             <div
               className="model-dropdown-anchor"
               style={{ position: "relative" }}
@@ -1193,29 +1242,25 @@ export default function AIReminderModal({
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 style={{
-                  padding: "4px 10px",
-                  borderRadius: "8px",
+                  padding: "2px 7px",
+                  borderRadius: "4px",
                   cursor: "pointer",
-                  background: showModelDropdown
-                    ? "rgba(139,92,246,0.15)"
-                    : "var(--glass-bg)",
-                  border: `1px solid ${showModelDropdown ? "rgba(139,92,246,0.4)" : "var(--glass-border)"}`,
-                  color: showModelDropdown
-                    ? "#a78bfa"
-                    : "var(--modal-text-secondary)",
-                  fontSize: "12px",
+                  background: "var(--glass-bg)",
+                  color: "var(--modal-text-muted)",
+                  fontSize: "11px",
                   display: "flex",
                   alignItems: "center",
-                  gap: "6px",
+                  gap: "4px",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
-                  maxWidth: isMobile ? "120px" : "none",
+                  maxWidth: isMobile ? "100px" : "none",
+                  transition: "color 0.12s, background 0.12s",
                 }}
               >
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
                   {currentModelLabel}
                 </span>
-                <FaChevronDown style={{ fontSize: "8px", flexShrink: 0 }} />
+                <FaChevronDown style={{ fontSize: "7px", flexShrink: 0, opacity: 0.5 }} />
               </div>
               <ModelDropdown
                 model={settings.model}
@@ -1225,14 +1270,7 @@ export default function AIReminderModal({
               />
             </div>
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              flexShrink: 0,
-            }}
-          >
+          <div style={{ display: "flex", gap: "1px", flexShrink: 0 }}>
             <div className="settings-anchor" style={{ position: "relative" }}>
               <button
                 onClick={() => {
@@ -1240,29 +1278,9 @@ export default function AIReminderModal({
                   setShowModelDropdown(false);
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
-                style={{
-                  width: isMobile ? "28px" : "32px",
-                  height: isMobile ? "28px" : "32px",
-                  borderRadius: "8px",
-                  border: `1px solid ${showSettings ? "rgba(139,92,246,0.4)" : "var(--glass-border)"}`,
-                  background: showSettings
-                    ? "rgba(139,92,246,0.15)"
-                    : "var(--glass-bg)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: showSettings ? "#a78bfa" : "var(--modal-text-muted)",
-                }}
+                style={headerBtnStyle}
               >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="3" />
                   <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
                 </svg>
@@ -1280,514 +1298,431 @@ export default function AIReminderModal({
               <button
                 onClick={handleClearChat}
                 onMouseDown={(e) => e.stopPropagation()}
-                style={{
-                  width: isMobile ? "28px" : "32px",
-                  height: isMobile ? "28px" : "32px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--glass-border)",
-                  background: "var(--glass-bg)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: "var(--modal-text-muted)",
-                }}
+                style={headerBtnStyle}
               >
-                <FaTrash style={{ fontSize: "12px" }} />
+                <FaTrash style={{ fontSize: "11px" }} />
               </button>
             )}
             <button
               onClick={handleAnimatedClose}
               onMouseDown={(e) => e.stopPropagation()}
-              style={{
-                width: isMobile ? "28px" : "32px",
-                height: isMobile ? "28px" : "32px",
-                borderRadius: "8px",
-                border: "1px solid var(--glass-border)",
-                background: "var(--glass-bg)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                color: "var(--modal-text-muted)",
-              }}
+              style={headerBtnStyle}
             >
-              <FaTimes style={{ fontSize: "12px" }} />
+              <FaTimes style={{ fontSize: "11px" }} />
             </button>
           </div>
         </div>
 
+        {/* ===== Content area ===== */}
         <div
           style={{
             display: "flex",
-            height: isMobile ? "calc(100vh - 52px)" : "calc(85vh - 60px)",
-            padding: isMobile ? "8px" : "16px",
+            flexDirection: "column",
+            height: isMobile ? "calc(100vh - 42px)" : "calc(85vh - 42px)",
           }}
         >
-          {/* Chat Area */}
+          {/* Message list */}
           <div
             style={{
               flex: 1,
+              overflowY: "auto",
+              padding: "16px",
               display: "flex",
               flexDirection: "column",
-              background: "var(--glass-bg)",
-              borderRadius: isMobile ? "8px" : "12px",
-              border: "1px solid var(--glass-border)",
+              gap: "16px",
             }}
           >
-            {/* Message list */}
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-              }}
-            >
-              {initialText && messages.length <= 1 && (
-                <div
+            {initialText && messages.length <= 1 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "5px 10px",
+                  background: "var(--glass-bg)",
+                  border: "1px solid var(--glass-border)",
+                  borderRadius: "6px",
+                  alignSelf: "flex-start",
+                  marginBottom: "4px",
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--modal-text-muted)" strokeWidth="2">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                <span style={{ fontSize: "10px", color: "var(--modal-text-muted)" }}>
+                  {settings.language === "zh" ? "從 QuickAdd 繼續" : "Continued from QuickAdd"}
+                </span>
+              </div>
+            )}
+
+            {messages.length === 0 ? (
+              /* ===== Empty state ===== */
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "24px",
+                  padding: "32px",
+                }}
+              >
+                <p
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "6px 10px",
-                    background: "rgba(139,92,246,0.08)",
-                    border: "1px solid rgba(139,92,246,0.15)",
-                    borderRadius: "8px",
-                    alignSelf: "flex-start",
-                    marginBottom: "4px",
+                    fontSize: "15px",
+                    color: "var(--modal-text-muted)",
+                    textAlign: "center",
                   }}
                 >
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#8b5cf6"
-                    strokeWidth="2"
-                  >
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                  </svg>
-                  <span style={{ fontSize: "10px", color: "#a78bfa" }}>
-                    {settings.language === "zh"
-                      ? "從 QuickAdd 繼續"
-                      : "Continued from QuickAdd"}
-                  </span>
-                </div>
-              )}
-              {messages.length === 0 ? (
+                  {settings.language === "zh" ? "需要什麼幫助？" : "What do you need?"}
+                </p>
                 <div
                   style={{
-                    flex: 1,
                     display: "flex",
                     flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "16px",
+                    gap: "4px",
+                    width: "100%",
+                    maxWidth: "340px",
                   }}
                 >
-                  <div
-                    style={{
-                      width: "12px",
-                      height: "12px",
-                      borderRadius: "50%",
-                      background: "#8b5cf6",
-                      boxShadow: "0 0 16px rgba(139,92,246,0.4)",
-                    }}
-                  />
-                  <p
-                    style={{
-                      fontSize: "14px",
-                      color: "var(--modal-text-muted)",
-                      textAlign: "center",
-                    }}
-                  >
-                    {settings.language === "zh"
-                      ? "讓我幫你管理提醒"
-                      : "Ask me to manage your reminders"}
-                  </p>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "6px",
-                      flexWrap: "wrap",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {[
-                      {
-                        zh: "建立提醒",
-                        en: "Create a reminder",
-                        prompt:
-                          settings.language === "zh"
-                            ? "建立一個提醒"
-                            : "Create a reminder",
-                      },
-                      {
-                        zh: "查看今天",
-                        en: "Today's tasks",
-                        prompt:
-                          settings.language === "zh"
-                            ? "列出今天的提醒"
-                            : "List today's reminders",
-                      },
-                      {
-                        zh: "規劃本週",
-                        en: "Plan my week",
-                        prompt:
-                          settings.language === "zh"
-                            ? "幫我規劃本週"
-                            : "Help me plan this week",
-                      },
-                    ].map((chip) => (
-                      <button
-                        key={chip.en}
-                        onClick={() => setInput(chip.prompt)}
-                        style={{
-                          padding: "6px 14px",
-                          borderRadius: "99px",
-                          fontSize: "11px",
-                          fontWeight: 500,
-                          background: "var(--glass-bg)",
-                          color: "#a78bfa",
-                          border: "1px solid var(--glass-border)",
-                          cursor: "pointer",
-                        }}
-                      >
-                        {settings.language === "zh" ? chip.zh : chip.en}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
+                  {emptyStateSuggestions.map((item) => (
+                    <button
+                      key={item.en}
+                      onClick={() => setInput(item.prompt)}
                       style={{
                         display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
+                        alignItems: "center",
+                        gap: "10px",
+                        padding: "9px 12px",
+                        borderRadius: "8px",
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "background 0.12s",
+                        width: "100%",
                       }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = "var(--glass-bg)"; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
                     >
-                      {msg.role === "user" ? (
-                        /* User message */
-                        <div
-                          style={{
-                            alignSelf: "flex-end",
-                            maxWidth: "80%",
-                            padding: "10px 14px",
-                            background: "var(--user-bubble-bg)",
-                            border: "1px solid var(--user-bubble-border)",
-                            borderRadius: "14px 14px 4px 14px",
-                            fontSize: "13px",
-                            color: "var(--modal-text)",
-                          }}
-                        >
-                          {msg.parts?.map((part, i) =>
-                            part.type === "text" ? (
-                              <span key={i}>{part.text}</span>
-                            ) : null,
-                          )}
-                        </div>
-                      ) : (
-                        /* Assistant message - render parts */
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "12px",
-                            alignSelf: "flex-start",
-                            maxWidth: "90%",
-                            width: "100%",
-                          }}
-                        >
-                          {msg.parts?.map((part, pIdx) => {
-                            if (part.type === "step-start") {
-                              return (
-                                <div
-                                  key={`step-${pIdx}`}
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "8px",
-                                    margin: "8px 0 4px 0",
-                                    opacity: 0.7,
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      padding: "2px 8px",
-                                      background: "var(--glass-border)",
-                                      borderRadius: "4px",
-                                      fontSize: "11px",
-                                      fontWeight: "600",
-                                      color: "var(--modal-text)",
-                                    }}
-                                  >
-                                    Step
-                                  </div>
-                                  <div
-                                    style={{
-                                      flex: 1,
-                                      height: "1px",
-                                      background: "var(--glass-border)",
-                                    }}
-                                  ></div>
-                                </div>
-                              );
-                            }
-
-                            if (part.type === "reasoning") {
-                              return (
-                                <ReasoningBlock
-                                  key={`reasoning-${pIdx}`}
-                                  text={part.text}
-                                  isStreaming={part.state === "streaming"}
-                                  language={settings.language}
-                                />
-                              );
-                            }
-
-                            if (isToolPart(part)) {
-                              return (
-                                <ToolInvocationBlock
-                                  key={`tool-${pIdx}`}
-                                  part={part}
-                                  language={settings.language}
-                                />
-                              );
-                            }
-
-                            if (part.type === "text") {
-                              const cleanContent = (part.text || "").trim();
-                              if (!cleanContent) return null;
-
-                              return (
-                                <div
-                                  key={`content-${pIdx}`}
-                                  className="markdown-content"
-                                  style={{
-                                    padding: "12px 16px",
-                                    background: "var(--agent-bubble-bg)",
-                                    border:
-                                      "1px solid var(--agent-bubble-border)",
-                                    borderRadius: "14px 14px 14px 4px",
-                                    fontSize: "13px",
-                                    color: "var(--modal-text)",
-                                  }}
-                                >
-                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                    {cleanContent}
-                                  </ReactMarkdown>
-                                </div>
-                              );
-                            }
-
-                            return null;
-                          })}
-                        </div>
-                      )}
-                    </div>
+                      <div
+                        style={{
+                          width: "28px",
+                          height: "28px",
+                          borderRadius: "7px",
+                          background: "var(--glass-bg)",
+                          border: "1px solid var(--glass-border)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "var(--modal-text-muted)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {item.icon}
+                      </div>
+                      <span style={{ fontSize: "13px", color: "var(--modal-text-secondary)", flex: 1 }}>
+                        {settings.language === "zh" ? item.zh : item.en}
+                      </span>
+                      <span style={{ color: "var(--glass-border)", fontSize: "14px" }}>&#x203A;</span>
+                    </button>
                   ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                    }}
+                  >
+                    {msg.role === "user" ? (
+                      /* User message — right aligned chip */
+                      <div
+                        style={{
+                          alignSelf: "flex-end",
+                          maxWidth: "75%",
+                          padding: "9px 14px",
+                          background: "var(--user-bubble-bg)",
+                          border: "1px solid var(--user-bubble-border)",
+                          borderRadius: "12px 12px 4px 12px",
+                          fontSize: "13px",
+                          color: "var(--modal-text)",
+                        }}
+                      >
+                        {msg.parts?.map((part, i) =>
+                          part.type === "text" ? (
+                            <span key={i}>{part.text}</span>
+                          ) : null,
+                        )}
+                      </div>
+                    ) : (
+                      /* Assistant message — flat layout, no bubble */
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                          alignSelf: "flex-start",
+                          maxWidth: "88%",
+                          width: "100%",
+                        }}
+                      >
+                        {msg.parts?.map((part, pIdx) => {
+                          if (part.type === "step-start") {
+                            return null;
+                          }
 
-                  {/* Streaming indicator when processing but no assistant parts yet */}
-                  {isProcessing &&
-                    (() => {
-                      const lastMsg = messages[messages.length - 1];
-                      const hasAssistantContent =
-                        lastMsg?.role === "assistant" &&
-                        lastMsg.parts?.length > 0;
-                      if (hasAssistantContent) return null;
-                      return (
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            padding: "12px 16px",
-                            color: "var(--modal-text-muted)",
-                            fontSize: "13px",
-                          }}
-                        >
-                          <FaSpinner
-                            className="animate-spin"
-                            style={{ fontSize: "14px" }}
-                          />
-                          <span>
-                            {settings.language === "zh"
-                              ? "思考中..."
-                              : "Thinking..."}
-                          </span>
+                          if (part.type === "reasoning") {
+                            return (
+                              <ReasoningBlock
+                                key={`reasoning-${pIdx}`}
+                                text={part.text}
+                                isStreaming={part.state === "streaming"}
+                                language={settings.language}
+                              />
+                            );
+                          }
+
+                          if (isToolPart(part)) {
+                            return (
+                              <ToolInvocationBlock
+                                key={`tool-${pIdx}`}
+                                part={part}
+                                language={settings.language}
+                              />
+                            );
+                          }
+
+                          if (part.type === "text") {
+                            const cleanContent = (part.text || "").trim();
+                            if (!cleanContent) return null;
+
+                            return (
+                              <div
+                                key={`content-${pIdx}`}
+                                className="markdown-content"
+                                style={{
+                                  padding: "2px 0 2px 4px",
+                                  fontSize: "13px",
+                                  color: "var(--modal-text-secondary)",
+                                  lineHeight: "1.7",
+                                }}
+                              >
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                  {cleanContent}
+                                </ReactMarkdown>
+                              </div>
+                            );
+                          }
+
+                          return null;
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Streaming indicator */}
+                {isProcessing &&
+                  (() => {
+                    const lastMsg = messages[messages.length - 1];
+                    const hasAssistantContent =
+                      lastMsg?.role === "assistant" &&
+                      lastMsg.parts?.length > 0;
+                    if (hasAssistantContent) return null;
+                    return (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "2px 4px",
+                          color: "var(--modal-text-muted)",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: "3px" }}>
+                          {[0, 1, 2].map((i) => (
+                            <span
+                              key={i}
+                              style={{
+                                width: "4px",
+                                height: "4px",
+                                borderRadius: "50%",
+                                background: "var(--modal-text-muted)",
+                                animation: "pulse 1.4s infinite",
+                                animationDelay: `${i * 0.2}s`,
+                                opacity: 0.3,
+                              }}
+                            />
+                          ))}
                         </div>
-                      );
-                    })()}
-                </>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
+                      </div>
+                    );
+                  })()}
+              </>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
 
-            {/* Input area */}
-            <div
-              style={{
-                padding: "12px 16px",
-                borderTop: "1px solid var(--glass-border)",
-              }}
-            >
-              {errorMessage && (
+          {/* ===== Input area ===== */}
+          <div
+            style={{
+              padding: "10px 14px",
+              borderTop: "1px solid var(--glass-border)",
+            }}
+          >
+            {errorMessage && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  fontSize: "12px",
+                  color: "#ef4444",
+                  background: "var(--tool-error-bg)",
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--tool-error-border)",
+                  marginBottom: "8px",
+                }}
+              >
+                <span>{errorMessage}</span>
+              </div>
+            )}
+            {/* Suggested follow-ups — ghost buttons */}
+            {!isProcessing &&
+              messages.length > 0 &&
+              suggestions.length > 0 && (
                 <div
                   style={{
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    fontSize: "12px",
-                    color: "#ef4444",
-                    background: "var(--tool-error-bg)",
-                    padding: "8px 12px",
-                    borderRadius: "8px",
-                    border: "1px solid var(--tool-error-border)",
+                    gap: "5px",
                     marginBottom: "8px",
+                    overflowX: "auto",
+                    paddingBottom: "2px",
                   }}
                 >
-                  <span>{errorMessage}</span>
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setInput(s.prompt)}
+                      style={{
+                        padding: "5px 11px",
+                        borderRadius: "6px",
+                        fontSize: "11px",
+                        background: "transparent",
+                        color: "var(--modal-text-muted)",
+                        border: "1px solid var(--glass-border)",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        transition: "all 0.12s",
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.background = "var(--glass-bg)";
+                        e.currentTarget.style.borderColor = "var(--glass-border-hover)";
+                        e.currentTarget.style.color = "var(--modal-text-secondary)";
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.borderColor = "var(--glass-border)";
+                        e.currentTarget.style.color = "var(--modal-text-muted)";
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
                 </div>
               )}
-              {/* Suggested Actions */}
-              {!isProcessing &&
-                messages.length > 0 &&
-                suggestions.length > 0 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "6px",
-                      marginBottom: "8px",
-                      overflowX: "auto",
-                      paddingBottom: "2px",
-                    }}
-                  >
-                    {suggestions.map((s, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setInput(s.prompt)}
-                        style={{
-                          padding: "5px 12px",
-                          borderRadius: "9999px",
-                          fontSize: "11px",
-                          fontWeight: "500",
-                          background: "var(--glass-bg)",
-                          color: "var(--modal-accent)",
-                          border: "1px solid var(--glass-border)",
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                          transition: "all 0.15s",
-                        }}
-                        onMouseOver={(e) => {
-                          e.currentTarget.style.background =
-                            "var(--glass-bg-hover)";
-                          e.currentTarget.style.borderColor =
-                            "var(--modal-accent-border)";
-                        }}
-                        onMouseOut={(e) => {
-                          e.currentTarget.style.background = "var(--glass-bg)";
-                          e.currentTarget.style.borderColor =
-                            "var(--glass-border)";
-                        }}
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              <div
-                style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}
-              >
-                <textarea
-                  data-testid="ai-modal-input"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  placeholder={t.placeholder}
-                  rows="2"
-                  maxLength={2000}
-                  disabled={isProcessing}
-                  style={{
-                    flex: 1,
-                    padding: "10px 12px",
-                    background: "var(--modal-input-bg)",
-                    border: "1px solid var(--modal-input-border)",
-                    borderRadius: "10px",
-                    color: "var(--modal-text)",
-                    fontSize: "13px",
-                    outline: "none",
-                    transition: "all 0.2s ease",
-                    fontFamily: "inherit",
-                    resize: "none",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.background = "var(--glass-bg-hover)";
-                    e.target.style.borderColor =
-                      "var(--modal-input-focus-border)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.background = "var(--modal-input-bg)";
-                    e.target.style.borderColor = "var(--modal-input-border)";
-                  }}
-                />
+            <div
+              style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}
+            >
+              <textarea
+                data-testid="ai-modal-input"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder={
+                  isProcessing
+                    ? settings.language === "zh" ? "等待回應中..." : "Waiting for response..."
+                    : settings.language === "zh" ? "描述你的需求..." : "Describe what you need..."
+                }
+                rows="2"
+                maxLength={2000}
+                disabled={isProcessing}
+                style={{
+                  flex: 1,
+                  padding: "10px 12px",
+                  background: "var(--modal-input-bg)",
+                  border: "1px solid var(--modal-input-border)",
+                  borderRadius: "10px",
+                  color: isProcessing ? "var(--modal-text-muted)" : "var(--modal-text)",
+                  fontSize: "13px",
+                  outline: "none",
+                  transition: "border-color 0.15s",
+                  fontFamily: "inherit",
+                  resize: "none",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "var(--modal-input-focus-border)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "var(--modal-input-border)";
+                }}
+              />
+              {isProcessing ? (
                 <button
-                  onClick={handleSend}
-                  disabled={isProcessing || !input.trim()}
+                  onClick={() => {/* stop is handled by useChat */}}
                   style={{
-                    padding: "10px 16px",
-                    background:
-                      isProcessing || !input.trim()
-                        ? "rgba(139, 92, 246, 0.3)"
-                        : "linear-gradient(135deg, rgba(139, 92, 246, 0.8) 0%, rgba(6, 182, 212, 0.8) 100%)",
-                    border: "1px solid rgba(255, 255, 255, 0.2)",
-                    borderRadius: "10px",
-                    color: "#fff",
-                    fontSize: "13px",
-                    fontWeight: "500",
-                    cursor:
-                      isProcessing || !input.trim() ? "not-allowed" : "pointer",
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "var(--glass-bg)",
+                    color: "var(--modal-text-muted)",
+                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: "6px",
-                    transition: "all 0.2s",
-                    whiteSpace: "nowrap",
-                  }}
-                  onMouseOver={(e) => {
-                    if (!isProcessing && input.trim()) {
-                      e.currentTarget.style.transform = "scale(1.05)";
-                      e.currentTarget.style.boxShadow =
-                        "0 4px 12px rgba(139, 92, 246, 0.4)";
-                    }
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = "scale(1)";
-                    e.currentTarget.style.boxShadow = "none";
+                    justifyContent: "center",
+                    flexShrink: 0,
                   }}
                 >
-                  {isProcessing ? (
-                    <FaSpinner className="animate-spin" />
-                  ) : (
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M22 2L11 13" />
-                      <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-                    </svg>
-                  )}
-                  {isProcessing ? t.generating : t.send}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="6" width="12" height="12" rx="1" />
+                  </svg>
                 </button>
-              </div>
+              ) : (
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: input.trim() ? "var(--modal-text)" : "var(--glass-bg)",
+                    color: input.trim() ? "var(--modal-bg)" : "var(--modal-text-muted)",
+                    cursor: input.trim() ? "pointer" : "default",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    transition: "all 0.12s",
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         </div>

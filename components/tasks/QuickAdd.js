@@ -324,7 +324,7 @@ export default function QuickAdd({
           className="rounded-lg shadow-lg p-3 transition-all"
           style={{
             backgroundColor: "var(--card-bg)",
-            borderColor: "var(--card-border)",
+            borderColor: "var(--text-muted-border, rgba(255,255,255,0.15))",
             borderWidth: "1px",
             borderStyle: "solid",
           }}
@@ -340,8 +340,10 @@ export default function QuickAdd({
               onKeyDown={handleKeyDown}
               placeholder={placeholder || t("placeholder")}
               autoFocus
-              className="flex-1 bg-transparent border-none outline-none text-sm"
-              style={{ color: "var(--text-primary)" }}
+              className="flex-1 bg-transparent border-none text-sm"
+              style={{ color: "var(--text-primary)", outline: "none", boxShadow: "none" }}
+              onFocus={(e) => { e.target.style.outline = "none"; }}
+              onBlur={(e) => { e.target.style.outline = "none"; }}
             />
             {isParsing && (
               <FaSpinner className="w-4 h-4 animate-spin text-primary" />
@@ -565,11 +567,12 @@ export default function QuickAdd({
               <button
                 type="submit"
                 disabled={!inputText.trim() || isSubmitting}
-                className={`px-3 py-1.5 text-sm text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isParsing
-                    ? "bg-primary/70 hover:bg-primary"
-                    : "bg-primary hover:bg-primary-hover"
-                }`}
+                className="px-3 py-1.5 text-sm rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: !inputText.trim() || isSubmitting ? "var(--text-muted)" : "var(--text-primary)",
+                  color: "var(--bg-primary, #09090b)",
+                  opacity: !inputText.trim() || isSubmitting ? 0.4 : 1,
+                }}
                 title={isParsing ? t("parsingHint") : undefined}
               >
                 {isSubmitting ? t("adding") : t("add")}
