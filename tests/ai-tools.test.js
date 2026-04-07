@@ -517,3 +517,606 @@ describe("batchCreate", () => {
     expect(result.success).toBe(false);
   });
 });
+
+// ============================================
+// suggestReminders
+// ============================================
+describe("suggestReminders", () => {
+  it("returns patterns from past reminders", async () => {
+    const coll = getDb().collection("reminders");
+    const now = new Date();
+    await coll.insertMany([
+      {
+        title: "Morning work",
+        dateTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0),
+        userId: TEST_USER_ID,
+        category: "work",
+        tags: ["work"],
+        status: "completed",
+        completed: true,
+        recurring: false,
+        createdAt: now,
+      },
+      {
+        title: "Evening exercise",
+        dateTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19, 0),
+        userId: TEST_USER_ID,
+        category: "health",
+        tags: ["health"],
+        status: "pending",
+        completed: false,
+        recurring: true,
+        recurringType: "daily",
+        createdAt: now,
+      },
+    ]);
+
+    const result = await tools.suggestReminders.execute({});
+    expect(result.success).toBe(true);
+    expect(result.patterns.categoryCount).toHaveProperty("work");
+    expect(result.patterns.timeSlots).toHaveProperty("morning");
+    expect(result.patterns.timeSlots).toHaveProperty("evening");
+    expect(result.patterns.recurringPatterns).toHaveProperty("daily");
+    expect(result.suggestions).toBeInstanceOf(Array);
+  });
+
+  it("handles empty history", async () => {
+    const result = await tools.suggestReminders.execute({ lookbackDays: 7 });
+    expect(result.success).toBe(true);
+    expect(result.patterns.categoryCount).toEqual({});
+  });
+
+  it("user isolation: only analyzes own reminders", async () => {
+    const coll = getDb().collection("reminders");
+    await coll.insertOne({
+      title: "Other user task",
+      dateTime: new Date(),
+      userId: OTHER_USER_ID,
+      category: "work",
+      status: "pending",
+      completed: false,
+      recurring: false,
+      createdAt: new Date(),
+    });
+
+    const result = await tools.suggestReminders.execute({});
+    expect(result.patterns.categoryCount).toEqual({});
+  });
+});
+
+// ============================================
+// findConflicts
+// ============================================
+describe("findConflicts", () => {
+  it("detects overlapping reminders", async () => {
+    const coll = getDb().collection("reminders");
+    const baseTime = new Date("2024-06-01T10:00:00Z");
+    await coll.insertOne({
+      title: "Existing meeting",
+      dateTime: baseTime,
+      duration: 60,
+      userId: TEST_USER_ID,
+      status: "pending",
+      completed: false,
+    });
+
+    const result = await tools.findConflicts.execute({
+      dateTime: "2024-06-01T10:30:00Z",
+      duration: 60,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.hasConflicts).toBe(true);
+    expect(result.conflicts.length).toBe(1);
+    expect(result.suggestedTimes.length).toBeGreaterThan(0);
+  });
+
+  it("returns no conflicts when times don't overlap", async () => {
+    const coll = getDb().collection("reminders");
+    await coll.insertOne({
+      title: "Morning task",
+      dateTime: new Date("2024-06-01T08:00:00Z"),
+      duration: 30,
+      userId: TEST_USER_ID,
+      status: "pending",
+      completed: false,
+    });
+
+    const result = await tools.findConflicts.execute({
+      dateTime: "2024-06-01T14:00:00Z",
+      duration: 60,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.hasConflicts).toBe(false);
+    expect(result.conflicts.length).toBe(0);
+  });
+
+  it("excludes completed reminders from conflict check", async () => {
+    const coll = getDb().collection("reminders");
+    await coll.insertOne({
+      title: "Done meeting",
+      dateTime: new Date("2024-06-01T10:00:00Z"),
+      duration: 60,
+      userId: TEST_USER_ID,
+      status: "completed",
+      completed: true,
+    });
+
+    const result = await tools.findConflicts.execute({
+      dateTime: "2024-06-01T10:30:00Z",
+      duration: 60,
+    });
+
+    expect(result.hasConflicts).toBe(false);
+  });
+
+  it("handles missing dateTime gracefully", async () => {
+    const result = await tools.findConflicts.execute({
+      dateTime: "",
+    });
+    expect(result.conflicts).toEqual([]);
+  });
+
+  it("user isolation: ignores other user's reminders", async () => {
+    const coll = getDb().collection("reminders");
+    await coll.insertOne({
+      title: "Other user meeting",
+      dateTime: new Date("2024-06-01T10:00:00Z"),
+      duration: 60,
+      userId: OTHER_USER_ID,
+      status: "pending",
+      completed: false,
+    });
+
+    const result = await tools.findConflicts.execute({
+      dateTime: "2024-06-01T10:30:00Z",
+      duration: 60,
+    });
+
+    expect(result.hasConflicts).toBe(false);
+  });
+});
+
+// ============================================
+// analyzePatterns
+// ============================================
+describe("analyzePatterns", () => {
+  beforeEach(async () => {
+    const coll = getDb().collection("reminders");
+    await coll.insertMany([
+      {
+        title: "Work task 1",
+        dateTime: new Date(),
+        userId: TEST_USER_ID,
+        category: "work",
+        status: "completed",
+        completed: true,
+        createdAt: new Date(),
+      },
+      {
+        title: "Work task 2",
+        dateTime: new Date(),
+        userId: TEST_USER_ID,
+        category: "work",
+        status: "pending",
+        completed: false,
+        createdAt: new Date(),
+      },
+      {
+        title: "Health task",
+        dateTime: new Date(),
+        userId: TEST_USER_ID,
+        category: "health",
+        status: "completed",
+        completed: true,
+        createdAt: new Date(),
+      },
+    ]);
+  });
+
+  it("analyzes frequency", async () => {
+    const result = await tools.analyzePatterns.execute({
+      analysisType: "frequency",
+      period: "month",
+    });
+    expect(result.success).toBe(true);
+    expect(result.analysis.totalReminders).toBe(3);
+    expect(result.analysis.averagePerWeek).toBeDefined();
+  });
+
+  it("analyzes categories", async () => {
+    const result = await tools.analyzePatterns.execute({
+      analysisType: "categories",
+      period: "month",
+    });
+    expect(result.success).toBe(true);
+    expect(result.analysis.byCategory.work).toBe(2);
+    expect(result.analysis.byCategory.health).toBe(1);
+  });
+
+  it("analyzes completion rate", async () => {
+    const result = await tools.analyzePatterns.execute({
+      analysisType: "completion",
+      period: "month",
+    });
+    expect(result.success).toBe(true);
+    expect(result.analysis.completionRate).toBe("66.7%");
+  });
+
+  it("respects period filter", async () => {
+    const coll = getDb().collection("reminders");
+    await coll.insertOne({
+      title: "Old task",
+      dateTime: new Date(),
+      userId: TEST_USER_ID,
+      category: "work",
+      status: "pending",
+      completed: false,
+      createdAt: new Date("2020-01-01"),
+    });
+
+    const weekResult = await tools.analyzePatterns.execute({
+      analysisType: "frequency",
+      period: "week",
+    });
+    // Old task's createdAt is outside the week window
+    expect(weekResult.analysis.totalReminders).toBe(3);
+
+    const allResult = await tools.analyzePatterns.execute({
+      analysisType: "frequency",
+      period: "all",
+    });
+    expect(allResult.analysis.totalReminders).toBe(4);
+  });
+});
+
+// ============================================
+// summarizeUpcoming
+// ============================================
+describe("summarizeUpcoming", () => {
+  it("returns upcoming reminders grouped by date", async () => {
+    const coll = getDb().collection("reminders");
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(10, 0, 0, 0);
+
+    await coll.insertMany([
+      {
+        title: "Tomorrow task 1",
+        dateTime: tomorrow,
+        userId: TEST_USER_ID,
+        category: "work",
+        status: "pending",
+        completed: false,
+      },
+      {
+        title: "Tomorrow task 2",
+        dateTime: tomorrow,
+        userId: TEST_USER_ID,
+        category: "personal",
+        status: "pending",
+        completed: false,
+      },
+    ]);
+
+    const result = await tools.summarizeUpcoming.execute({
+      period: "week",
+      groupBy: "date",
+    });
+    expect(result.success).toBe(true);
+    expect(result.total).toBe(2);
+  });
+
+  it("groups by category", async () => {
+    const coll = getDb().collection("reminders");
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(10, 0, 0, 0);
+
+    await coll.insertMany([
+      {
+        title: "Work item",
+        dateTime: tomorrow,
+        userId: TEST_USER_ID,
+        category: "work",
+        status: "pending",
+        completed: false,
+      },
+      {
+        title: "Health item",
+        dateTime: tomorrow,
+        userId: TEST_USER_ID,
+        category: "health",
+        status: "pending",
+        completed: false,
+      },
+    ]);
+
+    const result = await tools.summarizeUpcoming.execute({
+      period: "week",
+      groupBy: "category",
+    });
+    expect(result.success).toBe(true);
+    expect(result.summary).toHaveProperty("work");
+    expect(result.summary).toHaveProperty("health");
+  });
+
+  it("excludes completed reminders", async () => {
+    const coll = getDb().collection("reminders");
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(10, 0, 0, 0);
+
+    await coll.insertOne({
+      title: "Done task",
+      dateTime: tomorrow,
+      userId: TEST_USER_ID,
+      category: "work",
+      status: "completed",
+      completed: true,
+    });
+
+    const result = await tools.summarizeUpcoming.execute({ period: "week" });
+    expect(result.total).toBe(0);
+  });
+
+  it("returns empty for no upcoming reminders", async () => {
+    const result = await tools.summarizeUpcoming.execute({ period: "today" });
+    expect(result.success).toBe(true);
+    expect(result.total).toBe(0);
+  });
+});
+
+// ============================================
+// exportReminders
+// ============================================
+describe("exportReminders", () => {
+  beforeEach(async () => {
+    const coll = getDb().collection("reminders");
+    await coll.insertMany([
+      {
+        title: "Export test 1",
+        description: "Desc 1",
+        dateTime: new Date("2024-06-01T09:00:00Z"),
+        userId: TEST_USER_ID,
+        category: "work",
+        tags: ["work"],
+        status: "pending",
+        completed: false,
+        createdAt: new Date(),
+      },
+      {
+        title: "Export test 2",
+        description: "Desc 2",
+        dateTime: new Date("2024-06-02T09:00:00Z"),
+        userId: TEST_USER_ID,
+        category: "personal",
+        tags: ["personal"],
+        status: "completed",
+        completed: true,
+        createdAt: new Date(),
+      },
+    ]);
+  });
+
+  it("exports as JSON", async () => {
+    const result = await tools.exportReminders.execute({ format: "json" });
+    expect(result.success).toBe(true);
+    expect(result.format).toBe("json");
+    expect(result.data).toBeInstanceOf(Array);
+    expect(result.data.length).toBe(2);
+  });
+
+  it("exports as CSV with headers", async () => {
+    const result = await tools.exportReminders.execute({ format: "csv" });
+    expect(result.success).toBe(true);
+    expect(result.format).toBe("csv");
+    expect(result.data).toContain("Title,Description,DateTime,Category,Completed");
+    expect(result.data).toContain("Export test 1");
+  });
+
+  it("sanitizes CSV fields to prevent formula injection", async () => {
+    const coll = getDb().collection("reminders");
+    await coll.insertOne({
+      title: "=HYPERLINK(evil)",
+      description: "+cmd",
+      dateTime: new Date("2024-06-03T09:00:00Z"),
+      userId: TEST_USER_ID,
+      category: "work",
+      tags: [],
+      status: "pending",
+      completed: false,
+      createdAt: new Date(),
+    });
+
+    const result = await tools.exportReminders.execute({ format: "csv" });
+    expect(result.data).toContain("'=HYPERLINK(evil)");
+    expect(result.data).toContain("'+cmd");
+  });
+});
+
+// ============================================
+// setQuickReminder
+// ============================================
+describe("setQuickReminder", () => {
+  it("creates a reminder relative to current time", async () => {
+    const before = Date.now();
+    const result = await tools.setQuickReminder.execute({
+      title: "Quick one",
+      minutesFromNow: 30,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.reminder.title).toBe("Quick one");
+
+    const reminderTime = new Date(result.reminder.dateTime).getTime();
+    // Should be ~30 minutes from now (allow 5s tolerance)
+    expect(reminderTime).toBeGreaterThanOrEqual(before + 29 * 60 * 1000);
+    expect(reminderTime).toBeLessThanOrEqual(before + 31 * 60 * 1000);
+  });
+
+  it("inherits default fields from createReminder", async () => {
+    const result = await tools.setQuickReminder.execute({
+      title: "Quick defaults",
+      minutesFromNow: 10,
+    });
+
+    expect(result.reminder.status).toBe("pending");
+    expect(result.reminder.completed).toBe(false);
+    expect(result.reminder.userId).toBe(TEST_USER_ID);
+  });
+
+  it("passes tags through to createReminder", async () => {
+    const result = await tools.setQuickReminder.execute({
+      title: "Tagged quick",
+      minutesFromNow: 15,
+      tags: ["urgent", "work"],
+    });
+
+    expect(result.reminder.tags).toEqual(["urgent", "work"]);
+  });
+});
+
+// ============================================
+// templateCreate
+// ============================================
+describe("templateCreate", () => {
+  it("creates from daily-review template", async () => {
+    const result = await tools.templateCreate.execute({
+      templateName: "daily-review",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.reminder.title).toBe("Daily Review");
+    expect(result.reminder.recurring).toBe(true);
+    expect(result.reminder.recurringType).toBe("daily");
+  });
+
+  it("creates from weekly-meeting template", async () => {
+    const result = await tools.templateCreate.execute({
+      templateName: "weekly-meeting",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.reminder.title).toBe("Weekly Team Meeting");
+    expect(result.reminder.recurringType).toBe("weekly");
+  });
+
+  it("creates from medication template", async () => {
+    const result = await tools.templateCreate.execute({
+      templateName: "medication",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.reminder.title).toBe("Take Medication");
+  });
+
+  it("creates from exercise template", async () => {
+    const result = await tools.templateCreate.execute({
+      templateName: "exercise",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.reminder.title).toBe("Exercise Time");
+  });
+
+  it("applies customizations to template", async () => {
+    const result = await tools.templateCreate.execute({
+      templateName: "daily-review",
+      customizations: {
+        title: "My Custom Review",
+        dateTime: "2024-12-01T20:00:00Z",
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.reminder.title).toBe("My Custom Review");
+  });
+
+  it("sets default dateTime at 9:00 when not provided", async () => {
+    const result = await tools.templateCreate.execute({
+      templateName: "exercise",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.reminder.dateTime).toBeDefined();
+  });
+});
+
+// ============================================
+// askClarification
+// ============================================
+describe("askClarification", () => {
+  it("returns question and context", async () => {
+    const result = await tools.askClarification.execute({
+      question: "When should this reminder be set?",
+      context: "User said 'later' without specifying a time",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.question).toBe("When should this reminder be set?");
+    expect(result.context).toBe("User said 'later' without specifying a time");
+  });
+
+  it("works without context", async () => {
+    const result = await tools.askClarification.execute({
+      question: "Which task do you mean?",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.question).toBe("Which task do you mean?");
+    expect(result.context).toBeUndefined();
+  });
+});
+
+// ============================================
+// searchWeb
+// ============================================
+describe("searchWeb", () => {
+  const originalEnv = process.env.PERPLEXITY_API_KEY;
+
+  afterEach(() => {
+    process.env.PERPLEXITY_API_KEY = originalEnv;
+    vi.restoreAllMocks();
+  });
+
+  it("returns error when API key is missing", async () => {
+    process.env.PERPLEXITY_API_KEY = "";
+
+    const result = await tools.searchWeb.execute({ query: "weather today" });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("API key");
+  });
+
+  it("calls Perplexity API and returns result on success", async () => {
+    process.env.PERPLEXITY_API_KEY = "test-key";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: "It is sunny today" } }],
+        }),
+      }),
+    );
+
+    const result = await tools.searchWeb.execute({ query: "weather today" });
+    expect(result.success).toBe(true);
+    expect(result.results[0].snippet).toContain("sunny");
+  });
+
+  it("handles API error response", async () => {
+    process.env.PERPLEXITY_API_KEY = "test-key";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        text: async () => "Rate limit exceeded",
+      }),
+    );
+
+    const result = await tools.searchWeb.execute({ query: "test" });
+    expect(result.success).toBe(false);
+  });
+});
