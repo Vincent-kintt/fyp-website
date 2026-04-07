@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useId } from "react";
 import { createPortal } from "react-dom";
 import Button from "@/components/ui/Button";
+import useScrollLock from "@/hooks/useScrollLock";
 
 export default function ConfirmDialog({
   open,
@@ -14,6 +15,7 @@ export default function ConfirmDialog({
   cancelLabel = "Cancel",
   variant = "default",
 }) {
+  useScrollLock(open);
   const [isClosing, setIsClosing] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
   const confirmRef = useRef(null);
@@ -83,15 +85,13 @@ export default function ConfirmDialog({
     [handleAnimatedClose],
   );
 
-  // Keydown listener + scroll lock
+  // Keydown listener
   useEffect(() => {
     if (shouldRender) {
       document.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden";
     }
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
     };
   }, [shouldRender, handleKeyDown]);
 

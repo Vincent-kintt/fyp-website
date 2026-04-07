@@ -5,9 +5,11 @@ import { createPortal } from "react-dom";
 import { FaTimes } from "react-icons/fa";
 import { useTranslations } from "next-intl";
 import TaskEditForm from "@/components/tasks/TaskEditForm";
+import useScrollLock from "@/hooks/useScrollLock";
 
 export default function EditReminderModal({ isOpen, onClose, reminder, onSave }) {
   const t = useTranslations("editForm");
+  useScrollLock(isOpen);
   const [isClosing, setIsClosing] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
 
@@ -37,11 +39,9 @@ export default function EditReminderModal({ isOpen, onClose, reminder, onSave })
   useEffect(() => {
     if (shouldRender) {
       document.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden";
     }
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
     };
   }, [shouldRender, handleKeyDown]);
 

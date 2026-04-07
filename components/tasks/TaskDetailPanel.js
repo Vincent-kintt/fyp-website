@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import TaskEditForm from "./TaskEditForm";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { toast } from "sonner";
+import useScrollLock from "@/hooks/useScrollLock";
 
 export default function TaskDetailPanel({ taskId, tasks, onClose, onSave }) {
   const t = useTranslations("editForm");
@@ -61,14 +62,7 @@ export default function TaskDetailPanel({ taskId, tasks, onClose, onSave }) {
   }, [shouldRender, handleKeyDown]);
 
   // Mobile: lock body scroll
-  useEffect(() => {
-    if (shouldRender && isMobile) {
-      document.body.style.overflow = "hidden";
-    }
-    return () => {
-      if (isMobile) document.body.style.overflow = "";
-    };
-  }, [shouldRender, isMobile]);
+  useScrollLock(shouldRender && isMobile);
 
   // Click outside to close (desktop only)
   const panelRef = useClickOutside(useCallback(() => {

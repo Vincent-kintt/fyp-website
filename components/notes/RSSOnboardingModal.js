@@ -5,9 +5,11 @@ import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import Button from "@/components/ui/Button";
 import { VALID_CATEGORIES } from "@/lib/rss/defaultFeeds";
+import useScrollLock from "@/hooks/useScrollLock";
 
 export default function RSSOnboardingModal({ open, onClose, onConfirm }) {
   const t = useTranslations("notes");
+  useScrollLock(open);
   const [isClosing, setIsClosing] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState(new Set());
@@ -75,11 +77,9 @@ export default function RSSOnboardingModal({ open, onClose, onConfirm }) {
   useEffect(() => {
     if (shouldRender) {
       document.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden";
     }
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
     };
   }, [shouldRender, handleKeyDown]);
 

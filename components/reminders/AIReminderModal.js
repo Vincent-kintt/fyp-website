@@ -14,6 +14,7 @@ import {
 import ToolResultCard from "./ToolResultCard";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import useScrollLock from "@/hooks/useScrollLock";
 
 const MUTATION_TOOLS = [
   "createReminder",
@@ -690,6 +691,7 @@ export default function AIReminderModal({
   onSuccess,
   initialText = "",
 }) {
+  useScrollLock(isOpen);
   const [input, setInput] = useState(initialText);
   const [isClosing, setIsClosing] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
@@ -988,9 +990,7 @@ export default function AIReminderModal({
         x: mobile ? 0 : (windowWidth - 720) / 2,
         y: mobile ? 0 : windowHeight * 0.1,
       });
-      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = "unset";
       if (hasPendingRefreshRef.current && onSuccess) {
         onSuccess();
         hasPendingRefreshRef.current = false;
