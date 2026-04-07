@@ -678,6 +678,46 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     };
   }, [editor, disableAiCommands]);
 
+  // Workaround for BlockNote#1338: liftListItem throws RangeError
+  // when nested list item has siblings after it. Upstream fix: PR #2601.
+  // Remove this when BlockNote ships the fix (> v0.47.3).
+  useEffect(() => {
+    const tiptap = editor._tiptapEditor;
+    if (!tiptap) return;
+
+    const pluginKey = new PluginKey("safe-unnest");
+
+    const plugin = new Plugin({
+      key: pluginKey,
+      props: {
+        handleKeyDown(view, event) {
+          if (event.key !== "Tab" || !event.shiftKey) return false;
+
+          try {
+            return tiptap.commands.liftListItem("blockContainer");
+          } catch (e) {
+            if (
+              e instanceof RangeError &&
+              e.message.includes("Invalid content")
+            ) {
+              return true;
+            }
+            throw e;
+          }
+        },
+      },
+    });
+
+    tiptap.registerPlugin(plugin, (newPlugin, plugins) => [
+      newPlugin,
+      ...plugins,
+    ]);
+
+    return () => {
+      tiptap.unregisterPlugin(pluginKey);
+    };
+  }, [editor]);
+
   const getSlashMenuItems = useCallback(
     (editorInstance) => {
       const defaultItems = getDefaultReactSlashMenuItems(editorInstance);
