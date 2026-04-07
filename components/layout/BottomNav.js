@@ -2,6 +2,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useSession } from "next-auth/react";
 import { Link, usePathname } from "@/i18n/navigation";
 import {
   FaHome,
@@ -20,8 +21,11 @@ const TABS = [
 
 export default function BottomNav() {
   const t = useTranslations("nav");
+  const { data: session } = useSession();
   const pathname = usePathname();
   const isKeyboardOpen = useVirtualKeyboard();
+
+  if (!session) return null;
 
   const getActiveIndex = () => {
     for (let i = 0; i < TABS.length; i++) {

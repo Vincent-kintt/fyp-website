@@ -102,6 +102,10 @@ export default function Sidebar() {
   const { theme, setTheme, systemTheme } = useTheme();
   const currentTheme = theme === "system" ? systemTheme : theme;
 
+  // Hide sidebar for unauthenticated users — public pages (landing, login, register)
+  // should use full-width layout without sidebar navigation
+  if (!session) return null;
+
   const toggleTheme = () => {
     setTheme(currentTheme === "dark" ? "light" : "dark");
   };
