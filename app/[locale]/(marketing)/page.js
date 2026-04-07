@@ -5,7 +5,14 @@ import { getLocale, getTranslations } from "next-intl/server";
 import ClientRedirect from "@/components/auth/ClientRedirect";
 import Button from "@/components/ui/Button";
 import ScrollReveal from "@/components/ui/ScrollReveal";
-import { LuCalendarDays, LuTag, LuBell } from "react-icons/lu";
+import {
+  LuCalendarDays,
+  LuTag,
+  LuBell,
+  LuSparkles,
+  LuCalendarRange,
+  LuFileText,
+} from "react-icons/lu";
 
 const dmSerif = DM_Serif_Display({
   weight: "400",
@@ -36,21 +43,18 @@ export default async function Home() {
   const t = await getTranslations("landing");
 
   const features = [
-    {
-      icon: LuCalendarDays,
-      title: t("featureRecurringTitle"),
-      description: t("featureRecurringDesc"),
-    },
-    {
-      icon: LuTag,
-      title: t("featureTagsTitle"),
-      description: t("featureTagsDesc"),
-    },
-    {
-      icon: LuBell,
-      title: t("featureAlertsTitle"),
-      description: t("featureAlertsDesc"),
-    },
+    { icon: LuSparkles, titleKey: "featureAITitle", descKey: "featureAIDesc" },
+    { icon: LuCalendarDays, titleKey: "featureRecurringTitle", descKey: "featureRecurringDesc" },
+    { icon: LuTag, titleKey: "featureTagsTitle", descKey: "featureTagsDesc" },
+    { icon: LuBell, titleKey: "featureAlertsTitle", descKey: "featureAlertsDesc" },
+    { icon: LuCalendarRange, titleKey: "featureCalendarTitle", descKey: "featureCalendarDesc" },
+    { icon: LuFileText, titleKey: "featureNotesTitle", descKey: "featureNotesDesc" },
+  ];
+
+  const steps = [
+    { num: "1", titleKey: "step1Title", descKey: "step1Desc" },
+    { num: "2", titleKey: "step2Title", descKey: "step2Desc" },
+    { num: "3", titleKey: "step3Title", descKey: "step3Desc" },
   ];
 
   return (
@@ -60,57 +64,149 @@ export default async function Home() {
     >
       <ClientRedirect />
 
-      {/* Hero */}
-      <section className="pt-12 pb-10 px-5 md:pt-20 md:pb-16 md:px-12 lg:px-16 max-w-4xl">
-        <p className="text-xs uppercase tracking-[0.12em] font-medium text-[#6366f1] dark:text-[#818cf8] mb-5 md:mb-6">
-          {t("badge")}
-        </p>
+      {/* Hero — centered, dramatic */}
+      <section className="text-center pt-24 pb-20 px-6 md:pt-28 md:pb-24">
+        <div
+          className="w-14 h-14 mx-auto mb-7 rounded-2xl flex items-center justify-center"
+          style={{
+            background: "linear-gradient(135deg, var(--primary), var(--primary-hover))",
+            boxShadow: "0 8px 32px color-mix(in srgb, var(--primary) 25%, transparent)",
+          }}
+        >
+          <LuBell className="w-7 h-7 text-text-inverted" />
+        </div>
         <h1
-          className="text-4xl md:text-5xl lg:text-6xl leading-[1.15] tracking-tight mb-4 text-[#1c1917] dark:text-[#fafafa]"
-          style={{ fontFamily: "var(--font-dm-serif), serif" }}
+          className="text-5xl md:text-6xl lg:text-[72px] leading-[1.05] tracking-tight mb-6 text-text-primary"
+          style={{ fontFamily: "var(--font-dm-serif), serif", letterSpacing: "-0.03em" }}
         >
           {t("headline")}
         </h1>
-        <p className="text-base md:text-lg leading-relaxed font-light max-w-md mb-8 text-[#78716c] dark:text-[#71717a]">
+        <p className="text-base md:text-lg lg:text-xl leading-relaxed font-light max-w-[520px] mx-auto mb-10 text-text-secondary">
           {t("subheadline")}
         </p>
-        <Button href="/register" variant="primary" className="text-sm md:text-base px-6 py-3">
-          {t("cta")} <span className="ml-1">→</span>
+        <Button
+          href="/register"
+          variant="primary"
+          size="lg"
+          className="text-base px-9 py-4 rounded-xl shadow-lg"
+          style={{ boxShadow: "0 4px 20px color-mix(in srgb, var(--primary) 25%, transparent)" }}
+        >
+          {t("ctaButton")} <span className="ml-1">→</span>
         </Button>
+        <p className="mt-3.5 text-[13px] text-text-muted">{t("noCreditCard")}</p>
       </section>
-
-      {/* Divider */}
-      <div
-        className="h-px mx-5 md:mx-12 lg:mx-16"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent, var(--border) 50%, transparent)",
-        }}
-      />
 
       {/* Features */}
       <ScrollReveal>
-        <section className="py-10 md:py-12 px-5 md:px-12 lg:px-16 max-w-5xl">
-          <p className="text-[10px] uppercase tracking-[0.14em] font-medium text-[#a8a29e] dark:text-[#52525b] mb-6 md:mb-8">
-            {t("capabilities")}
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10">
+        <section className="py-20 px-6 max-w-[1080px] mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-xs uppercase tracking-[2px] font-semibold text-primary mb-4">
+              {t("capabilities")}
+            </p>
+            <h2
+              className="text-3xl md:text-[40px] leading-tight text-text-primary"
+              style={{ fontFamily: "var(--font-dm-serif), serif" }}
+            >
+              {t("featuresTitle")}
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((feat) => (
-              <div key={feat.title} className="flex md:flex-col gap-3 md:gap-3 items-start">
-                <div className="w-10 h-10 rounded-[10px] bg-[#6366f1]/[0.06] dark:bg-[#818cf8]/[0.06] border border-[#6366f1]/[0.1] dark:border-[#818cf8]/[0.1] flex items-center justify-center shrink-0">
-                  <feat.icon className="w-[18px] h-[18px] text-[#6366f1] dark:text-[#818cf8]" />
+              <div
+                key={feat.titleKey}
+                className="p-7 rounded-2xl text-center transition-all duration-200 hover:-translate-y-0.5"
+                style={{
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <div
+                  className="w-12 h-12 mx-auto mb-4 rounded-xl flex items-center justify-center"
+                  style={{
+                    backgroundColor: "var(--primary-light)",
+                    border: "1px solid color-mix(in srgb, var(--primary) 15%, transparent)",
+                  }}
+                >
+                  <feat.icon className="w-[22px] h-[22px] text-primary" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-medium text-[#1c1917] dark:text-[#d4d4d8] mb-1">
-                    {feat.title}
-                  </h3>
-                  <p className="text-xs font-light leading-relaxed text-[#a8a29e] dark:text-[#52525b]">
-                    {feat.description}
-                  </p>
-                </div>
+                <h3 className="text-base font-semibold text-text-primary mb-2">
+                  {t(feat.titleKey)}
+                </h3>
+                <p className="text-sm text-text-secondary leading-relaxed font-light">
+                  {t(feat.descKey)}
+                </p>
               </div>
             ))}
           </div>
+        </section>
+      </ScrollReveal>
+
+      {/* How it works */}
+      <ScrollReveal>
+        <section className="py-20 px-6 max-w-[860px] mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-xs uppercase tracking-[2px] font-semibold text-primary mb-4">
+              {t("howItWorks")}
+            </p>
+            <h2
+              className="text-3xl md:text-[40px] leading-tight text-text-primary"
+              style={{ fontFamily: "var(--font-dm-serif), serif" }}
+            >
+              {t("howItWorksTitle")}
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {steps.map((step) => (
+              <div
+                key={step.num}
+                className="text-center p-8 rounded-2xl"
+                style={{
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <div className="w-10 h-10 mx-auto mb-5 rounded-full bg-primary text-text-inverted flex items-center justify-center text-base font-bold">
+                  {step.num}
+                </div>
+                <h3 className="text-base font-semibold text-text-primary mb-2.5">
+                  {t(step.titleKey)}
+                </h3>
+                <p className="text-sm text-text-secondary leading-relaxed font-light">
+                  {t(step.descKey)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </ScrollReveal>
+
+      {/* CTA */}
+      <ScrollReveal>
+        <section className="relative py-24 px-6 text-center">
+          <div
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-[480px] h-[480px] pointer-events-none"
+            style={{
+              background: "radial-gradient(circle, color-mix(in srgb, var(--primary) 8%, transparent) 0%, transparent 70%)",
+            }}
+          />
+          <h2
+            className="relative text-3xl md:text-[44px] leading-tight text-text-primary mb-4"
+            style={{ fontFamily: "var(--font-dm-serif), serif" }}
+          >
+            {t("ctaTitle")}
+          </h2>
+          <p className="relative text-base md:text-[17px] text-text-secondary font-light mb-9">
+            {t("ctaDesc")}
+          </p>
+          <Button
+            href="/register"
+            variant="primary"
+            size="lg"
+            className="relative text-base px-9 py-4 rounded-xl shadow-lg"
+            style={{ boxShadow: "0 4px 20px color-mix(in srgb, var(--primary) 25%, transparent)" }}
+          >
+            {t("ctaButton")} <span className="ml-1">→</span>
+          </Button>
         </section>
       </ScrollReveal>
     </div>
