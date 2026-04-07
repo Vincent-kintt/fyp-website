@@ -32,7 +32,7 @@ export async function POST(request) {
       model: getModel(model),
       system: getSystemPrompt({ language, userLocation }),
       messages,
-      tools: createTools(session.user.id),
+      tools: createTools(session.user.id, userLocation?.timezone),
       stopWhen: stepCountIs(10),
       maxRetries: 2,
       prepareStep: async ({ messages: stepMessages }) => {
