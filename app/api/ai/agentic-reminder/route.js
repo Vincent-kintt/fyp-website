@@ -44,7 +44,7 @@ export async function POST(request) {
         return {};
       },
       providerOptions: {
-        openai: { reasoningEffort },
+        openrouter: { reasoningEffort },
       },
       onStepFinish: ({ usage, toolResults }) => {
         console.log(
