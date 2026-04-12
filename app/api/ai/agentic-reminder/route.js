@@ -44,7 +44,9 @@ export async function POST(request) {
         return {};
       },
       providerOptions: {
-        openai: { reasoningEffort },
+        openrouter: model?.includes("claude")
+          ? { reasoning: { enabled: true, effort: reasoningEffort } }
+          : { reasoningEffort },
       },
       onStepFinish: ({ usage, toolResults }) => {
         console.log(

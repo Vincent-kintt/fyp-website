@@ -119,6 +119,11 @@ const modelOptions = [
     label: "DeepSeek V3.2",
     desc: "Open-weight, good at Chinese",
   },
+  {
+    value: "anthropic/claude-sonnet-4.6",
+    label: "Claude Sonnet 4.6",
+    desc: "Anthropic, extended thinking",
+  },
 ];
 
 // Extract tool name from a part (handles both typed tool-<name> and dynamic-tool)
@@ -1083,10 +1088,11 @@ export default function AIReminderModal({
   const isGeminiModel = settings.model.includes("gemini");
   const isGrokModel = settings.model.includes("grok");
   const isDeepSeekModel = settings.model.includes("deepseek");
+  const isClaudeModel = settings.model.includes("claude");
   const supportsReasoningToggle = isGrokModel || isDeepSeekModel;
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const supportsReasoning = isGeminiModel;
+  const supportsReasoning = isGeminiModel || isClaudeModel;
   const currentModelLabel =
     modelOptions.find((o) => o.value === settings.model)?.label || "Model";
 
