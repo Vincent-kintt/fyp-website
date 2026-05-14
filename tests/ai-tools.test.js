@@ -516,6 +516,37 @@ describe("batchCreate", () => {
     const result = await tools.batchCreate.execute({ reminders: [] });
     expect(result.success).toBe(false);
   });
+
+  it("converts naive dateTime to UTC using user timezone, matching createReminder", async () => {
+    // Regression: batchCreate previously used `new Date(dt)` while
+    // createReminder uses `toUTC(dt)`. Same naive input must yield
+    // identical UTC docs through both write paths.
+    // America/New_York chosen so EDT (UTC-4) differs from typical CI
+    // runner locales — prevents false GREEN if process timezone matches.
+    const tzTools = createTools(TEST_USER_ID, "America/New_York");
+    const NAIVE_INPUT = "2026-05-15T14:00";
+    const EXPECTED_UTC = "2026-05-15T18:00:00.000Z"; // 14:00 EDT → 18:00 UTC
+
+    const singleResult = await tzTools.createReminder.execute({
+      title: "tz-single",
+      dateTime: NAIVE_INPUT,
+    });
+    const batchResult = await tzTools.batchCreate.execute({
+      reminders: [{ title: "tz-batch", dateTime: NAIVE_INPUT }],
+    });
+    expect(singleResult.success).toBe(true);
+    expect(batchResult.success).toBe(true);
+
+    const coll = getDb().collection("reminders");
+    const singleDoc = await coll.findOne({ title: "tz-single" });
+    const batchDoc = await coll.findOne({ title: "tz-batch" });
+    expect(singleDoc).not.toBeNull();
+    expect(batchDoc).not.toBeNull();
+
+    expect(singleDoc.dateTime.toISOString()).toBe(EXPECTED_UTC);
+    expect(batchDoc.dateTime.toISOString()).toBe(EXPECTED_UTC);
+    expect(batchDoc.dateTime.toISOString()).toBe(singleDoc.dateTime.toISOString());
+  });
 });
 
 // ============================================
