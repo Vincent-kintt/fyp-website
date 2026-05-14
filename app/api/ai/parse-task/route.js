@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { normalizeTags } from "@/lib/utils";
-import { getModel } from "@/lib/ai/provider.js";
+import { getModel, getParseModelId } from "@/lib/ai/provider.js";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import * as chrono from "chrono-node";
 import { computeOverallConfidence } from "./confidence.js";
-
-const PARSE_MODEL = process.env.PARSE_TASK_MODEL || "x-ai/grok-4.1-fast";
 
 const parseTaskSchema = z.object({
   title: z.string().default(""),
@@ -165,7 +163,7 @@ Extract structured data from user input.
 
     try {
       const result = await generateText({
-        model: getModel(PARSE_MODEL),
+        model: getModel(getParseModelId()),
         output: Output.object({ schema: parseTaskSchema }),
         system: systemPrompt,
         prompt: text,

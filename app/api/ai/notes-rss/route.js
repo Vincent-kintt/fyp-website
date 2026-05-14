@@ -1,5 +1,5 @@
 import { streamText, stepCountIs } from "ai";
-import { getModel } from "@/lib/ai/provider.js";
+import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
 import { createRssTools } from "@/lib/ai/rssTools.js";
 import { auth } from "@/auth";
 import {
@@ -66,12 +66,10 @@ export async function POST(request) {
   try {
     const { language = "zh", timezone } = await request.json();
     const { todayStart, todayEnd } = computeDateBounds(timezone);
-    const notesModel =
-      process.env.NOTES_AGENT_MODEL || process.env.LLM_MODEL;
     const tools = createRssTools(userId, todayStart, todayEnd);
 
     const result = streamText({
-      model: getModel(notesModel),
+      model: getModel(getNotesModelId()),
       system: getRssSystemPrompt({ language }),
       messages: [
         {

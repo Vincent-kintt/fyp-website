@@ -1,5 +1,5 @@
 import { streamText, stepCountIs, convertToModelMessages } from "ai";
-import { getModel } from "@/lib/ai/provider.js";
+import { getModel, getAgentModelId } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { getSystemPrompt } from "@/lib/ai/prompt.js";
 import { auth } from "@/auth";
@@ -29,7 +29,7 @@ export async function POST(request) {
     const messages = await convertToModelMessages(uiMessages);
 
     const result = streamText({
-      model: getModel(model),
+      model: getModel(getAgentModelId(model)),
       system: getSystemPrompt({ language, userLocation }),
       messages,
       tools: createTools(session.user.id, userLocation?.timezone),

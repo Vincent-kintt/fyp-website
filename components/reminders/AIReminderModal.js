@@ -15,6 +15,7 @@ import ToolResultCard from "./ToolResultCard";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import useScrollLock from "@/hooks/useScrollLock";
+import { DEFAULT_REMINDER_MODEL_ID } from "@/lib/ai/modelIds";
 
 const MUTATION_TOOLS = [
   "createReminder",
@@ -110,7 +111,7 @@ const translations = {
 
 const modelOptions = [
   {
-    value: "x-ai/grok-4.1-fast",
+    value: DEFAULT_REMINDER_MODEL_ID,
     label: "Grok 4.1 Fast",
     desc: "Fast, great at tool use",
   },
@@ -690,7 +691,7 @@ export default function AIReminderModal({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(false);
   const [settings, setSettings] = useState({
-    model: "x-ai/grok-4.1-fast",
+    model: DEFAULT_REMINDER_MODEL_ID,
     reasoningEffort: "medium",
     reasoningEnabled: true,
     language: "zh",
@@ -934,7 +935,7 @@ export default function AIReminderModal({
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings);
       setSettings({
-        model: parsed.model || "x-ai/grok-4.1-fast",
+        model: parsed.model || DEFAULT_REMINDER_MODEL_ID,
         reasoningEffort: parsed.reasoningEffort || "medium",
         reasoningEnabled:
           parsed.reasoningEnabled !== undefined

@@ -18,6 +18,7 @@ vi.mock("ai", async (importOriginal) => {
 // Mock provider
 vi.mock("@/lib/ai/provider.js", () => ({
   getModel: vi.fn(() => "mock-model"),
+  getParseModelId: vi.fn(() => "mock-parse-model"),
 }));
 
 const { POST } = await import("@/app/api/ai/parse-task/route.js");

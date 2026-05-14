@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getModel } from "@/lib/ai/provider.js";
+import { getModel, getParseModelId } from "@/lib/ai/provider.js";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 
 const MAX_INPUT_LENGTH = 8000;
-const EXTRACT_MODEL = process.env.PARSE_TASK_MODEL || "x-ai/grok-4.1-fast";
 
 const taskElementSchema = z.object({
   title: z.string(),
@@ -101,7 +100,7 @@ Rules:
 
     try {
       const result = await generateText({
-        model: getModel(EXTRACT_MODEL),
+        model: getModel(getParseModelId()),
         output: Output.array({ element: taskElementSchema }),
         system: systemPrompt,
         prompt: input,

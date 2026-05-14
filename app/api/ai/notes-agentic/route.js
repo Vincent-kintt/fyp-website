@@ -1,5 +1,5 @@
 import { streamText, stepCountIs } from "ai";
-import { getModel } from "@/lib/ai/provider.js";
+import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { createNoteTools } from "@/lib/ai/noteTools.js";
 import { auth } from "@/auth";
@@ -125,12 +125,10 @@ export async function POST(request) {
       );
     }
 
-    const notesModel =
-      process.env.NOTES_AGENT_MODEL || process.env.LLM_MODEL;
     const tools = buildTools(userId);
 
     const result = streamText({
-      model: getModel(notesModel),
+      model: getModel(getNotesModelId()),
       system: getNotesAgenticPrompt({ language, noteTitle, noteContext }),
       messages: [{ role: "user", content: input.trim() }],
       tools,

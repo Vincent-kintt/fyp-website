@@ -1,5 +1,5 @@
 import { streamText } from "ai";
-import { getModel } from "@/lib/ai/provider.js";
+import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
 import { auth } from "@/auth";
 
 export const runtime = "nodejs";
@@ -73,9 +73,9 @@ export async function POST(request) {
         );
     }
 
-    const notesModel = model || process.env.NOTES_AGENT_MODEL || process.env.PARSE_TASK_MODEL;
     const result = streamText({
-      model: getModel(notesModel),
+      // notes generation uses general agent fallback chain
+      model: getModel(getNotesModelId(model)),
       system: getNotesSystemPrompt({ language, noteTitle, noteContext }),
       messages: [{ role: "user", content: userMessage }],
       maxRetries: 2,
