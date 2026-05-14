@@ -2,6 +2,7 @@ import { streamText, stepCountIs } from "ai";
 import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { createNoteTools } from "@/lib/ai/noteTools.js";
+import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { auth } from "@/auth";
 import {
   acquireNoteAILock,
@@ -136,37 +137,23 @@ export async function POST(request) {
       maxRetries: 2,
       abortSignal: request.signal,
       onStepFinish: ({ usage, toolResults }) => {
-        console.log(
-          JSON.stringify({
-            event: "notes_agent_step",
-            inputTokens: usage?.promptTokens,
-            outputTokens: usage?.completionTokens,
-            toolCalls: toolResults?.length || 0,
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        logAIEvent("notes_agent_step", {
+          inputTokens: usage?.promptTokens,
+          outputTokens: usage?.completionTokens,
+          toolCalls: toolResults?.length || 0,
+        });
       },
       onFinish: ({ totalUsage, steps }) => {
         releaseNoteAILock(userId);
-        console.log(
-          JSON.stringify({
-            event: "notes_agent_complete",
-            totalSteps: steps.length,
-            totalInputTokens: totalUsage?.promptTokens,
-            totalOutputTokens: totalUsage?.completionTokens,
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        logAIEvent("notes_agent_complete", {
+          totalSteps: steps.length,
+          totalInputTokens: totalUsage?.promptTokens,
+          totalOutputTokens: totalUsage?.completionTokens,
+        });
       },
       onError: ({ error }) => {
         releaseNoteAILock(userId);
-        console.error(
-          JSON.stringify({
-            event: "notes_agent_error",
-            message: error.message,
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        logAIEvent("notes_agent_error", { message: error.message }, "error");
       },
     });
 

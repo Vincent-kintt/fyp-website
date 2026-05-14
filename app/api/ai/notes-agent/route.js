@@ -1,5 +1,6 @@
 import { streamText } from "ai";
 import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
+import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { auth } from "@/auth";
 
 export const runtime = "nodejs";
@@ -80,15 +81,11 @@ export async function POST(request) {
       messages: [{ role: "user", content: userMessage }],
       maxRetries: 2,
       onFinish: ({ usage }) => {
-        console.log(
-          JSON.stringify({
-            event: "notes_agent_complete",
-            command,
-            inputTokens: usage?.promptTokens,
-            outputTokens: usage?.completionTokens,
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        logAIEvent("notes_agent_complete", {
+          command,
+          inputTokens: usage?.promptTokens,
+          outputTokens: usage?.completionTokens,
+        });
       },
     });
 

@@ -2,6 +2,7 @@ import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { getModel, getAgentModelId } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { getSystemPrompt } from "@/lib/ai/prompt.js";
+import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { auth } from "@/auth";
 
 export const runtime = "nodejs";
@@ -47,35 +48,21 @@ export async function POST(request) {
         openrouter: { reasoningEffort },
       },
       onStepFinish: ({ usage, toolResults }) => {
-        console.log(
-          JSON.stringify({
-            event: "step_finish",
-            inputTokens: usage?.promptTokens,
-            outputTokens: usage?.completionTokens,
-            toolCalls: toolResults?.length || 0,
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        logAIEvent("step_finish", {
+          inputTokens: usage?.promptTokens,
+          outputTokens: usage?.completionTokens,
+          toolCalls: toolResults?.length || 0,
+        });
       },
       onFinish: ({ totalUsage, steps }) => {
-        console.log(
-          JSON.stringify({
-            event: "agent_complete",
-            totalSteps: steps.length,
-            totalInputTokens: totalUsage?.promptTokens,
-            totalOutputTokens: totalUsage?.completionTokens,
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        logAIEvent("agent_complete", {
+          totalSteps: steps.length,
+          totalInputTokens: totalUsage?.promptTokens,
+          totalOutputTokens: totalUsage?.completionTokens,
+        });
       },
       onError: ({ error }) => {
-        console.error(
-          JSON.stringify({
-            event: "agent_error",
-            message: error.message,
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        logAIEvent("agent_error", { message: error.message }, "error");
       },
     });
 
