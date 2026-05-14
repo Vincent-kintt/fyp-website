@@ -1,16 +1,15 @@
 /**
  * Regression tests for timezone handling across the app.
- * Covers naiveToUTC, formatInTimezone (tools.js) and getSystemPrompt (prompt.js).
+ * Covers naiveToUTC, formatInTimezone, formatTimezoneParts (dateUtils.js)
+ * and getSystemPrompt (prompt.js).
  */
-import { describe, it, expect, vi } from "vitest";
-
-// Mock db module — tools.js imports it at top level
-vi.mock("@/lib/db.js", () => ({
-  getCollection: vi.fn(),
-}));
-
-const { naiveToUTC, formatInTimezone } = await import("@/lib/ai/tools.js");
-const { getSystemPrompt } = await import("@/lib/ai/prompt.js");
+import { describe, it, expect } from "vitest";
+import {
+  naiveToUTC,
+  formatInTimezone,
+  formatTimezoneParts,
+} from "@/lib/ai/dateUtils.js";
+import { getSystemPrompt } from "@/lib/ai/prompt.js";
 
 // ─── naiveToUTC ───────────────────────────────────────────────
 
@@ -168,6 +167,42 @@ describe("formatInTimezone", () => {
     it("returns 'Invalid date' for NaN date without timezone", () => {
       const result = formatInTimezone(new Date("garbage"), null);
       expect(result).toBe("Invalid date");
+    });
+  });
+});
+
+// ─── formatTimezoneParts ──────────────────────────────────────
+// Used by prompt.js getSystemPrompt to split date/time for natural-language
+// injection. Same conversion as formatInTimezone, but returns parts not joined.
+
+describe("formatTimezoneParts", () => {
+  it("splits UTC time into date+time parts in Asia/Taipei", () => {
+    const date = new Date("2026-04-09T00:00:00.000Z");
+    expect(formatTimezoneParts(date, "Asia/Taipei")).toEqual({
+      date: "2026-04-09",
+      time: "08:00",
+    });
+  });
+
+  it("crosses day boundary correctly", () => {
+    const date = new Date("2026-04-09T20:00:00.000Z");
+    expect(formatTimezoneParts(date, "Asia/Taipei")).toEqual({
+      date: "2026-04-10",
+      time: "04:00",
+    });
+  });
+
+  it("returns local fallback when timezone is null", () => {
+    const date = new Date("2026-04-09T14:30:00.000Z");
+    const parts = formatTimezoneParts(date, null);
+    expect(parts.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(parts.time).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+  it("returns Invalid for NaN date", () => {
+    expect(formatTimezoneParts(new Date("garbage"), "Asia/Taipei")).toEqual({
+      date: "Invalid",
+      time: "Invalid",
     });
   });
 });
