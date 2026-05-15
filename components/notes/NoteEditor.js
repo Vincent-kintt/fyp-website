@@ -25,6 +25,7 @@ import { parseCommand } from "@/lib/notes/commands.js";
 import { blocksToText } from "@/lib/notes/blocksToText.js";
 import { stripStreamingMarkdown } from "@/lib/notes/streamMarkdownStrip.js";
 import { createAgenticStreamParser } from "@/lib/notes/parseAgenticStream.js";
+import { finalizeAiResponse } from "@/components/notes/editor/commands/finalizeAiResponse.js";
 import "@blocknote/mantine/style.css";
 import NoteIcon from "./NoteIcon";
 import IconPicker from "./IconPicker";
@@ -268,50 +269,13 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
         const accumulatedText = parser.getAccumulated();
         const sideEffects = parser.getSideEffects();
 
-        if (accumulatedText.trim()) {
-          const parsedBlocks =
-            editor.tryParseMarkdownToBlocks(accumulatedText);
-          if (editor.getBlock(loadingBlock.id)) {
-            editor.removeBlocks([loadingBlock]);
-          }
-          if (parsedBlocks.length > 0 && editor.getBlock(commandBlock.id)) {
-            const insertedBlocks = editor.insertBlocks(
-              parsedBlocks,
-              commandBlock,
-              "after",
-            );
-
-            if (sideEffects.length > 0) {
-              const lastBlock = insertedBlocks[insertedBlocks.length - 1];
-              for (const effect of sideEffects) {
-                const label = `${t("agentSideEffect")} ${effect.title}${effect.dateTime ? ` (${effect.dateTime})` : ""}`;
-                editor.insertBlocks(
-                  [
-                    {
-                      type: "paragraph",
-                      content: [
-                        {
-                          type: "text",
-                          text: label,
-                          styles: { italic: true },
-                        },
-                      ],
-                    },
-                  ],
-                  lastBlock,
-                  "after",
-                );
-              }
-            }
-          }
-        } else {
-          try {
-            editor.updateBlock(loadingBlock, {
-              type: "paragraph",
-              content: t("aiError"),
-            });
-          } catch {}
-        }
+        await finalizeAiResponse(editor, {
+          loadingBlock,
+          commandBlock,
+          accumulated: accumulatedText,
+          sideEffects,
+          t,
+        });
       } catch (err) {
         console.error("Agent command error:", err);
         // Allow retry by clearing the consumed tracking for this block
@@ -397,22 +361,12 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
 
         const accumulatedText = parser.getAccumulated();
 
-        if (accumulatedText.trim()) {
-          const parsedBlocks = editor.tryParseMarkdownToBlocks(accumulatedText);
-          if (editor.getBlock(loadingBlock.id)) {
-            editor.removeBlocks([loadingBlock]);
-          }
-          if (parsedBlocks.length > 0 && editor.getBlock(commandBlock.id)) {
-            editor.insertBlocks(parsedBlocks, commandBlock, "after");
-          }
-        } else {
-          try {
-            editor.updateBlock(loadingBlock, {
-              type: "paragraph",
-              content: t("aiError"),
-            });
-          } catch {}
-        }
+        await finalizeAiResponse(editor, {
+          loadingBlock,
+          commandBlock,
+          accumulated: accumulatedText,
+          t,
+        });
       } catch (err) {
         console.error("RSS fetch error:", err);
         executedCommandsRef.current.delete(commandBlock.id);
@@ -548,26 +502,12 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
         }
         accumulated += decoder.decode(); // flush buffered multi-byte sequences
 
-        // Convert full markdown to proper BlockNote blocks
-        if (accumulated.trim()) {
-          const parsedBlocks = editor.tryParseMarkdownToBlocks(accumulated);
-          if (editor.getBlock(loadingBlock.id)) {
-            editor.removeBlocks([loadingBlock]);
-          }
-          if (parsedBlocks.length > 0 && editor.getBlock(commandBlock.id)) {
-            editor.insertBlocks(parsedBlocks, commandBlock, "after");
-          }
-        } else {
-          // Empty response — show error instead of silently removing
-          try {
-            editor.updateBlock(loadingBlock, {
-              type: "paragraph",
-              content: `${t("aiError")}`,
-            });
-          } catch {
-            // Loading block already deleted
-          }
-        }
+        await finalizeAiResponse(editor, {
+          loadingBlock,
+          commandBlock,
+          accumulated,
+          t,
+        });
       } catch (err) {
         console.error("Inline AI error:", err);
         try {
