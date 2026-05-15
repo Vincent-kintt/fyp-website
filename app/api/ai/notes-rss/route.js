@@ -49,6 +49,13 @@ export const POST = withAuth(
       return apiError("An AI request is already in progress", 429);
     }
 
+    let lockReleased = false;
+    const releaseOnce = () => {
+      if (lockReleased) return;
+      lockReleased = true;
+      releaseNoteAILock(userId);
+    };
+
     try {
       const { language = "zh", timezone } = await request.json();
       const { todayStart, todayEnd } = computeDateBounds(timezone);
@@ -76,15 +83,19 @@ export const POST = withAuth(
           });
         },
         onFinish: ({ totalUsage, steps }) => {
-          releaseNoteAILock(userId);
+          releaseOnce();
           logAIEvent("rss_agent_complete", {
             totalSteps: steps.length,
             totalInputTokens: totalUsage?.promptTokens,
             totalOutputTokens: totalUsage?.completionTokens,
           });
         },
+        onAbort: () => {
+          releaseOnce();
+          logAIEvent("rss_agent_aborted", {});
+        },
         onError: ({ error }) => {
-          releaseNoteAILock(userId);
+          releaseOnce();
           logAIEvent("rss_agent_error", { message: error.message }, "error");
         },
       });
@@ -92,7 +103,7 @@ export const POST = withAuth(
       return result.toUIMessageStreamResponse();
     } catch (err) {
       // Synchronous error before stream — release lock before letting withAuth return 500
-      releaseNoteAILock(userId);
+      releaseOnce();
       throw err;
     }
   },

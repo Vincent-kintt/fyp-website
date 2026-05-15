@@ -91,6 +91,15 @@ export const POST = withAuth(
       return apiError("An agent request is already in progress", 429);
     }
 
+    // releaseOnce guards against double-release across the stream lifecycle
+    // (onFinish + onError can both fire; onAbort fires when the client aborts).
+    let lockReleased = false;
+    const releaseOnce = () => {
+      if (lockReleased) return;
+      lockReleased = true;
+      releaseNoteAILock(userId);
+    };
+
     try {
       const {
         input,
@@ -100,7 +109,7 @@ export const POST = withAuth(
       } = await request.json();
 
       if (!input || !input.trim()) {
-        releaseNoteAILock(userId);
+        releaseOnce();
         return apiError("Input is required for /agent", 400);
       }
 
@@ -122,15 +131,19 @@ export const POST = withAuth(
           });
         },
         onFinish: ({ totalUsage, steps }) => {
-          releaseNoteAILock(userId);
+          releaseOnce();
           logAIEvent("notes_agent_complete", {
             totalSteps: steps.length,
             totalInputTokens: totalUsage?.promptTokens,
             totalOutputTokens: totalUsage?.completionTokens,
           });
         },
+        onAbort: () => {
+          releaseOnce();
+          logAIEvent("notes_agent_aborted", {});
+        },
         onError: ({ error }) => {
-          releaseNoteAILock(userId);
+          releaseOnce();
           logAIEvent("notes_agent_error", { message: error.message }, "error");
         },
       });
@@ -138,7 +151,7 @@ export const POST = withAuth(
       return result.toUIMessageStreamResponse();
     } catch (err) {
       // Synchronous error before stream — release lock before letting withAuth return 500
-      releaseNoteAILock(userId);
+      releaseOnce();
       throw err;
     }
   },

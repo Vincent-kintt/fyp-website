@@ -36,7 +36,9 @@ export const POST = withAuth(
     // Validate input against tool's Zod schema (same validation the AI SDK does automatically)
     const parsed = tools[toolName].inputSchema.safeParse(params || {});
     if (!parsed.success) {
-      return apiError("Invalid tool input", 400);
+      return apiError("Invalid tool input", 400, {
+        details: parsed.error.flatten(),
+      });
     }
 
     // Tool result is the response body directly (its own { success, ... } shape)

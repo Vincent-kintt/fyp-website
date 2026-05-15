@@ -147,6 +147,21 @@ describe("withAuth", () => {
     await route(new Request("http://localhost/test"));
     expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
+
+  it("returns 500 apiError when auth() itself throws", async () => {
+    authMock.mockRejectedValue(new Error("auth provider unreachable"));
+    const handler = vi.fn();
+    const route = withAuth(handler, { label: "GET /api/foo" });
+    const res = await route(new Request("http://localhost/test"));
+    expect(handler).not.toHaveBeenCalled();
+    expect(res.status).toBe(500);
+    const body = await readJson(res);
+    expect(body).toEqual({
+      success: false,
+      error: "Internal server error",
+    });
+    expect(consoleErrorSpy.mock.calls[0][0]).toContain("GET /api/foo");
+  });
 });
 
 describe("withCronAuth", () => {
