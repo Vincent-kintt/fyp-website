@@ -16,6 +16,9 @@ import {
   calculateEndTime,
   hasTimeOverlap,
   REMINDER_STATUSES,
+  REMINDER_CATEGORIES,
+  MS_PER_MINUTE,
+  minutesToMs,
 } from "@/lib/utils.js";
 
 // ============================================
@@ -249,5 +252,49 @@ describe("hasTimeOverlap", () => {
     const s1 = new Date("2024-01-01T10:00:00Z");
     const s2 = new Date("2024-01-01T10:30:00Z");
     expect(hasTimeOverlap(s1, 30, s2, 30)).toBe(false);
+  });
+});
+
+// ============================================
+// Time Unit Helpers — only tests that catch a real degradation class.
+// Happy-path arithmetic is implied by the fractional/negative cases below
+// (if 0.5 → 30_000 holds, multiplication is correct), so no separate
+// "minutesToMs(30) === 1_800_000" test is needed.
+// ============================================
+describe("minutesToMs", () => {
+  it("supports fractional minutes (no integer truncation)", () => {
+    // Guards against accidental Math.floor / parseInt / | 0 in the impl.
+    expect(minutesToMs(0.5)).toBe(30_000);
+    expect(minutesToMs(1.5)).toBe(90_000);
+  });
+  it("supports negative minutes for offsets", () => {
+    // Guards against well-meaning Math.max(0, ...) "validation".
+    expect(minutesToMs(-15)).toBe(-900_000);
+  });
+});
+
+// ============================================
+// Category Enum — contract test. The `expected` literal is the source of
+// truth; the constant must match it AND every value in it must round-trip
+// through getMainCategory. Catches the case where the constant and the
+// consumer drift apart (e.g. someone adds "school" to the constant but
+// forgets to update the recognized-tag set).
+// ============================================
+describe("REMINDER_CATEGORIES contract", () => {
+  const expected = ["work", "personal", "health"];
+
+  it("matches the canonical category contract", () => {
+    expect(REMINDER_CATEGORIES).toEqual(expected);
+    // Also covers the MS_PER_MINUTE-style "constant didn't drift" check
+    // for the time helper — see how MS_PER_MINUTE is asserted via
+    // minutesToMs(0.5) above.
+    expect(MS_PER_MINUTE).toBe(minutesToMs(1));
+  });
+
+  it("getMainCategory recognizes every canonical category and falls back to 'other'", () => {
+    for (const cat of expected) {
+      expect(getMainCategory([cat])).toBe(cat);
+    }
+    expect(getMainCategory(["foo"])).toBe("other");
   });
 });
