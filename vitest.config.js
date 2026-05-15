@@ -23,4 +23,9 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "."),
     },
   },
+  esbuild: {
+    // Match Next.js's automatic JSX runtime so unit tests can import React
+    // components (in .jsx files) without an explicit `import React`.
+    jsx: "automatic",
+  },
 });
