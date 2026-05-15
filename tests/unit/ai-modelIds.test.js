@@ -24,12 +24,32 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-// DEFAULT_PARSE_MODEL_ID and DEFAULT_AGENT_MODEL_ID are exercised
-// indirectly by the resolver fallback tests below — those fail hard if
-// either constant is missing or empty. DEFAULT_REMINDER_MODEL_ID is
-// imported directly by AIReminderModal (no resolver chain), so it is
-// not asserted here; a future component test could cover it if its
-// value becomes load-bearing.
+// Default model ids are a product/business contract (cost, latency,
+// quality). The expected values below are an independent literal — not
+// imported from the source — so changing the default in lib/ai/modelIds.js
+// without updating this test (and consciously confirming the new value)
+// trips the contract assertions below.
+const EXPECTED_DEFAULT_MODEL_IDS = {
+  parse: "x-ai/grok-4.1-fast",
+  reminder: "x-ai/grok-4.1-fast",
+  agent: "openai/gpt-4o-mini",
+};
+
+describe("default model id contract", () => {
+  it("DEFAULT_PARSE_MODEL_ID matches the agreed default", () => {
+    expect(modelIds.DEFAULT_PARSE_MODEL_ID).toBe(EXPECTED_DEFAULT_MODEL_IDS.parse);
+  });
+
+  it("DEFAULT_REMINDER_MODEL_ID matches the agreed default (client-side)", () => {
+    // Used directly by AIReminderModal — no resolver chain wraps it, so
+    // a regression here would silently flip the in-app default model.
+    expect(modelIds.DEFAULT_REMINDER_MODEL_ID).toBe(EXPECTED_DEFAULT_MODEL_IDS.reminder);
+  });
+
+  it("DEFAULT_AGENT_MODEL_ID matches the agreed default", () => {
+    expect(modelIds.DEFAULT_AGENT_MODEL_ID).toBe(EXPECTED_DEFAULT_MODEL_IDS.agent);
+  });
+});
 
 describe("getParseModelId", () => {
   it("returns PARSE_TASK_MODEL env when set", () => {
