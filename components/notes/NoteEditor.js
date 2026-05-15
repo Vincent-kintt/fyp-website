@@ -26,6 +26,7 @@ import { blocksToText } from "@/lib/notes/blocksToText.js";
 import { stripStreamingMarkdown } from "@/lib/notes/streamMarkdownStrip.js";
 import { createAgenticStreamParser } from "@/lib/notes/parseAgenticStream.js";
 import { finalizeAiResponse } from "@/components/notes/editor/commands/finalizeAiResponse.js";
+import { createSafeUnnestPlugin } from "@/components/notes/editor/plugins/safeUnnestPlugin.js";
 import "@blocknote/mantine/style.css";
 import NoteIcon from "./NoteIcon";
 import IconPicker from "./IconPicker";
@@ -588,44 +589,16 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     };
   }, [editor, disableAiCommands]);
 
-  // Workaround for BlockNote#1338: liftListItem throws RangeError
-  // when nested list item has siblings after it. Upstream fix: PR #2601.
-  // Remove this when BlockNote ships the fix (> v0.47.3).
+  // Workaround for BlockNote#1338 — see safeUnnestPlugin.js for upstream link
+  // and private-API documentation.
   useEffect(() => {
+    const created = createSafeUnnestPlugin(editor);
+    if (!created) return;
+
     const tiptap = editor._tiptapEditor;
-    if (!tiptap) return;
-
-    const pluginKey = new PluginKey("safe-unnest");
-
-    const plugin = new Plugin({
-      key: pluginKey,
-      props: {
-        handleKeyDown(view, event) {
-          if (event.key !== "Tab" || !event.shiftKey) return false;
-
-          try {
-            return tiptap.commands.liftListItem("blockContainer");
-          } catch (e) {
-            if (
-              e instanceof RangeError &&
-              e.message.includes("Invalid content")
-            ) {
-              return true;
-            }
-            throw e;
-          }
-        },
-      },
-    });
-
-    tiptap.registerPlugin(plugin, (newPlugin, plugins) => [
-      newPlugin,
-      ...plugins,
-    ]);
-
-    return () => {
-      tiptap.unregisterPlugin(pluginKey);
-    };
+    const { plugin, pluginKey } = created;
+    tiptap.registerPlugin(plugin, (newPlugin, plugins) => [newPlugin, ...plugins]);
+    return () => tiptap.unregisterPlugin(pluginKey);
   }, [editor]);
 
   const getSlashMenuItems = useCallback(
