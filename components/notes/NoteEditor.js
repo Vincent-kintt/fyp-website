@@ -8,6 +8,7 @@ import { useCreateBlockNote, SuggestionMenuController } from "@blocknote/react";
 import { filterSuggestionItems } from "@blocknote/core";
 import { en as bnEn } from "@blocknote/core/locales";
 import { parseCommand } from "@/lib/notes/commands.js";
+import { TOOL_PROGRESS_LABELS } from "@/lib/notes/toolProgressLabels.js";
 import { noteEditorSchema } from "@/components/notes/editor/schema";
 import MentionMenu from "@/components/notes/editor/menus/MentionMenu";
 import { getSlashMenuItems as buildSlashMenuItems } from "@/components/notes/editor/menus/getSlashMenuItems";
@@ -18,21 +19,8 @@ import { useInlineAiCommand } from "@/components/notes/editor/commands/useInline
 import { useAgentCommand } from "@/components/notes/editor/commands/useAgentCommand.js";
 import { useRssCommand } from "@/components/notes/editor/commands/useRssCommand.js";
 import "@blocknote/mantine/style.css";
-import NoteIcon from "./NoteIcon";
-import IconPicker from "./IconPicker";
+import NoteHeader from "./NoteHeader";
 import RSSOnboardingModal from "./RSSOnboardingModal";
-
-const TOOL_PROGRESS_LABELS = {
-  searchNotes: "agentSearchingNotes",
-  readNote: "agentReadingNote",
-  listReminders: "agentCheckingReminders",
-  findConflicts: "agentCheckingConflicts",
-  summarizeUpcoming: "agentSummarizing",
-  createReminder: "agentCreatingReminder",
-  searchWeb: "agentSearchingWeb",
-  getUserSubscriptions: "rssLoadingSubscriptions",
-  fetchRSSFeeds: "rssFetchingFeeds",
-};
 
 
 export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconChange, hideTitle, editorRef, disableAiCommands, notes }) {
@@ -41,7 +29,6 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   const { theme } = useTheme();
   const [title, setTitle] = useState(note?.title || "");
   const [saveStatus, setSaveStatus] = useState(null);
-  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [rssModalOpen, setRssModalOpen] = useState(false);
   const rssModalCallbackRef = useRef(null);
   const saveTimerRef = useRef(null);
@@ -214,46 +201,13 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   return (
     <div className="px-6 pt-6 pb-[30vh]">
       {!hideTitle && (
-        <>
-          {/* Icon area */}
-          <div className="relative" style={{ paddingLeft: "54px" }}>
-            {note?.icon ? (
-              <button
-                onClick={() => setIconPickerOpen((prev) => !prev)}
-                className="p-1 rounded-md mb-1 transition-opacity hover:opacity-80"
-                style={{ cursor: "pointer" }}
-              >
-                <NoteIcon icon={note.icon} hasChildren={false} expanded={false} size={32} />
-              </button>
-            ) : (
-              <button
-                onClick={() => setIconPickerOpen((prev) => !prev)}
-                className="notes-add-icon-hint flex items-center gap-1.5 px-2 py-1 rounded-md mb-1 text-xs"
-              >
-                <NoteIcon icon={null} hasChildren={false} expanded={false} size={14} fallbackOpacity={0.4} />
-                {t("addIcon")}
-              </button>
-            )}
-            {iconPickerOpen && (
-              <IconPicker
-                currentIcon={note?.icon}
-                onSelect={(icon) => {
-                  onIconChange?.(icon);
-                  setIconPickerOpen(false);
-                }}
-                onClose={() => setIconPickerOpen(false)}
-              />
-            )}
-          </div>
-
-          <input
-            className="notes-title-input mb-4"
-            value={title}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            placeholder={t("untitled")}
-            aria-label="Page title"
-          />
-        </>
+        <NoteHeader
+          note={note}
+          title={title}
+          onTitleChange={handleTitleChange}
+          onIconChange={onIconChange}
+          t={t}
+        />
       )}
 
       <BlockNoteView
