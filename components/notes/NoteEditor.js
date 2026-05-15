@@ -27,6 +27,7 @@ import { createAgenticStreamParser } from "@/lib/notes/parseAgenticStream.js";
 import { finalizeAiResponse } from "@/components/notes/editor/commands/finalizeAiResponse.js";
 import { createSafeUnnestPlugin } from "@/components/notes/editor/plugins/safeUnnestPlugin.js";
 import { createInlineAiCommandPlugin } from "@/components/notes/editor/plugins/inlineAiCommandPlugin.js";
+import { useInlineAiCommand } from "@/components/notes/editor/commands/useInlineAiCommand.js";
 import "@blocknote/mantine/style.css";
 import NoteIcon from "./NoteIcon";
 import IconPicker from "./IconPicker";
@@ -422,106 +423,21 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     [editor, doRSSFetch],
   );
 
+  const executeInlineAiCommand = useInlineAiCommand({
+    editor,
+    titleRef,
+    localeRef,
+    t,
+    executedCommandsRef,
+  });
+
   const executeAiCommand = useCallback(
     async (type, input, commandBlockId) => {
-      const noteContext = blocksToText(editor.document);
-
-      if (type === "agent") {
-        return executeAgentCommand(input, commandBlockId);
-      }
-
-      if (type === "rss") {
-        return executeRSSCommand(commandBlockId);
-      }
-
-      let commandBlock;
-
-      if (commandBlockId) {
-        commandBlock = editor.getBlock(commandBlockId);
-      } else {
-        const currentBlock = editor.getTextCursorPosition().block;
-        commandBlock = currentBlock;
-      }
-
-      if (!commandBlock) return;
-
-      // Mark as executed immediately to prevent double-trigger
-      const blockText = commandBlock.content?.map((c) => c.text || "").join("") || "";
-      executedCommandsRef.current.set(commandBlock.id, blockText);
-
-      const [loadingBlock] = editor.insertBlocks(
-        [
-          {
-            type: "paragraph",
-            content: `${t("aiGenerating")}`,
-          },
-        ],
-        commandBlock,
-        "after",
-      );
-
-      try {
-        const res = await fetch("/api/ai/notes-agent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            command: type,
-            input: input || noteContext,
-            noteTitle: titleRef.current,
-            noteContext,
-            language: localeRef.current?.startsWith("zh") ? "zh" : "en",
-          }),
-        });
-
-        if (!res.ok) {
-          let errMsg = `HTTP ${res.status}`;
-          try {
-            const errBody = await res.json();
-            errMsg = errBody.error || errMsg;
-          } catch {}
-          throw new Error(errMsg);
-        }
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let accumulated = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          accumulated += decoder.decode(value, { stream: true });
-          try {
-            editor.updateBlock(loadingBlock, {
-              type: "paragraph",
-              content: stripStreamingMarkdown(accumulated),
-            });
-          } catch {
-            // Block was deleted by user mid-stream — abort
-            reader.cancel();
-            return;
-          }
-        }
-        accumulated += decoder.decode(); // flush buffered multi-byte sequences
-
-        await finalizeAiResponse(editor, {
-          loadingBlock,
-          commandBlock,
-          accumulated,
-          t,
-        });
-      } catch (err) {
-        console.error("Inline AI error:", err);
-        try {
-          editor.updateBlock(loadingBlock, {
-            type: "paragraph",
-            content: `${t("aiError")}${err?.message ? ` — ${err.message}` : ""}`,
-          });
-        } catch {
-          // Loading block already deleted
-        }
-      }
+      if (type === "agent") return executeAgentCommand(input, commandBlockId);
+      if (type === "rss") return executeRSSCommand(commandBlockId);
+      return executeInlineAiCommand(type, input, commandBlockId);
     },
-    [editor, t, executeAgentCommand, executeRSSCommand],
+    [executeAgentCommand, executeRSSCommand, executeInlineAiCommand],
   );
 
   // Sync executeAiCommandRef AFTER the declaration to avoid TDZ
