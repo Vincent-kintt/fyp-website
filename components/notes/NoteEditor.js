@@ -12,10 +12,9 @@ import {
   useComponentsContext,
   useDictionary,
 } from "@blocknote/react";
-import { BlockNoteSchema, defaultInlineContentSpecs, filterSuggestionItems, SuggestionMenu, mergeCSSClasses } from "@blocknote/core";
+import { BlockNoteSchema, defaultInlineContentSpecs, filterSuggestionItems, mergeCSSClasses } from "@blocknote/core";
 import { noteLinkSpec } from "./NoteLinkInlineContent";
 import { en as bnEn } from "@blocknote/core/locales";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
 import {
   parseJsonEventStream,
   consumeStream,
@@ -27,6 +26,7 @@ import { stripStreamingMarkdown } from "@/lib/notes/streamMarkdownStrip.js";
 import { createAgenticStreamParser } from "@/lib/notes/parseAgenticStream.js";
 import { finalizeAiResponse } from "@/components/notes/editor/commands/finalizeAiResponse.js";
 import { createSafeUnnestPlugin } from "@/components/notes/editor/plugins/safeUnnestPlugin.js";
+import { createInlineAiCommandPlugin } from "@/components/notes/editor/plugins/inlineAiCommandPlugin.js";
 import "@blocknote/mantine/style.css";
 import NoteIcon from "./NoteIcon";
 import IconPicker from "./IconPicker";
@@ -530,63 +530,18 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   useEffect(() => {
     if (disableAiCommands) return;
 
-    const tiptap = editor._tiptapEditor;
-    if (!tiptap) return;
-
-    const pluginKey = new PluginKey("inline-ai-commands");
-
-    const plugin = new Plugin({
-      key: pluginKey,
-      props: {
-        handleKeyDown(view, event) {
-          if (event.key !== "Enter" || event.shiftKey || event.isComposing) {
-            return false;
-          }
-
-          const pos = editor.getTextCursorPosition();
-          const block = pos.block;
-
-          // Only intercept paragraph blocks
-          if (block.type !== "paragraph") return false;
-
-          // Check selection is collapsed
-          const { from, to } = view.state.selection;
-          if (from !== to) return false;
-
-          // Read block text and check command BEFORE menu check
-          const blockText = block.content?.map((c) => c.text || "").join("") || "";
-          const parsed = parseCommand(blockText);
-          if (!parsed) return false;
-
-          // /ask with empty prompt — let Enter pass through
-          if ((parsed.type === "ask" || parsed.type === "agent") && !parsed.input) return false;
-
-          // If slash menu is open and command has no user input
-          // (e.g. /summarize, /digest typed manually), let menu handle Enter
-          // since the menu item also auto-executes. But if command HAS input
-          // (e.g. /ask hello), user clearly wants to execute — skip menu check.
-          if (!parsed.input && editor.getExtension(SuggestionMenu)?.shown()) {
-            return false;
-          }
-
-          // Check consumed tracking
-          const prevText = executedCommandsRef.current.get(block.id);
-          if (prevText !== undefined && prevText === blockText) return false;
-
-          // Execute the command via ref (avoids stale closure)
-          event.preventDefault();
-          executeAiCommandRef.current?.(parsed.type, parsed.input, block.id);
-          return true;
-        },
-      },
+    const created = createInlineAiCommandPlugin({
+      editor,
+      executedCommandsRef,
+      executeRef: executeAiCommandRef,
     });
+    if (!created) return;
 
+    const tiptap = editor._tiptapEditor;
+    const { plugin, pluginKey } = created;
     // Prepend plugin so it runs BEFORE BlockNote's KeyboardShortcutsExtension
     tiptap.registerPlugin(plugin, (newPlugin, plugins) => [newPlugin, ...plugins]);
-
-    return () => {
-      tiptap.unregisterPlugin(pluginKey);
-    };
+    return () => tiptap.unregisterPlugin(pluginKey);
   }, [editor, disableAiCommands]);
 
   // Workaround for BlockNote#1338 — see safeUnnestPlugin.js for upstream link
