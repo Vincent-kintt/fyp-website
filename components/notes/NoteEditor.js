@@ -21,13 +21,13 @@ import {
   uiMessageChunkSchema,
 } from "ai";
 import { parseCommand } from "@/lib/notes/commands.js";
-import { blocksToText } from "@/lib/notes/blocksToText.js";
 import { stripStreamingMarkdown } from "@/lib/notes/streamMarkdownStrip.js";
 import { createAgenticStreamParser } from "@/lib/notes/parseAgenticStream.js";
 import { finalizeAiResponse } from "@/components/notes/editor/commands/finalizeAiResponse.js";
 import { createSafeUnnestPlugin } from "@/components/notes/editor/plugins/safeUnnestPlugin.js";
 import { createInlineAiCommandPlugin } from "@/components/notes/editor/plugins/inlineAiCommandPlugin.js";
 import { useInlineAiCommand } from "@/components/notes/editor/commands/useInlineAiCommand.js";
+import { useAgentCommand } from "@/components/notes/editor/commands/useAgentCommand.js";
 import "@blocknote/mantine/style.css";
 import NoteIcon from "./NoteIcon";
 import IconPicker from "./IconPicker";
@@ -187,111 +187,14 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
     }, 1000);
   }, [editor, onSave]);
 
-  const executeAgentCommand = useCallback(
-    async (input, commandBlockId) => {
-      const noteContext = blocksToText(editor.document);
-      const commandBlock = commandBlockId
-        ? editor.getBlock(commandBlockId)
-        : editor.getTextCursorPosition().block;
-
-      if (!commandBlock) return;
-
-      const blockText =
-        commandBlock.content?.map((c) => c.text || "").join("") || "";
-      executedCommandsRef.current.set(commandBlock.id, blockText);
-
-      const [loadingBlock] = editor.insertBlocks(
-        [{ type: "paragraph", content: t("aiGenerating") }],
-        commandBlock,
-        "after",
-      );
-
-      try {
-        const res = await fetch("/api/ai/notes-agentic", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            input,
-            noteTitle: titleRef.current,
-            noteContext,
-            language: localeRef.current?.startsWith("zh") ? "zh" : "en",
-          }),
-        });
-
-        if (!res.ok) {
-          let errMsg = `HTTP ${res.status}`;
-          try {
-            const errBody = await res.json();
-            errMsg = errBody.error || errMsg;
-          } catch {}
-          throw new Error(errMsg);
-        }
-
-        const parser = createAgenticStreamParser();
-        let aborted = false;
-
-        await consumeStream({
-          stream: parseJsonEventStream({
-            stream: res.body,
-            schema: uiMessageChunkSchema,
-          }).pipeThrough(
-            new TransformStream({
-              transform(part) {
-                if (aborted || !part.success) return;
-                const evt = parser.feed(part.value);
-                if (!evt) return;
-
-                if (evt.type === "tool-input") {
-                  const labelKey = TOOL_PROGRESS_LABELS[evt.toolName];
-                  if (labelKey) {
-                    try {
-                      editor.updateBlock(loadingBlock, {
-                        type: "paragraph",
-                        content: t(labelKey),
-                      });
-                    } catch {
-                      aborted = true;
-                    }
-                  }
-                } else if (evt.type === "text") {
-                  try {
-                    editor.updateBlock(loadingBlock, {
-                      type: "paragraph",
-                      content: stripStreamingMarkdown(evt.accumulated),
-                    });
-                  } catch {
-                    aborted = true;
-                  }
-                }
-              },
-            }),
-          ),
-        });
-
-        const accumulatedText = parser.getAccumulated();
-        const sideEffects = parser.getSideEffects();
-
-        await finalizeAiResponse(editor, {
-          loadingBlock,
-          commandBlock,
-          accumulated: accumulatedText,
-          sideEffects,
-          t,
-        });
-      } catch (err) {
-        console.error("Agent command error:", err);
-        // Allow retry by clearing the consumed tracking for this block
-        executedCommandsRef.current.delete(commandBlock.id);
-        try {
-          editor.updateBlock(loadingBlock, {
-            type: "paragraph",
-            content: `${t("aiError")}${err?.message ? ` — ${err.message}` : ""}`,
-          });
-        } catch {}
-      }
-    },
-    [editor, t],
-  );
+  const executeAgentCommand = useAgentCommand({
+    editor,
+    titleRef,
+    localeRef,
+    t,
+    executedCommandsRef,
+    toolProgressLabels: TOOL_PROGRESS_LABELS,
+  });
 
   const doRSSFetch = useCallback(
     async (commandBlock) => {
