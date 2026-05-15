@@ -154,6 +154,33 @@ describe("apiSuccess / apiError", () => {
     expect(res.status).toBe(201);
   });
 
+  it("apiError merges extra fields into the body", async () => {
+    const res = apiError("Invalid tool input", 400, {
+      details: { fieldErrors: { foo: ["bad"] } },
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toEqual({
+      success: false,
+      error: "Invalid tool input",
+      details: { fieldErrors: { foo: ["bad"] } },
+    });
+  });
+
+  it("apiError ignores falsy extra", async () => {
+    const res = apiError("nope", 404, null);
+    const body = await res.json();
+    expect(body).toEqual({ success: false, error: "nope" });
+  });
+
+  it("apiError extra cannot override the error field", async () => {
+    // success/error keys are spread first, then overridden by canonical fields
+    const res = apiError("real-error", 400, { error: "spoofed", code: "X" });
+    const body = await res.json();
+    expect(body.error).toBe("real-error");
+    expect(body.code).toBe("X");
+  });
+
   it("apiError returns error status and body", async () => {
     const res = apiError("Not found", 404);
     const body = await res.json();
