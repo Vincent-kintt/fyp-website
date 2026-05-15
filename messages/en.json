@@ -192,6 +192,44 @@
     "delete": "Delete",
     "noReminders": "No reminders found. Create your first reminder!"
   },
+  "aiModal": {
+    "header": "Reminders",
+    "reasoning": "Reasoning",
+    "reasoningSection": "Reasoning",
+    "reasoningMode": "Reasoning mode",
+    "effort": "Effort",
+    "effortLow": "Low",
+    "effortMedium": "Med",
+    "effortHigh": "High",
+    "aiLanguage": "AI Language",
+    "shortcutOpenChat": "Open AI Chat",
+    "confirmClear": "Are you sure you want to clear the chat history?",
+    "continuedFromQuickAdd": "Continued from QuickAdd",
+    "emptyStateTitle": "What do you need?",
+    "placeholderWaiting": "Waiting for response...",
+    "placeholderInput": "Describe what you need...",
+    "emptyChip": {
+      "createReminder": "Create a reminder",
+      "todaySchedule": "Today's schedule",
+      "planWeek": "Plan the week",
+      "analyzePatterns": "Analyze patterns"
+    },
+    "suggestion": {
+      "listToday": "List today's",
+      "createAnother": "Create another",
+      "findConflicts": "Find conflicts",
+      "summarize": "Summarize",
+      "analyzePatterns": "Analyze patterns",
+      "listRemaining": "List remaining",
+      "createNew": "Create new",
+      "thisWeek": "This week",
+      "listAll": "List all",
+      "viewAll": "List all",
+      "listReminders": "List reminders",
+      "createReminder": "Create reminder",
+      "analyze": "Analyze"
+    }
+  },
   "taskItem": {
     "todayAt": "Today at {time}",
     "tomorrowAt": "Tomorrow at {time}",

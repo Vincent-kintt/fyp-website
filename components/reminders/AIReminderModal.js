@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
@@ -26,88 +27,6 @@ const MUTATION_TOOLS = [
   "setQuickReminder",
   "templateCreate",
 ];
-
-const translations = {
-  zh: {
-    title: "AI 提醒生成器",
-    chatTitle: "AI 助理對話",
-    previewTitle: "提醒預覽",
-    clearChat: "清空對話",
-    confirmClear: "確定要清空對話記錄嗎？",
-    emptyAgenticChat: "使用多代理系統\n透明顯示每個處理步驟",
-    emptyPreview: "尚無提醒預覽\n請先與 AI 對話生成提醒",
-    placeholder:
-      '描述您的提醒，例如："明天下午 3 點提醒我打電話" 或要求修改現有提醒',
-    send: "發送",
-    generating: "生成中",
-    edit: "編輯",
-    finishEdit: "完成編輯",
-    confirm: "確認創建",
-    reasoning: "推理過程",
-    model: "模型",
-    reasoningEffort: "推理強度",
-    reasoningToggle: "推理模式",
-    enabled: "開啟",
-    disabled: "關閉",
-    language: "語言",
-    low: "低",
-    medium: "中",
-    high: "高",
-    titleLabel: "標題",
-    descLabel: "描述",
-    dateTimeLabel: "日期時間",
-    categoryLabel: "類別",
-    recurringLabel: "重複類型",
-    personal: "個人",
-    work: "工作",
-    health: "健康",
-    other: "其他",
-    daily: "每天",
-    weekly: "每週",
-    monthly: "每月",
-    yearly: "每年",
-  },
-  en: {
-    title: "AI Reminder Generator",
-    chatTitle: "AI Assistant Chat",
-    previewTitle: "Reminder Preview",
-    clearChat: "Clear Chat",
-    confirmClear: "Are you sure you want to clear the chat history?",
-    emptyAgenticChat:
-      "Using Multi-Agent System\nTransparently shows each processing step",
-    emptyPreview: "No Preview Yet\nChat with AI to generate a reminder first",
-    placeholder:
-      'Describe your reminder, e.g., "Remind me to call tomorrow at 3 PM" or request modifications',
-    send: "Send",
-    generating: "Generating",
-    edit: "Edit",
-    finishEdit: "Finish Edit",
-    confirm: "Confirm Create",
-    reasoning: "Reasoning",
-    model: "Model",
-    reasoningEffort: "Reasoning Effort",
-    reasoningToggle: "Reasoning Mode",
-    enabled: "Enabled",
-    disabled: "Disabled",
-    language: "Language",
-    low: "Low",
-    medium: "Medium",
-    high: "High",
-    titleLabel: "Title",
-    descLabel: "Description",
-    dateTimeLabel: "Date & Time",
-    categoryLabel: "Category",
-    recurringLabel: "Recurring Type",
-    personal: "Personal",
-    work: "Work",
-    health: "Health",
-    other: "Other",
-    daily: "Daily",
-    weekly: "Weekly",
-    monthly: "Monthly",
-    yearly: "Yearly",
-  },
-};
 
 const modelOptions = [
   {
@@ -195,7 +114,8 @@ function getToolDescription(toolName, state, output) {
 }
 
 // Collapsible reasoning block
-function ReasoningBlock({ text, isStreaming, language }) {
+function ReasoningBlock({ text, isStreaming }) {
+  const t = useTranslations("aiModal");
   const [expanded, setExpanded] = useState(isStreaming);
 
   // Auto-collapse when streaming finishes
@@ -207,7 +127,7 @@ function ReasoningBlock({ text, isStreaming, language }) {
 
   if (!text) return null;
 
-  const label = language === "zh" ? "推理過程" : "Reasoning";
+  const label = t("reasoning");
 
   return (
     <div
@@ -443,10 +363,9 @@ function SettingsPopover({
   isOpen,
   supportsReasoning,
   supportsReasoningToggle,
-  language,
 }) {
+  const t = useTranslations("aiModal");
   if (!isOpen) return null;
-  const zh = language === "zh";
   return (
     <div
       style={{
@@ -474,7 +393,7 @@ function SettingsPopover({
               marginBottom: "12px",
             }}
           >
-            {zh ? "推理設定" : "Reasoning"}
+            {t("reasoningSection")}
           </div>
           {supportsReasoningToggle && (
             <div
@@ -486,7 +405,7 @@ function SettingsPopover({
               }}
             >
               <span style={{ fontSize: "13px", color: "var(--modal-text)" }}>
-                {zh ? "推理模式" : "Reasoning mode"}
+                {t("reasoningMode")}
               </span>
               <div
                 onClick={() =>
@@ -528,7 +447,7 @@ function SettingsPopover({
               }}
             >
               <span style={{ fontSize: "13px", color: "var(--modal-text)" }}>
-                {zh ? "強度" : "Effort"}
+                {t("effort")}
               </span>
               <div style={{ display: "flex", gap: "4px" }}>
                 {["low", "medium", "high"].map((level) => (
@@ -552,16 +471,10 @@ function SettingsPopover({
                     }}
                   >
                     {level === "low"
-                      ? zh
-                        ? "低"
-                        : "Low"
+                      ? t("effortLow")
                       : level === "medium"
-                        ? zh
-                          ? "中"
-                          : "Med"
-                        : zh
-                          ? "高"
-                          : "High"}
+                        ? t("effortMedium")
+                        : t("effortHigh")}
                   </div>
                 ))}
               </div>
@@ -589,7 +502,7 @@ function SettingsPopover({
             marginBottom: "12px",
           }}
         >
-          {zh ? "語言" : "Language"}
+          {t("aiLanguage")}
         </div>
         <div style={{ display: "flex", gap: "4px" }}>
           {[
@@ -638,7 +551,7 @@ function SettingsPopover({
         }}
       >
         <span style={{ fontSize: "12px", color: "var(--modal-text-muted)" }}>
-          {zh ? "開啟 AI 對話" : "Open AI Chat"}
+          {t("shortcutOpenChat")}
         </span>
         <div style={{ display: "flex", gap: "4px" }}>
           <span
@@ -709,7 +622,7 @@ export default function AIReminderModal({
   const onSuccessRefForChat = useRef(onSuccess);
   onSuccessRefForChat.current = onSuccess;
 
-  const t = translations[settings.language] || translations.zh;
+  const t = useTranslations("aiModal");
 
   // Stable transport -- reads latest settings via refs so it doesn't need to be re-created
   const transport = useMemo(
@@ -773,59 +686,59 @@ export default function AIReminderModal({
     const actions = {
       createReminder: [
         {
-          label: zh ? "查看今天" : "List today's",
+          label: t("suggestion.listToday"),
           prompt: zh ? "列出今天的提醒" : "List today's reminders",
         },
         {
-          label: zh ? "再建一個" : "Create another",
+          label: t("suggestion.createAnother"),
           prompt: zh ? "再建立一個提醒" : "Create another reminder",
         },
         {
-          label: zh ? "檢查衝突" : "Find conflicts",
+          label: t("suggestion.findConflicts"),
           prompt: zh ? "檢查時間衝突" : "Check for time conflicts",
         },
       ],
       listReminders: [
         {
-          label: zh ? "摘要" : "Summarize",
+          label: t("suggestion.summarize"),
           prompt: zh ? "總結這些提醒" : "Summarize these reminders",
         },
         {
-          label: zh ? "檢查衝突" : "Find conflicts",
+          label: t("suggestion.findConflicts"),
           prompt: zh ? "檢查時間衝突" : "Check for time conflicts",
         },
         {
-          label: zh ? "分析模式" : "Analyze patterns",
+          label: t("suggestion.analyzePatterns"),
           prompt: zh ? "分析我的提醒模式" : "Analyze my reminder patterns",
         },
       ],
       deleteReminder: [
         {
-          label: zh ? "查看剩餘" : "List remaining",
+          label: t("suggestion.listRemaining"),
           prompt: zh ? "列出所有提醒" : "List all reminders",
         },
         {
-          label: zh ? "建立新的" : "Create new",
+          label: t("suggestion.createNew"),
           prompt: zh ? "建立一個新提醒" : "Create a new reminder",
         },
       ],
       analyzePatterns: [
         {
-          label: zh ? "本週摘要" : "This week",
+          label: t("suggestion.thisWeek"),
           prompt: zh ? "總結本週的任務" : "Summarize this week's tasks",
         },
         {
-          label: zh ? "列出全部" : "List all",
+          label: t("suggestion.listAll"),
           prompt: zh ? "列出所有提醒" : "List all reminders",
         },
       ],
       updateReminder: [
         {
-          label: zh ? "查看全部" : "List all",
+          label: t("suggestion.viewAll"),
           prompt: zh ? "列出所有提醒" : "List all reminders",
         },
         {
-          label: zh ? "檢查衝突" : "Find conflicts",
+          label: t("suggestion.findConflicts"),
           prompt: zh ? "檢查時間衝突" : "Check for time conflicts",
         },
       ],
@@ -833,20 +746,20 @@ export default function AIReminderModal({
     return (
       actions[toolName] || [
         {
-          label: zh ? "列出提醒" : "List reminders",
+          label: t("suggestion.listReminders"),
           prompt: zh ? "列出所有提醒" : "List all reminders",
         },
         {
-          label: zh ? "建立提醒" : "Create reminder",
+          label: t("suggestion.createReminder"),
           prompt: zh ? "建立一個提醒" : "Create a reminder",
         },
         {
-          label: zh ? "分析模式" : "Analyze",
+          label: t("suggestion.analyze"),
           prompt: zh ? "分析我的提醒模式" : "Analyze my patterns",
         },
       ]
     );
-  }, [messages, isProcessing, settings.language]);
+  }, [messages, isProcessing, settings.language, t]);
 
   // --- Mount/unmount with closing animation ---
   useEffect(() => {
@@ -1063,10 +976,10 @@ export default function AIReminderModal({
   }, [input, isProcessing, sendMessage]);
 
   const handleClearChat = useCallback(() => {
-    if (window.confirm(t.confirmClear)) {
+    if (window.confirm(t("confirmClear"))) {
       setMessages([]);
     }
-  }, [setMessages, t.confirmClear]);
+  }, [setMessages, t]);
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1113,8 +1026,7 @@ export default function AIReminderModal({
 
   const emptyStateSuggestions = [
     {
-      zh: "建立提醒",
-      en: "Create a reminder",
+      labelKey: "createReminder",
       prompt: settings.language === "zh" ? "建立一個提醒" : "Create a reminder",
       icon: (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1123,8 +1035,7 @@ export default function AIReminderModal({
       ),
     },
     {
-      zh: "今天的行程",
-      en: "Today's schedule",
+      labelKey: "todaySchedule",
       prompt: settings.language === "zh" ? "列出今天的提醒" : "List today's reminders",
       icon: (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1133,8 +1044,7 @@ export default function AIReminderModal({
       ),
     },
     {
-      zh: "規劃本週",
-      en: "Plan the week",
+      labelKey: "planWeek",
       prompt: settings.language === "zh" ? "幫我規劃本週" : "Help me plan this week",
       icon: (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1143,8 +1053,7 @@ export default function AIReminderModal({
       ),
     },
     {
-      zh: "分析模式",
-      en: "Analyze patterns",
+      labelKey: "analyzePatterns",
       prompt: settings.language === "zh" ? "分析我的提醒模式" : "Analyze my reminder patterns",
       icon: (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1211,7 +1120,7 @@ export default function AIReminderModal({
                 whiteSpace: "nowrap",
               }}
             >
-              {settings.language === "zh" ? "提醒助手" : "Reminders"}
+              {t("header")}
             </span>
             <div
               style={{
@@ -1282,7 +1191,6 @@ export default function AIReminderModal({
                 isOpen={showSettings}
                 supportsReasoning={supportsReasoning}
                 supportsReasoningToggle={supportsReasoningToggle}
-                language={settings.language}
               />
             </div>
             {messages.length > 0 && (
@@ -1342,7 +1250,7 @@ export default function AIReminderModal({
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                 </svg>
                 <span style={{ fontSize: "10px", color: "var(--modal-text-muted)" }}>
-                  {settings.language === "zh" ? "從 QuickAdd 繼續" : "Continued from QuickAdd"}
+                  {t("continuedFromQuickAdd")}
                 </span>
               </div>
             )}
@@ -1367,7 +1275,7 @@ export default function AIReminderModal({
                     textAlign: "center",
                   }}
                 >
-                  {settings.language === "zh" ? "需要什麼幫助？" : "What do you need?"}
+                  {t("emptyStateTitle")}
                 </p>
                 <div
                   style={{
@@ -1380,7 +1288,7 @@ export default function AIReminderModal({
                 >
                   {emptyStateSuggestions.map((item) => (
                     <button
-                      key={item.en}
+                      key={item.labelKey}
                       onClick={() => setInput(item.prompt)}
                       style={{
                         display: "flex",
@@ -1415,7 +1323,7 @@ export default function AIReminderModal({
                         {item.icon}
                       </div>
                       <span style={{ fontSize: "13px", color: "var(--modal-text-secondary)", flex: 1 }}>
-                        {settings.language === "zh" ? item.zh : item.en}
+                        {t(`emptyChip.${item.labelKey}`)}
                       </span>
                       <span style={{ color: "var(--glass-border)", fontSize: "14px" }}>&#x203A;</span>
                     </button>
@@ -1476,7 +1384,6 @@ export default function AIReminderModal({
                                 key={`reasoning-${pIdx}`}
                                 text={part.text}
                                 isStreaming={part.state === "streaming"}
-                                language={settings.language}
                               />
                             );
                           }
@@ -1641,9 +1548,7 @@ export default function AIReminderModal({
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder={
-                  isProcessing
-                    ? settings.language === "zh" ? "等待回應中..." : "Waiting for response..."
-                    : settings.language === "zh" ? "描述你的需求..." : "Describe what you need..."
+                  isProcessing ? t("placeholderWaiting") : t("placeholderInput")
                 }
                 rows="2"
                 maxLength={2000}

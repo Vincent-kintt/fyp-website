@@ -192,6 +192,44 @@
     "delete": "刪除",
     "noReminders": "還沒有提醒事項，建立你的第一個提醒吧！"
   },
+  "aiModal": {
+    "header": "提醒助手",
+    "reasoning": "推理過程",
+    "reasoningSection": "推理設定",
+    "reasoningMode": "推理模式",
+    "effort": "強度",
+    "effortLow": "低",
+    "effortMedium": "中",
+    "effortHigh": "高",
+    "aiLanguage": "AI 語言",
+    "shortcutOpenChat": "開啟 AI 對話",
+    "confirmClear": "確定要清空對話記錄嗎？",
+    "continuedFromQuickAdd": "從 QuickAdd 繼續",
+    "emptyStateTitle": "需要什麼幫助？",
+    "placeholderWaiting": "等待回應中...",
+    "placeholderInput": "描述你的需求...",
+    "emptyChip": {
+      "createReminder": "建立提醒",
+      "todaySchedule": "今天的行程",
+      "planWeek": "規劃本週",
+      "analyzePatterns": "分析模式"
+    },
+    "suggestion": {
+      "listToday": "查看今天",
+      "createAnother": "再建一個",
+      "findConflicts": "檢查衝突",
+      "summarize": "摘要",
+      "analyzePatterns": "分析模式",
+      "listRemaining": "查看剩餘",
+      "createNew": "建立新的",
+      "thisWeek": "本週摘要",
+      "listAll": "列出全部",
+      "viewAll": "查看全部",
+      "listReminders": "列出提醒",
+      "createReminder": "建立提醒",
+      "analyze": "分析模式"
+    }
+  },
   "taskItem": {
     "todayAt": "今天 {time}",
     "tomorrowAt": "明天 {time}",
