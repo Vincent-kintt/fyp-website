@@ -199,6 +199,57 @@ test.describe("NoteEditor regression-net (C4 PR1)", () => {
     ).toBeVisible({ timeout: 5000 });
   });
 
+  // ---- Scenario 4b: inbox editorRef.getContent() contract ---------------
+
+  test("scenario 4b: inbox editorRef.getContent() contract via Extract Tasks", async ({
+    page,
+  }) => {
+    // Stub /api/ai/extract-tasks and capture the POST body.
+    // If editorRef is broken (null current, missing getContent, or wrong shape),
+    // InboxPage.handleExtract early-returns without firing this request — the
+    // assertion below would then fail.
+    let capturedExtractBody = null;
+    await page.route("**/api/ai/extract-tasks", async (route) => {
+      try {
+        capturedExtractBody = route.request().postDataJSON();
+      } catch {
+        capturedExtractBody = { _parseError: route.request().postData() };
+      }
+      await route.fulfill({
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ success: true, data: { tasks: [] } }),
+      });
+    });
+
+    await page.goto("/inbox");
+    await page.waitForSelector(".bn-editor", { timeout: 25000 });
+
+    // Unique typed content so we can prove it round-trips through editorRef.
+    const uniqueText = `editorRef contract ${Date.now()}`;
+    await typeInEditor(page, uniqueText);
+
+    // Click the "Extract Tasks" button (match en/zh).
+    const extractBtn = page.getByRole("button", {
+      name: /Extract Tasks|提取任務/,
+    });
+    await expect(extractBtn).toBeEnabled({ timeout: 5000 });
+    await extractBtn.click();
+
+    // Wait until the stubbed endpoint is hit. If editorRef is broken, the
+    // handler early-returns and this times out — that IS the regression signal.
+    await expect
+      .poll(() => capturedExtractBody, { timeout: 10000 })
+      .not.toBeNull();
+
+    // The captured body must contain the typed text — proves:
+    //   editorRef.current.getContent() -> blocks
+    //   blocksToText(blocks)            -> contains uniqueText
+    //   POST /api/ai/extract-tasks body.text contains uniqueText
+    expect(typeof capturedExtractBody.text).toBe("string");
+    expect(capturedExtractBody.text).toContain(uniqueText);
+  });
+
   // ---- Scenario 5: @-mention duplicate titles ---------------------------
 
   test("scenario 5: @-mention with duplicate titles renders both as distinct", async ({
