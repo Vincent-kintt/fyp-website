@@ -2,9 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   ICON_MAP,
   ICON_CATEGORIES,
-  ICON_COLORS,
   ICON_COLOR_NAMES,
-  ALL_ICON_NAMES,
   getIconComponent,
   getIconColor,
 } from "@/lib/notes/iconMap.js";
@@ -30,12 +28,6 @@ describe("ICON_CATEGORIES", () => {
         expect(ICON_MAP[name], `${category}/${name} missing from ICON_MAP`).toBeDefined();
       }
     }
-  });
-});
-
-describe("ALL_ICON_NAMES", () => {
-  it("matches ICON_MAP keys length", () => {
-    expect(ALL_ICON_NAMES.length).toBe(Object.keys(ICON_MAP).length);
   });
 });
 

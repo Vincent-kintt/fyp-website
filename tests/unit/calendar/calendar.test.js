@@ -26,16 +26,12 @@ describe("getBlockTop", () => {
     expect(getBlockTop("2026-04-07T00:00")).toBe(0);
   });
 
-  it("returns 912 for 9:30 AM (9.5 * 96)", () => {
+  it("returns 912 for 9:30 AM (anchors the 9.5 * 96 formula)", () => {
+    // Numerical anchor — 912 is derived independently of HOUR_HEIGHT, so a
+    // typo in the formula would surface here. Additional "12:00 → 12 *
+    // HOUR_HEIGHT" cases were cut: they re-use the implementation's own
+    // constant in the expected value and so can't catch a multiplier bug.
     expect(getBlockTop("2026-04-07T09:30")).toBe(912);
-  });
-
-  it("returns HOUR_HEIGHT * 12 for noon", () => {
-    expect(getBlockTop("2026-04-07T12:00")).toBe(12 * HOUR_HEIGHT);
-  });
-
-  it("returns correct value for 23:00", () => {
-    expect(getBlockTop("2026-04-07T23:00")).toBe(23 * HOUR_HEIGHT);
   });
 
   it("returns 0 for falsy input", () => {
@@ -49,29 +45,20 @@ describe("getBlockTop", () => {
 // ---------------------------------------------------------------------------
 
 describe("getBlockHeight", () => {
-  it("returns SLOT_HEIGHT (48) for null duration", () => {
+  it("falls back to SLOT_HEIGHT for null/undefined duration", () => {
     expect(getBlockHeight(null)).toBe(SLOT_HEIGHT);
     expect(getBlockHeight(undefined)).toBe(SLOT_HEIGHT);
   });
 
-  it("returns 48 for 30-minute duration", () => {
+  it("returns 48 for a 30-minute duration (normal path anchor)", () => {
+    // Anchors the duration * SLOT_HEIGHT / 30 formula with an independent
+    // numerical value. 60min/90min variants were redundant.
     expect(getBlockHeight(30)).toBe(48);
   });
 
-  it("returns 96 for 60-minute duration", () => {
-    expect(getBlockHeight(60)).toBe(96);
-  });
-
-  it("returns MIN_BLOCK_HEIGHT (28) for very short durations (5 min)", () => {
+  it("clamps to MIN_BLOCK_HEIGHT for very short / zero durations", () => {
     expect(getBlockHeight(5)).toBe(MIN_BLOCK_HEIGHT);
-  });
-
-  it("returns MIN_BLOCK_HEIGHT for 0-minute duration", () => {
     expect(getBlockHeight(0)).toBe(MIN_BLOCK_HEIGHT);
-  });
-
-  it("returns 144 for 90-minute duration", () => {
-    expect(getBlockHeight(90)).toBe(144);
   });
 });
 

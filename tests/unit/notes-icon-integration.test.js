@@ -19,10 +19,12 @@ describe("icon data integration", () => {
     expect(comp).toBeDefined();
   });
 
-  it("all 60 icons are distributed across categories", () => {
+  it("each icon appears in at most one category", () => {
+    // The previous snapshot assertion ("length === 60") was a dataset
+    // count, not a behavior — adding a new icon would false-fail it.
+    // The invariant that matters is no-duplicates within ICON_CATEGORIES.
     const allCategoryIcons = Object.values(ICON_CATEGORIES).flat();
-    expect(allCategoryIcons.length).toBe(60);
-    expect(new Set(allCategoryIcons).size).toBe(60);
+    expect(new Set(allCategoryIcons).size).toBe(allCategoryIcons.length);
   });
 
   it("each color has both light and dark variants", () => {

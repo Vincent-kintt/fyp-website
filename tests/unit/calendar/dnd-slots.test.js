@@ -1,11 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { CALENDAR_SLOT_PREFIX, parseSlotDropId, computeSlotDateTime } from "@/lib/dnd";
+import { parseSlotDropId, computeSlotDateTime } from "@/lib/dnd";
 
-describe("CALENDAR_SLOT_PREFIX", () => {
-  it("is 'cal-slot-'", () => {
-    expect(CALENDAR_SLOT_PREFIX).toBe("cal-slot-");
-  });
-});
+// The prefix's public behavior is exercised by parseSlotDropId tests below
+// (it must accept "cal-slot-..." and reject "cal-day-..."), so a separate
+// snapshot test of the constant value would be tautological.
 
 describe("parseSlotDropId", () => {
   it("parses a valid slot ID", () => {

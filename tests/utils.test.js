@@ -94,11 +94,21 @@ describe("getMainCategory", () => {
 });
 
 // ============================================
-// Status Lifecycle
+// Status Lifecycle — uses an independent EXPECTED list as the contract
+// source of truth so the REMINDER_STATUSES constant and its consumers
+// (isValidStatus, isValidStatusTransition) can't silently drift in sync.
 // ============================================
+const EXPECTED_STATUSES = ["pending", "in_progress", "completed", "snoozed"];
+
+describe("REMINDER_STATUSES contract", () => {
+  it("matches the persisted status enum", () => {
+    expect([...REMINDER_STATUSES].sort()).toEqual([...EXPECTED_STATUSES].sort());
+  });
+});
+
 describe("isValidStatus", () => {
-  it("accepts all valid statuses", () => {
-    REMINDER_STATUSES.forEach((s) => {
+  it("accepts every canonical status from the contract", () => {
+    EXPECTED_STATUSES.forEach((s) => {
       expect(isValidStatus(s)).toBe(true);
     });
   });
@@ -110,8 +120,8 @@ describe("isValidStatus", () => {
 });
 
 describe("isValidStatusTransition", () => {
-  it("allows same-status (no-op)", () => {
-    REMINDER_STATUSES.forEach((s) => {
+  it("allows same-status (no-op) for every canonical status", () => {
+    EXPECTED_STATUSES.forEach((s) => {
       expect(isValidStatusTransition(s, s)).toBe(true);
     });
   });

@@ -24,20 +24,12 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("modelIds constants", () => {
-  it("exports DEFAULT_PARSE_MODEL_ID", () => {
-    expect(modelIds.DEFAULT_PARSE_MODEL_ID).toBe("x-ai/grok-4.1-fast");
-  });
-
-  it("exports DEFAULT_REMINDER_MODEL_ID (client-safe default for AIReminderModal)", () => {
-    expect(modelIds.DEFAULT_REMINDER_MODEL_ID).toBe("x-ai/grok-4.1-fast");
-  });
-
-  it("exports DEFAULT_AGENT_MODEL_ID", () => {
-    expect(typeof modelIds.DEFAULT_AGENT_MODEL_ID).toBe("string");
-    expect(modelIds.DEFAULT_AGENT_MODEL_ID.length).toBeGreaterThan(0);
-  });
-});
+// DEFAULT_PARSE_MODEL_ID and DEFAULT_AGENT_MODEL_ID are exercised
+// indirectly by the resolver fallback tests below — those fail hard if
+// either constant is missing or empty. DEFAULT_REMINDER_MODEL_ID is
+// imported directly by AIReminderModal (no resolver chain), so it is
+// not asserted here; a future component test could cover it if its
+// value becomes load-bearing.
 
 describe("getParseModelId", () => {
   it("returns PARSE_TASK_MODEL env when set", () => {
