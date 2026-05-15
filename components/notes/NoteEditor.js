@@ -23,6 +23,8 @@ import {
 } from "ai";
 import { parseCommand } from "@/lib/notes/commands.js";
 import { blocksToText } from "@/lib/notes/blocksToText.js";
+import { stripStreamingMarkdown } from "@/lib/notes/streamMarkdownStrip.js";
+import { createAgenticStreamParser } from "@/lib/notes/parseAgenticStream.js";
 import "@blocknote/mantine/style.css";
 import NoteIcon from "./NoteIcon";
 import IconPicker from "./IconPicker";
@@ -222,8 +224,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
           throw new Error(errMsg);
         }
 
-        let accumulatedText = "";
-        const sideEffects = [];
+        const parser = createAgenticStreamParser();
         let aborted = false;
 
         await consumeStream({
@@ -234,11 +235,11 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             new TransformStream({
               transform(part) {
                 if (aborted || !part.success) return;
-                const chunk = part.value;
+                const evt = parser.feed(part.value);
+                if (!evt) return;
 
-                // Tool call started — show progress label
-                if (chunk.type === "tool-input-available") {
-                  const labelKey = TOOL_PROGRESS_LABELS[chunk.toolName];
+                if (evt.type === "tool-input") {
+                  const labelKey = TOOL_PROGRESS_LABELS[evt.toolName];
                   if (labelKey) {
                     try {
                       editor.updateBlock(loadingBlock, {
@@ -249,34 +250,11 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
                       aborted = true;
                     }
                   }
-                }
-
-                // Tool result — check for side effects
-                if (chunk.type === "tool-output-available") {
-                  try {
-                    const output = typeof chunk.output === "string" ? JSON.parse(chunk.output) : chunk.output;
-                    if (output?.success && output?.reminder) {
-                      sideEffects.push({
-                        tool: "createReminder",
-                        title: output.reminder.title,
-                        dateTime: output.reminder.dateTime,
-                      });
-                    }
-                  } catch {}
-                }
-
-                // Text delta — accumulate and display
-                if (chunk.type === "text-delta") {
-                  accumulatedText += chunk.delta;
-                  const displayText = accumulatedText
-                    .replace(/^#{1,6}\s+/gm, "")
-                    .replace(/\*\*([^*]+)\*\*/g, "$1")
-                    .replace(/\*([^*]+)\*/g, "$1")
-                    .replace(/^[-*+]\s+/gm, "— ");
+                } else if (evt.type === "text") {
                   try {
                     editor.updateBlock(loadingBlock, {
                       type: "paragraph",
-                      content: displayText,
+                      content: stripStreamingMarkdown(evt.accumulated),
                     });
                   } catch {
                     aborted = true;
@@ -286,6 +264,9 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             }),
           ),
         });
+
+        const accumulatedText = parser.getAccumulated();
+        const sideEffects = parser.getSideEffects();
 
         if (accumulatedText.trim()) {
           const parsedBlocks =
@@ -373,7 +354,7 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
           throw new Error(errMsg);
         }
 
-        let accumulatedText = "";
+        const parser = createAgenticStreamParser();
         let aborted = false;
 
         await consumeStream({
@@ -384,10 +365,11 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             new TransformStream({
               transform(part) {
                 if (aborted || !part.success) return;
-                const chunk = part.value;
+                const evt = parser.feed(part.value);
+                if (!evt) return;
 
-                if (chunk.type === "tool-input-available") {
-                  const labelKey = TOOL_PROGRESS_LABELS[chunk.toolName];
+                if (evt.type === "tool-input") {
+                  const labelKey = TOOL_PROGRESS_LABELS[evt.toolName];
                   if (labelKey) {
                     try {
                       editor.updateBlock(loadingBlock, {
@@ -398,19 +380,11 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
                       aborted = true;
                     }
                   }
-                }
-
-                if (chunk.type === "text-delta") {
-                  accumulatedText += chunk.delta;
-                  const displayText = accumulatedText
-                    .replace(/^#{1,6}\s+/gm, "")
-                    .replace(/\*\*([^*]+)\*\*/g, "$1")
-                    .replace(/\*([^*]+)\*/g, "$1")
-                    .replace(/^[-*+]\s+/gm, "— ");
+                } else if (evt.type === "text") {
                   try {
                     editor.updateBlock(loadingBlock, {
                       type: "paragraph",
-                      content: displayText,
+                      content: stripStreamingMarkdown(evt.accumulated),
                     });
                   } catch {
                     aborted = true;
@@ -420,6 +394,8 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
             }),
           ),
         });
+
+        const accumulatedText = parser.getAccumulated();
 
         if (accumulatedText.trim()) {
           const parsedBlocks = editor.tryParseMarkdownToBlocks(accumulatedText);
@@ -559,16 +535,10 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
           const { done, value } = await reader.read();
           if (done) break;
           accumulated += decoder.decode(value, { stream: true });
-          // Strip markdown syntax for display during streaming
-          const displayText = accumulated
-            .replace(/^#{1,6}\s+/gm, "")
-            .replace(/\*\*([^*]+)\*\*/g, "$1")
-            .replace(/\*([^*]+)\*/g, "$1")
-            .replace(/^[-*+]\s+/gm, "— ");
           try {
             editor.updateBlock(loadingBlock, {
               type: "paragraph",
-              content: displayText,
+              content: stripStreamingMarkdown(accumulated),
             });
           } catch {
             // Block was deleted by user mid-stream — abort
