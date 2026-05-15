@@ -1,0 +1,9 @@
+# Test Heading
+
+This is **bold** text with *italic* style.
+
+- Item one
+- Item two
+- Item three
+
+Final paragraph for fixture verification.

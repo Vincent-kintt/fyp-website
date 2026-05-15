@@ -1,0 +1,16 @@
+data: {"type":"tool-input-available","toolName":"getUserSubscriptions","toolCallId":"call_rss_subs_1","input":{}}
+
+data: {"type":"tool-output-available","toolCallId":"call_rss_subs_1","output":"[{\"url\":\"https://example.com/feed.xml\",\"category\":\"Tech\"}]"}
+
+data: {"type":"tool-input-available","toolName":"fetchRSSFeeds","toolCallId":"call_rss_feeds_1","input":{"urls":["https://example.com/feed.xml"]}}
+
+data: {"type":"text-delta","id":"txt_1","delta":"# Today's Digest\n\n"}
+
+data: {"type":"text-delta","id":"txt_1","delta":"## Tech\n\n"}
+
+data: {"type":"text-delta","id":"txt_1","delta":"- [Example Article](https://example.com/articles/test)\n"}
+
+data: {"type":"text-delta","id":"txt_1","delta":"  A brief summary of the test fixture article.\n"}
+
+data: {"type":"finish","finishReason":"stop"}
+

@@ -1,0 +1,12 @@
+data: {"type":"text-delta","id":"txt_1","delta":"Creating reminder..."}
+
+data: {"type":"tool-input-available","toolName":"createReminder","toolCallId":"call_test_reminder_1","input":{"title":"Test reminder","dateTime":"2024-01-01T09:00:00"}}
+
+data: {"type":"tool-output-available","toolCallId":"call_test_reminder_1","output":"{\"success\":true,\"reminder\":{\"id\":\"TEST_REMINDER_ID\",\"title\":\"Test reminder\",\"dateTime\":\"2024-01-01T09:00:00Z\"}}"}
+
+data: {"type":"text-delta","id":"txt_1","delta":" Reminder set for tomorrow at 9am.\n\n"}
+
+data: {"type":"text-delta","id":"txt_1","delta":"Anything else?"}
+
+data: {"type":"finish","finishReason":"stop"}
+

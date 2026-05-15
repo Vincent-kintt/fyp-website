@@ -1,0 +1,12 @@
+data: {"type":"text-delta","id":"txt_1","delta":"Hello "}
+
+data: {"type":"text-delta","id":"txt_1","delta":"from the agent. "}
+
+data: {"type":"text-delta","id":"txt_1","delta":"Here is a brief response.\n\n"}
+
+data: {"type":"text-delta","id":"txt_1","delta":"- Point one\n"}
+
+data: {"type":"text-delta","id":"txt_1","delta":"- Point two\n"}
+
+data: {"type":"finish","finishReason":"stop"}
+
