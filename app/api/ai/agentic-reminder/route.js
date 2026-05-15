@@ -3,22 +3,13 @@ import { getModel, getAgentModelId } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { getSystemPrompt } from "@/lib/ai/prompt.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
-import { auth } from "@/auth";
+import { withAuth } from "@/lib/api/auth.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(request) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return new Response(
-      JSON.stringify({ success: false, error: "Unauthorized" }),
-      { status: 401, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  try {
+export const POST = withAuth(
+  async ({ request, userId }) => {
     const {
       messages: uiMessages,
       model,
@@ -33,7 +24,7 @@ export async function POST(request) {
       model: getModel(getAgentModelId(model)),
       system: getSystemPrompt({ language, userLocation }),
       messages,
-      tools: createTools(session.user.id, userLocation?.timezone),
+      tools: createTools(userId, userLocation?.timezone),
       stopWhen: stepCountIs(10),
       maxRetries: 2,
       prepareStep: async ({ messages: stepMessages }) => {
@@ -67,14 +58,9 @@ export async function POST(request) {
     });
 
     return result.toUIMessageStreamResponse();
-  } catch (error) {
-    console.error("POST /api/ai/agentic-reminder error:", error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: "Failed to process request",
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
-  }
-}
+  },
+  {
+    label: "POST /api/ai/agentic-reminder",
+    errorMessage: "Failed to process request",
+  },
+);

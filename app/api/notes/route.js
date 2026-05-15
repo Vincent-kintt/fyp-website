@@ -1,46 +1,28 @@
-import { auth } from "@/auth";
 import { ObjectId } from "mongodb";
-import { apiSuccess, apiError } from "@/lib/reminderUtils";
-import {
-  getNotesCollection,
-  formatNote,
-} from "@/lib/notes/db";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
+import { getNotesCollection, formatNote } from "@/lib/notes/db";
 
 // GET /api/notes - List all notes for logged-in user
-export async function GET() {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const GET = withAuth(
+  async ({ userId }) => {
     const notesCollection = await getNotesCollection();
     const notes = await notesCollection
-      .find({ userId: session.user.id, deletedAt: null, type: { $ne: "inbox" } })
+      .find({ userId, deletedAt: null, type: { $ne: "inbox" } })
       .sort({ updatedAt: -1 })
       .toArray();
 
     return apiSuccess(notes.map(formatNote));
-  } catch (error) {
-    console.error("GET /api/notes error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "GET /api/notes" },
+);
 
 // POST /api/notes - Create a new note for logged-in user
-export async function POST(request) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const POST = withAuth(
+  async ({ request, userId }) => {
     const body = await request.json();
     const { title, parentId, icon } = body;
 
-    // Validate title
     if (!title || typeof title !== "string" || title.trim().length === 0) {
       return apiError("Title is required", 400);
     }
@@ -50,7 +32,6 @@ export async function POST(request) {
 
     const notesCollection = await getNotesCollection();
 
-    // Resolve parentId to ObjectId or null
     let resolvedParentId = null;
     if (parentId) {
       if (!ObjectId.isValid(parentId)) {
@@ -60,12 +41,14 @@ export async function POST(request) {
     }
 
     if (resolvedParentId) {
-      const parentExists = await notesCollection.findOne({ _id: resolvedParentId, userId: session.user.id });
+      const parentExists = await notesCollection.findOne({
+        _id: resolvedParentId,
+        userId,
+      });
       if (!parentExists) return apiError("Parent note not found", 404);
     }
 
-    // Auto-compute sortOrder: max sibling sortOrder + 1000, or 1000 if first
-    const siblingQuery = { userId: session.user.id, parentId: resolvedParentId };
+    const siblingQuery = { userId, parentId: resolvedParentId };
     const lastSibling = await notesCollection
       .find(siblingQuery)
       .sort({ sortOrder: -1 })
@@ -77,7 +60,7 @@ export async function POST(request) {
 
     const now = new Date();
     const newNote = {
-      userId: session.user.id,
+      userId,
       title: title.trim(),
       parentId: resolvedParentId,
       content: [],
@@ -91,8 +74,6 @@ export async function POST(request) {
     const insertedDoc = { ...newNote, _id: result.insertedId };
 
     return apiSuccess(formatNote(insertedDoc), 201);
-  } catch (error) {
-    console.error("POST /api/notes error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "POST /api/notes" },
+);

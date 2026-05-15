@@ -1,20 +1,15 @@
-import { auth } from "@/auth";
-import { apiSuccess, apiError } from "@/lib/reminderUtils";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import { getNotesCollection, formatNote } from "@/lib/notes/db";
 
 // POST /api/inbox/note — Get-or-create the inbox note for the current user
-export async function POST() {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const POST = withAuth(
+  async ({ userId }) => {
     const notesCollection = await getNotesCollection();
     const now = new Date();
 
     const doc = await notesCollection.findOneAndUpdate(
-      { userId: session.user.id, type: "inbox" },
+      { userId, type: "inbox" },
       {
         $setOnInsert: {
           title: "Inbox",
@@ -31,20 +26,13 @@ export async function POST() {
     );
 
     return apiSuccess(formatNote(doc));
-  } catch (error) {
-    console.error("POST /api/inbox/note error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "POST /api/inbox/note" },
+);
 
 // PATCH /api/inbox/note — Save inbox content
-export async function PATCH(request) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const PATCH = withAuth(
+  async ({ request, userId }) => {
     const body = await request.json();
     const { content, extractedTasks, confirmedTasks } = body;
 
@@ -54,13 +42,15 @@ export async function PATCH(request) {
 
     const updateFields = { updatedAt: new Date() };
     if (content !== undefined) updateFields.content = content;
-    if (extractedTasks !== undefined) updateFields.extractedTasks = extractedTasks;
-    if (confirmedTasks !== undefined) updateFields.confirmedTasks = confirmedTasks;
+    if (extractedTasks !== undefined)
+      updateFields.extractedTasks = extractedTasks;
+    if (confirmedTasks !== undefined)
+      updateFields.confirmedTasks = confirmedTasks;
 
     const notesCollection = await getNotesCollection();
 
     const updated = await notesCollection.findOneAndUpdate(
-      { userId: session.user.id, type: "inbox" },
+      { userId, type: "inbox" },
       { $set: updateFields },
       { returnDocument: "after" },
     );
@@ -70,8 +60,6 @@ export async function PATCH(request) {
     }
 
     return apiSuccess(formatNote(updated));
-  } catch (error) {
-    console.error("PATCH /api/inbox/note error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "PATCH /api/inbox/note" },
+);

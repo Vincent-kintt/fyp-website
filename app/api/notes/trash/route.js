@@ -1,19 +1,13 @@
-import { auth } from "@/auth";
-import { apiSuccess, apiError } from "@/lib/reminderUtils";
+import { apiSuccess } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import { getNotesCollection, formatNote } from "@/lib/notes/db";
 
-export async function GET() {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const GET = withAuth(
+  async ({ userId }) => {
     const notesCollection = await getNotesCollection();
     const notes = await notesCollection
       .find({
-        userId: session.user.id,
+        userId,
         deletedAt: { $ne: null },
         type: { $ne: "inbox" },
       })
@@ -21,8 +15,6 @@ export async function GET() {
       .toArray();
 
     return apiSuccess(notes.map(formatNote));
-  } catch (error) {
-    console.error("GET /api/notes/trash error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "GET /api/notes/trash" },
+);

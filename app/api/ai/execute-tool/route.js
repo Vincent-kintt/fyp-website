@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import { createTools } from "@/lib/ai/tools.js";
 
 export const runtime = "nodejs";
@@ -15,62 +15,37 @@ const ALLOWED_TOOLS = new Set([
   "exportReminders",
 ]);
 
-export async function POST(request) {
-  try {
-    const session = await auth();
-
-    if (!session?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
+export const POST = withAuth(
+  async ({ request, userId }) => {
     const { toolName, params } = await request.json();
 
     if (!toolName) {
-      return new Response(JSON.stringify({ error: "Tool name is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiError("Tool name is required", 400);
     }
 
     if (!ALLOWED_TOOLS.has(toolName)) {
-      return new Response(
-        JSON.stringify({ error: `Tool not allowed: ${toolName}` }),
-        { status: 403, headers: { "Content-Type": "application/json" } },
-      );
+      return apiError(`Tool not allowed: ${toolName}`, 403);
     }
 
-    const tools = createTools(session.user.id);
+    const tools = createTools(userId);
 
     if (!tools[toolName]) {
-      return new Response(
-        JSON.stringify({ error: `Unknown tool: ${toolName}` }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      );
+      return apiError(`Unknown tool: ${toolName}`, 400);
     }
 
     // Validate input against tool's Zod schema (same validation the AI SDK does automatically)
     const parsed = tools[toolName].inputSchema.safeParse(params || {});
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid tool input", details: parsed.error.flatten() },
-        { status: 400 },
-      );
+      return apiError("Invalid tool input", 400);
     }
 
+    // Tool result is the response body directly (its own { success, ... } shape)
     const result = await tools[toolName].execute(parsed.data);
 
     return new Response(JSON.stringify(result), {
       status: result.success ? 200 : 400,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error) {
-    console.error("Tool execution error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-}
+  },
+  { label: "POST /api/ai/execute-tool" },
+);

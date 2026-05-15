@@ -1,29 +1,17 @@
-import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
-import { auth } from "@/auth";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 
 // POST /api/push/subscribe — save or refresh push subscription
-export async function POST(request) {
-  try {
-    const session = await auth();
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
+export const POST = withAuth(
+  async ({ request, userId }) => {
     const body = await request.json();
     const { endpoint, keys } = body;
 
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Invalid subscription: endpoint and keys (p256dh, auth) required",
-        },
-        { status: 400 },
+      return apiError(
+        "Invalid subscription: endpoint and keys (p256dh, auth) required",
+        400,
       );
     }
 
@@ -31,89 +19,46 @@ export async function POST(request) {
     try {
       const url = new URL(endpoint);
       if (!url.protocol.startsWith("https")) {
-        return NextResponse.json(
-          { success: false, error: "Subscription endpoint must use HTTPS" },
-          { status: 400 },
-        );
+        return apiError("Subscription endpoint must use HTTPS", 400);
       }
     } catch {
-      return NextResponse.json(
-        { success: false, error: "Invalid subscription endpoint URL" },
-        { status: 400 },
-      );
+      return apiError("Invalid subscription endpoint URL", 400);
     }
 
     const subscriptionsCollection = await getCollection("push_subscriptions");
 
     const result = await subscriptionsCollection.updateOne(
-      { endpoint, userId: session.user.id },
+      { endpoint, userId },
       {
-        $set: {
-          userId: session.user.id,
-          endpoint,
-          keys,
-          updatedAt: new Date(),
-        },
-        $setOnInsert: {
-          createdAt: new Date(),
-        },
+        $set: { userId, endpoint, keys, updatedAt: new Date() },
+        $setOnInsert: { createdAt: new Date() },
       },
       { upsert: true },
     );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        upserted: !!result.upsertedId,
-        modified: result.modifiedCount > 0,
-      },
+    return apiSuccess({
+      upserted: !!result.upsertedId,
+      modified: result.modifiedCount > 0,
     });
-  } catch (error) {
-    console.error("POST /api/push/subscribe error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+  },
+  { label: "POST /api/push/subscribe" },
+);
 
 // DELETE /api/push/subscribe — remove push subscription
-export async function DELETE(request) {
-  try {
-    const session = await auth();
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
+export const DELETE = withAuth(
+  async ({ request, userId }) => {
     const body = await request.json();
     const { endpoint } = body;
 
     if (!endpoint) {
-      return NextResponse.json(
-        { success: false, error: "endpoint is required" },
-        { status: 400 },
-      );
+      return apiError("endpoint is required", 400);
     }
 
     const subscriptionsCollection = await getCollection("push_subscriptions");
 
-    const result = await subscriptionsCollection.deleteOne({
-      endpoint,
-      userId: session.user.id,
-    });
+    const result = await subscriptionsCollection.deleteOne({ endpoint, userId });
 
-    return NextResponse.json({
-      success: true,
-      data: { deleted: result.deletedCount > 0 },
-    });
-  } catch (error) {
-    console.error("DELETE /api/push/subscribe error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+    return apiSuccess({ deleted: result.deletedCount > 0 });
+  },
+  { label: "DELETE /api/push/subscribe" },
+);

@@ -1,22 +1,14 @@
 import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
 import { sendPushNotification } from "@/lib/push";
+import { withCronAuth } from "@/lib/api/cronAuth.js";
 
-export async function GET(request) {
-  const authHeader = request.headers.get("authorization");
-  if (
-    !process.env.CRON_SECRET ||
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  try {
+export const GET = withCronAuth(
+  async () => {
     const remindersCollection = await getCollection("reminders");
     const subscriptionsCollection = await getCollection("push_subscriptions");
     const now = new Date();
 
-    // Find reminders that are due and haven't been notified
     const dueReminders = await remindersCollection
       .find({
         dateTime: { $lte: now },
@@ -88,11 +80,6 @@ export async function GET(request) {
       cleaned,
       timestamp: now.toISOString(),
     });
-  } catch (error) {
-    console.error("[cron/notify] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+  },
+  { label: "GET /api/cron/notify" },
+);

@@ -1,23 +1,16 @@
 import { getCollection } from "@/lib/db";
-import { auth } from "@/auth";
 import { normalizeTags, getMainCategory, validateDuration } from "@/lib/utils";
 import {
   formatReminder,
   normalizeSubtasks,
-  apiSuccess,
-  apiError,
   validateReminderFields,
 } from "@/lib/reminderUtils";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 
 // GET /api/reminders - Get all reminders for logged-in user
-export async function GET(request) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const GET = withAuth(
+  async ({ request, userId }) => {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category");
     const type = searchParams.get("type");
@@ -26,30 +19,21 @@ export async function GET(request) {
 
     const remindersCollection = await getCollection("reminders");
 
-    // Build query filter - only get reminders for this user
-    const filter = {
-      userId: session.user.id,
-    };
+    const filter = { userId };
 
-    // inboxState filtering — default excludes inbox tasks
     if (inboxStateParam === "inbox") {
       filter.inboxState = "inbox";
     } else if (inboxStateParam === "all") {
       // no inboxState filter
     } else {
-      // default: exclude inbox tasks so null-dateTime tasks don't leak
       filter.inboxState = { $ne: "inbox" };
     }
 
-    // Filter by category (backward compatible)
     if (category && category !== "all") {
-      // Support both legacy category field and new tags array
       filter.$or = [{ category: category }, { tags: category }];
     }
 
-    // Filter by specific tag
     if (tag) {
-      // If category filter is already set with $or, combine with $and to avoid conflict
       if (filter.$or) {
         filter.$and = [{ $or: filter.$or }, { tags: tag }];
         delete filter.$or;
@@ -58,12 +42,10 @@ export async function GET(request) {
       }
     }
 
-    // Filter by type (recurring or one-time)
     if (type && type !== "all") {
       filter.recurring = type === "recurring";
     }
 
-    // Pagination params
     const pageParam = searchParams.get("page");
     const limitParam = searchParams.get("limit");
     const usePagination = pageParam !== null || limitParam !== null;
@@ -72,17 +54,16 @@ export async function GET(request) {
     let limit = parseInt(limitParam, 10);
 
     if (usePagination) {
-      // Validate: page must be integer >= 1
       if (isNaN(page) || page < 1 || !Number.isInteger(page)) {
         page = 1;
       }
-      // Validate: limit must be integer >= 0
       if (isNaN(limit) || limit < 0 || !Number.isInteger(limit)) {
         limit = 50;
       }
     }
 
-    const sort = inboxStateParam === "inbox" ? { createdAt: -1 } : { dateTime: 1 };
+    const sort =
+      inboxStateParam === "inbox" ? { createdAt: -1 } : { dateTime: 1 };
     const cursor = remindersCollection.find(filter).sort(sort);
 
     if (usePagination && limit > 0) {
@@ -101,26 +82,17 @@ export async function GET(request) {
       });
     }
 
-    // No pagination (backward compatible) — return all results
     const reminders = await cursor.toArray();
     const formattedReminders = reminders.map(formatReminder);
 
     return apiSuccess(formattedReminders);
-  } catch (error) {
-    console.error("GET /api/reminders error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "GET /api/reminders" },
+);
 
 // POST /api/reminders - Create a new reminder for logged-in user
-export async function POST(request) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const POST = withAuth(
+  async ({ request, session, userId }) => {
     const body = await request.json();
     const {
       title,
@@ -136,19 +108,25 @@ export async function POST(request) {
       remark,
     } = body;
 
-    // Validation
     if (!title) {
       return apiError("Missing required field (title)", 400);
     }
     const inboxState = body.inboxState || "processed";
     if (inboxState !== "inbox" && !dateTime) {
-      return apiError("Missing required field (dateTime) for non-inbox tasks", 400);
+      return apiError(
+        "Missing required field (dateTime) for non-inbox tasks",
+        400,
+      );
     }
 
-    const fieldError = validateReminderFields({ title, description, remark, tags });
+    const fieldError = validateReminderFields({
+      title,
+      description,
+      remark,
+      tags,
+    });
     if (fieldError) return fieldError;
 
-    // Validate duration if provided
     if (duration !== undefined && duration !== null) {
       const durationValidation = validateDuration(duration);
       if (!durationValidation.isValid) {
@@ -156,7 +134,6 @@ export async function POST(request) {
       }
     }
 
-    // Process tags - normalize and ensure we have at least one
     const processedTags = normalizeTags(tags || []);
     const effectiveCategory =
       category || getMainCategory(processedTags) || "personal";
@@ -164,21 +141,21 @@ export async function POST(request) {
     const remindersCollection = await getCollection("reminders");
 
     const newReminder = {
-      userId: session.user.id,
+      userId,
       username: session.user.username,
       title,
       description: description || "",
       remark: remark || "",
       dateTime: dateTime ? new Date(dateTime) : null,
       inboxState,
-      duration: duration || null, // Duration in minutes for time blocking
+      duration: duration || null,
       category: effectiveCategory,
       tags: processedTags,
       recurring: recurring || false,
       recurringType: recurring ? recurringType : null,
       priority: priority || "medium",
-      status: "pending", // New status lifecycle field
-      completed: false, // Backward compatibility: always store completed field
+      status: "pending",
+      completed: false,
       subtasks: normalizeSubtasks(subtasks),
       sortOrder: body.sortOrder || 0,
       notificationSent: false,
@@ -187,13 +164,9 @@ export async function POST(request) {
     };
 
     const result = await remindersCollection.insertOne(newReminder);
-
-    // Return created reminder with id
     const insertedDoc = { ...newReminder, _id: result.insertedId };
 
     return apiSuccess(formatReminder(insertedDoc), 201);
-  } catch (error) {
-    console.error("POST /api/reminders error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "POST /api/reminders" },
+);

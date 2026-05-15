@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { normalizeTags } from "@/lib/utils";
 import { getModel, getParseModelId } from "@/lib/ai/provider.js";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import * as chrono from "chrono-node";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import { computeOverallConfidence } from "./confidence.js";
 
 const parseTaskSchema = z.object({
@@ -98,37 +98,27 @@ function salvageFromText(rawText) {
   }
 }
 
-export async function POST(request) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
+export const POST = withAuth(
+  async ({ request }) => {
     const { text, language = "zh", tzOffset } = await request.json();
 
     if (!text?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Text is required" },
-        { status: 400 },
-      );
+      return apiError("Text is required", 400);
     }
 
     if (text.length > 2000) {
-      return NextResponse.json(
-        { success: false, error: "Input too long" },
-        { status: 400 },
-      );
+      return apiError("Input too long", 400);
     }
 
     const serverNow = new Date();
     // Shift to user's local time so chrono-node resolves "today"/"tomorrow" correctly
-    const now = typeof tzOffset === "number"
-      ? new Date(serverNow.getTime() + (serverNow.getTimezoneOffset() - tzOffset) * 60000)
-      : serverNow;
+    const now =
+      typeof tzOffset === "number"
+        ? new Date(
+            serverNow.getTime() +
+              (serverNow.getTimezoneOffset() - tzOffset) * 60000,
+          )
+        : serverNow;
 
     const currentTimeStr = now.toLocaleString("en-US", {
       weekday: "long",
@@ -235,15 +225,7 @@ Extract structured data from user input.
       confidence,
     };
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    console.error("[parse-task] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+    return apiSuccess(result);
+  },
+  { label: "POST /api/ai/parse-task" },
+);

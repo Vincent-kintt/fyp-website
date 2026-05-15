@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
+import { withCronAuth } from "@/lib/api/cronAuth.js";
 
-export async function GET(request) {
-  // Verify CRON_SECRET — deny by default when unset
-  const authHeader = request.headers.get("authorization");
-  if (
-    !process.env.CRON_SECRET ||
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  try {
+export const GET = withCronAuth(
+  async () => {
     const remindersCollection = await getCollection("reminders");
     const now = new Date();
 
@@ -35,11 +27,6 @@ export async function GET(request) {
       reactivated: result.modifiedCount,
       timestamp: now.toISOString(),
     });
-  } catch (error) {
-    console.error("[cron/unsnooze] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+  },
+  { label: "GET /api/cron/unsnooze" },
+);

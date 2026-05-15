@@ -2,7 +2,8 @@ import { streamText, stepCountIs } from "ai";
 import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
 import { createRssTools } from "@/lib/ai/rssTools.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
-import { auth } from "@/auth";
+import { apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import {
   acquireNoteAILock,
   releaseNoteAILock,
@@ -42,74 +43,61 @@ function computeDateBounds(timezone) {
   return { todayStart, todayEnd };
 }
 
-export async function POST(request) {
-  const session = await auth();
+export const POST = withAuth(
+  async ({ request, userId }) => {
+    if (!acquireNoteAILock(userId)) {
+      return apiError("An AI request is already in progress", 429);
+    }
 
-  if (!session?.user) {
-    return new Response(
-      JSON.stringify({ success: false, error: "Unauthorized" }),
-      { status: 401, headers: { "Content-Type": "application/json" } },
-    );
-  }
+    try {
+      const { language = "zh", timezone } = await request.json();
+      const { todayStart, todayEnd } = computeDateBounds(timezone);
+      const tools = createRssTools(userId, todayStart, todayEnd);
 
-  const userId = session.user.id;
-
-  if (!acquireNoteAILock(userId)) {
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: "An AI request is already in progress",
-      }),
-      { status: 429, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  try {
-    const { language = "zh", timezone } = await request.json();
-    const { todayStart, todayEnd } = computeDateBounds(timezone);
-    const tools = createRssTools(userId, todayStart, todayEnd);
-
-    const result = streamText({
-      model: getModel(getNotesModelId()),
-      system: getRssSystemPrompt({ language }),
-      messages: [
-        {
-          role: "user",
-          content: "Fetch my RSS subscriptions and create today's news digest.",
+      const result = streamText({
+        model: getModel(getNotesModelId()),
+        system: getRssSystemPrompt({ language }),
+        messages: [
+          {
+            role: "user",
+            content:
+              "Fetch my RSS subscriptions and create today's news digest.",
+          },
+        ],
+        tools,
+        stopWhen: stepCountIs(10),
+        maxRetries: 2,
+        abortSignal: request.signal,
+        onStepFinish: ({ usage, toolResults }) => {
+          logAIEvent("rss_agent_step", {
+            inputTokens: usage?.promptTokens,
+            outputTokens: usage?.completionTokens,
+            toolCalls: toolResults?.length || 0,
+          });
         },
-      ],
-      tools,
-      stopWhen: stepCountIs(10),
-      maxRetries: 2,
-      abortSignal: request.signal,
-      onStepFinish: ({ usage, toolResults }) => {
-        logAIEvent("rss_agent_step", {
-          inputTokens: usage?.promptTokens,
-          outputTokens: usage?.completionTokens,
-          toolCalls: toolResults?.length || 0,
-        });
-      },
-      onFinish: ({ totalUsage, steps }) => {
-        releaseNoteAILock(userId);
-        logAIEvent("rss_agent_complete", {
-          totalSteps: steps.length,
-          totalInputTokens: totalUsage?.promptTokens,
-          totalOutputTokens: totalUsage?.completionTokens,
-        });
-      },
-      onError: ({ error }) => {
-        releaseNoteAILock(userId);
-        logAIEvent("rss_agent_error", { message: error.message }, "error");
-      },
-    });
+        onFinish: ({ totalUsage, steps }) => {
+          releaseNoteAILock(userId);
+          logAIEvent("rss_agent_complete", {
+            totalSteps: steps.length,
+            totalInputTokens: totalUsage?.promptTokens,
+            totalOutputTokens: totalUsage?.completionTokens,
+          });
+        },
+        onError: ({ error }) => {
+          releaseNoteAILock(userId);
+          logAIEvent("rss_agent_error", { message: error.message }, "error");
+        },
+      });
 
-    return result.toUIMessageStreamResponse();
-  } catch (error) {
-    releaseNoteAILock(userId);
-    console.error("POST /api/ai/notes-rss error:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: "Failed to process request" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
-  }
-}
+      return result.toUIMessageStreamResponse();
+    } catch (err) {
+      // Synchronous error before stream — release lock before letting withAuth return 500
+      releaseNoteAILock(userId);
+      throw err;
+    }
+  },
+  {
+    label: "POST /api/ai/notes-rss",
+    errorMessage: "Failed to process request",
+  },
+);

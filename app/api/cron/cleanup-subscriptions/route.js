@@ -1,16 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
+import { withCronAuth } from "@/lib/api/cronAuth.js";
 
-export async function GET(request) {
-  const authHeader = request.headers.get("authorization");
-  if (
-    !process.env.CRON_SECRET ||
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  try {
+export const GET = withCronAuth(
+  async () => {
     const subscriptionsCollection = await getCollection("push_subscriptions");
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -23,11 +16,6 @@ export async function GET(request) {
       deleted: result.deletedCount,
       timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    console.error("[cron/cleanup-subscriptions] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+  },
+  { label: "GET /api/cron/cleanup-subscriptions" },
+);

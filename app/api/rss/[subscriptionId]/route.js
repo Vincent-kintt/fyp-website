@@ -1,13 +1,10 @@
-import { auth } from "@/auth";
 import { ObjectId } from "mongodb";
-import { apiSuccess, apiError } from "@/lib/reminderUtils";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import { getRssSubscriptionsCollection } from "@/lib/rss/db";
 
-export async function DELETE(request, { params }) {
-  try {
-    const session = await auth();
-    if (!session?.user) return apiError("Unauthorized", 401);
-
+export const DELETE = withAuth(
+  async ({ params, userId }) => {
     const { subscriptionId } = await params;
     if (!ObjectId.isValid(subscriptionId)) {
       return apiError("Invalid subscription ID", 400);
@@ -16,7 +13,7 @@ export async function DELETE(request, { params }) {
     const subsCol = await getRssSubscriptionsCollection();
     const result = await subsCol.deleteOne({
       _id: new ObjectId(subscriptionId),
-      userId: session.user.id,
+      userId,
     });
 
     if (result.deletedCount === 0) {
@@ -24,8 +21,6 @@ export async function DELETE(request, { params }) {
     }
 
     return apiSuccess({ deleted: true });
-  } catch (error) {
-    console.error("DELETE /api/rss error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "DELETE /api/rss/[subscriptionId]" },
+);

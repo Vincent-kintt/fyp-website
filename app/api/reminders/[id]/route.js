@@ -1,5 +1,4 @@
 import { getCollection } from "@/lib/db";
-import { auth } from "@/auth";
 import { ObjectId } from "mongodb";
 import {
   normalizeTags,
@@ -12,23 +11,16 @@ import {
 import {
   formatReminder,
   normalizeSubtasks,
-  apiSuccess,
-  apiError,
   validateReminderFields,
 } from "@/lib/reminderUtils";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 
 // GET /api/reminders/[id] - Get a single reminder (must belong to user)
-export async function GET(request, { params }) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const GET = withAuth(
+  async ({ params, userId }) => {
     const { id } = await params;
 
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return apiError("Invalid reminder ID", 400);
     }
@@ -36,7 +28,7 @@ export async function GET(request, { params }) {
     const remindersCollection = await getCollection("reminders");
     const reminder = await remindersCollection.findOne({
       _id: new ObjectId(id),
-      userId: session.user.id, // Ensure reminder belongs to user
+      userId,
     });
 
     if (!reminder) {
@@ -44,21 +36,13 @@ export async function GET(request, { params }) {
     }
 
     return apiSuccess(formatReminder(reminder));
-  } catch (error) {
-    console.error("GET /api/reminders/[id] error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "GET /api/reminders/[id]" },
+);
 
 // PUT /api/reminders/[id] - Update a reminder (must belong to user)
-export async function PUT(request, { params }) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const PUT = withAuth(
+  async ({ request, params, userId }) => {
     const { id } = await params;
     const body = await request.json();
     const {
@@ -76,20 +60,22 @@ export async function PUT(request, { params }) {
       subtasks,
     } = body;
 
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return apiError("Invalid reminder ID", 400);
     }
 
-    // Validation
     if (!title) {
       return apiError("Missing required field (title)", 400);
     }
 
-    const fieldError = validateReminderFields({ title, description, remark, tags });
+    const fieldError = validateReminderFields({
+      title,
+      description,
+      remark,
+      tags,
+    });
     if (fieldError) return fieldError;
 
-    // Validate duration if provided
     if (duration !== undefined && duration !== null) {
       const durationValidation = validateDuration(duration);
       if (!durationValidation.isValid) {
@@ -97,7 +83,6 @@ export async function PUT(request, { params }) {
       }
     }
 
-    // Validate status if provided
     if (status !== undefined && !isValidStatus(status)) {
       return apiError(
         `Invalid status: ${status}. Valid values: pending, in_progress, completed, snoozed`,
@@ -105,24 +90,21 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Process tags
     const processedTags = normalizeTags(tags || []);
     const effectiveCategory =
       category || getMainCategory(processedTags) || "personal";
 
     const remindersCollection = await getCollection("reminders");
 
-    // Fetch existing document (needed for status transition validation and auto-transition)
     const existing = await remindersCollection.findOne({
       _id: new ObjectId(id),
-      userId: session.user.id,
+      userId,
     });
 
     if (!existing) {
       return apiError("Reminder not found", 404);
     }
 
-    // Validate status transition if status is being changed
     if (status !== undefined) {
       const currentStatus = existing.status || "pending";
       if (!isValidStatusTransition(currentStatus, status)) {
@@ -149,13 +131,11 @@ export async function PUT(request, { params }) {
       updatedAt: new Date(),
     };
 
-    // Handle status update
     if (status !== undefined) {
       updateData.status = status;
       updateData.completed = deriveCompletedFromStatus(status);
     }
 
-    // Auto-transition: inbox → processed when dateTime set or completed
     if (existing.inboxState === "inbox") {
       if (updateData.dateTime || updateData.status === "completed") {
         updateData.inboxState = "processed";
@@ -163,10 +143,7 @@ export async function PUT(request, { params }) {
     }
 
     const result = await remindersCollection.updateOne(
-      {
-        _id: new ObjectId(id),
-        userId: session.user.id, // Ensure reminder belongs to user
-      },
+      { _id: new ObjectId(id), userId },
       { $set: updateData },
     );
 
@@ -174,41 +151,30 @@ export async function PUT(request, { params }) {
       return apiError("Reminder not found", 404);
     }
 
-    // Fetch updated reminder (include userId filter for security)
     const updatedReminder = await remindersCollection.findOne({
       _id: new ObjectId(id),
-      userId: session.user.id,
+      userId,
     });
 
     return apiSuccess(formatReminder(updatedReminder));
-  } catch (error) {
-    console.error("PUT /api/reminders/[id] error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "PUT /api/reminders/[id]" },
+);
 
 // DELETE /api/reminders/[id] - Delete a reminder (must belong to user)
-export async function DELETE(request, { params }) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const DELETE = withAuth(
+  async ({ params, userId }) => {
     const { id } = await params;
 
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return apiError("Invalid reminder ID", 400);
     }
 
     const remindersCollection = await getCollection("reminders");
 
-    // Get reminder before deleting for response
     const reminder = await remindersCollection.findOne({
       _id: new ObjectId(id),
-      userId: session.user.id, // Ensure reminder belongs to user
+      userId,
     });
 
     if (!reminder) {
@@ -217,7 +183,7 @@ export async function DELETE(request, { params }) {
 
     const result = await remindersCollection.deleteOne({
       _id: new ObjectId(id),
-      userId: session.user.id, // Ensure reminder belongs to user
+      userId,
     });
 
     if (result.deletedCount === 0) {
@@ -238,49 +204,36 @@ export async function DELETE(request, { params }) {
     };
 
     return apiSuccess(formattedReminder);
-  } catch (error) {
-    console.error("DELETE /api/reminders/[id] error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "DELETE /api/reminders/[id]" },
+);
 
 // PATCH /api/reminders/[id] - Partial update (e.g., toggle completed)
-export async function PATCH(request, { params }) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const PATCH = withAuth(
+  async ({ request, params, userId }) => {
     const { id } = await params;
     const body = await request.json();
 
-    // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return apiError("Invalid reminder ID", 400);
     }
 
-    // Length validation (fail fast before any DB queries)
     const fieldError = validateReminderFields(body);
     if (fieldError) return fieldError;
 
     const remindersCollection = await getCollection("reminders");
 
-    // Fetch existing document (needed for status transition validation and auto-transition)
     const existing = await remindersCollection.findOne({
       _id: new ObjectId(id),
-      userId: session.user.id,
+      userId,
     });
 
     if (!existing) {
       return apiError("Reminder not found", 404);
     }
 
-    // Build update object with only provided fields
     const updateData = { updatedAt: new Date() };
 
-    // Handle status update (new lifecycle field)
     if (body.status !== undefined) {
       if (!isValidStatus(body.status)) {
         return apiError(`Invalid status: ${body.status}`, 400);
@@ -297,7 +250,6 @@ export async function PATCH(request, { params }) {
       updateData.status = body.status;
       updateData.completed = deriveCompletedFromStatus(body.status);
 
-      // Track status change timestamps
       if (body.status === "in_progress" && currentStatus !== "in_progress") {
         updateData.startedAt = new Date();
       }
@@ -305,7 +257,6 @@ export async function PATCH(request, { params }) {
         updateData.completedAt = new Date();
       }
 
-      // Handle snooze: require snoozedUntil when snoozing
       if (body.status === "snoozed") {
         if (!body.snoozedUntil) {
           return apiError("snoozedUntil is required when snoozing", 400);
@@ -313,14 +264,17 @@ export async function PATCH(request, { params }) {
         updateData.snoozedUntil = new Date(body.snoozedUntil);
       }
 
-      // Clear snoozedUntil when leaving snoozed state
       if (currentStatus === "snoozed" && body.status !== "snoozed") {
         updateData.snoozedUntil = null;
       }
     } else if (typeof body.completed === "boolean") {
       // Backward compatibility: handle completed boolean
       const currentStatus = existing.status || "pending";
-      const targetStatus = body.completed ? "completed" : currentStatus === "completed" ? "pending" : currentStatus;
+      const targetStatus = body.completed
+        ? "completed"
+        : currentStatus === "completed"
+          ? "pending"
+          : currentStatus;
 
       if (!isValidStatusTransition(currentStatus, targetStatus)) {
         return apiError(
@@ -336,13 +290,11 @@ export async function PATCH(request, { params }) {
         updateData.completedAt = new Date();
       }
 
-      // Clear snoozedUntil when transitioning away from snoozed
       if (currentStatus === "snoozed" && targetStatus !== "snoozed") {
         updateData.snoozedUntil = null;
       }
     }
 
-    // Handle duration update
     if (body.duration !== undefined) {
       const durationValidation = validateDuration(body.duration);
       if (!durationValidation.isValid) {
@@ -368,7 +320,6 @@ export async function PATCH(request, { params }) {
       updateData.subtasks = normalizeSubtasks(body.subtasks);
     }
 
-    // Auto-transition: inbox → processed when dateTime set or completed
     if (existing.inboxState === "inbox") {
       if (updateData.dateTime || updateData.status === "completed") {
         updateData.inboxState = "processed";
@@ -376,10 +327,7 @@ export async function PATCH(request, { params }) {
     }
 
     const result = await remindersCollection.updateOne(
-      {
-        _id: new ObjectId(id),
-        userId: session.user.id,
-      },
+      { _id: new ObjectId(id), userId },
       { $set: updateData },
     );
 
@@ -387,15 +335,12 @@ export async function PATCH(request, { params }) {
       return apiError("Reminder not found", 404);
     }
 
-    // Fetch updated reminder (include userId filter for security)
     const updatedReminder = await remindersCollection.findOne({
       _id: new ObjectId(id),
-      userId: session.user.id,
+      userId,
     });
 
     return apiSuccess(formatReminder(updatedReminder));
-  } catch (error) {
-    console.error("PATCH /api/reminders/[id] error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "PATCH /api/reminders/[id]" },
+);

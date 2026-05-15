@@ -1,16 +1,11 @@
-import { auth } from "@/auth";
 import { ObjectId } from "mongodb";
-import { apiSuccess, apiError } from "@/lib/reminderUtils";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import { getNotesCollection } from "@/lib/notes/db";
 
 // POST /api/notes/reorder - Batch update sortOrder and parentId
-export async function POST(request) {
-  try {
-    const session = await auth();
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const POST = withAuth(
+  async ({ request, userId }) => {
     const body = await request.json();
     const { updates } = body;
 
@@ -18,7 +13,6 @@ export async function POST(request) {
       return apiError("updates array is required", 400);
     }
 
-    // Basic field validation
     for (const item of updates) {
       if (!item.id || !ObjectId.isValid(item.id)) {
         return apiError(`Invalid note ID: ${item.id}`, 400);
@@ -35,13 +29,11 @@ export async function POST(request) {
 
     const notesCollection = await getNotesCollection();
 
-    // Fetch all user's notes for relationship validation
     const userNotes = await notesCollection
-      .find({ userId: session.user.id, deletedAt: null })
+      .find({ userId, deletedAt: null })
       .project({ _id: 1, parentId: 1, type: 1 })
       .toArray();
 
-    // Find inbox note to exclude from reorder
     const inboxNote = userNotes.find((n) => n.type === "inbox");
     const inboxId = inboxNote?._id.toString();
 
@@ -55,7 +47,6 @@ export async function POST(request) {
 
     const noteIdSet = new Set(userNotes.map((n) => n._id.toString()));
 
-    // Build parent map reflecting pending updates
     const parentMap = new Map();
     for (const note of userNotes) {
       parentMap.set(note._id.toString(), note.parentId?.toString() || null);
@@ -66,7 +57,6 @@ export async function POST(request) {
       }
     }
 
-    // Validate each update with a parentId
     for (const item of filteredUpdates) {
       const resolvedParentId = item.parentId || null;
       if (!resolvedParentId) continue;
@@ -79,7 +69,6 @@ export async function POST(request) {
         return apiError(`Parent not found: ${resolvedParentId}`, 400);
       }
 
-      // Circular reference check
       const visited = new Set();
       let current = resolvedParentId;
       while (current) {
@@ -100,7 +89,7 @@ export async function POST(request) {
       updateOne: {
         filter: {
           _id: new ObjectId(item.id),
-          userId: session.user.id,
+          userId,
           deletedAt: null,
         },
         update: {
@@ -119,8 +108,6 @@ export async function POST(request) {
       matched: result.matchedCount,
       modified: result.modifiedCount,
     });
-  } catch (error) {
-    console.error("POST /api/notes/reorder error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "POST /api/notes/reorder" },
+);

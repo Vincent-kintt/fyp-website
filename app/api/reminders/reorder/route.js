@@ -1,17 +1,11 @@
 import { getCollection } from "@/lib/db";
-import { auth } from "@/auth";
 import { ObjectId } from "mongodb";
-import { apiSuccess, apiError } from "@/lib/reminderUtils";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 
 // PATCH /api/reminders/reorder - Batch update sortOrder (and optionally dateTime)
-export async function PATCH(request) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
+export const PATCH = withAuth(
+  async ({ request, userId }) => {
     const body = await request.json();
     const { items } = body;
 
@@ -19,7 +13,6 @@ export async function PATCH(request) {
       return apiError("items array is required", 400);
     }
 
-    // Validate all IDs
     for (const item of items) {
       if (!item.id || !ObjectId.isValid(item.id)) {
         return apiError(`Invalid reminder ID: ${item.id}`, 400);
@@ -37,7 +30,6 @@ export async function PATCH(request) {
         updatedAt: new Date(),
       };
 
-      // Optional dateTime update (for cross-section drag in Phase 3)
       if (item.dateTime) {
         updateFields.dateTime = new Date(item.dateTime);
         updateFields.notificationSent = false;
@@ -45,10 +37,7 @@ export async function PATCH(request) {
 
       return {
         updateOne: {
-          filter: {
-            _id: new ObjectId(item.id),
-            userId: session.user.id,
-          },
+          filter: { _id: new ObjectId(item.id), userId },
           update: { $set: updateFields },
         },
       };
@@ -60,8 +49,6 @@ export async function PATCH(request) {
       matched: result.matchedCount,
       modified: result.modifiedCount,
     });
-  } catch (error) {
-    console.error("PATCH /api/reminders/reorder error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "PATCH /api/reminders/reorder" },
+);

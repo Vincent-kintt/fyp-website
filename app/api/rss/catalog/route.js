@@ -1,12 +1,9 @@
-import { auth } from "@/auth";
-import { apiSuccess, apiError } from "@/lib/reminderUtils";
+import { apiSuccess } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import { getRssFeedsCollection } from "@/lib/rss/db";
 
-export async function GET() {
-  try {
-    const session = await auth();
-    if (!session?.user) return apiError("Unauthorized", 401);
-
+export const GET = withAuth(
+  async () => {
     const feedsCol = await getRssFeedsCollection();
     const feeds = await feedsCol
       .find({ isDefault: true })
@@ -25,8 +22,6 @@ export async function GET() {
     }
 
     return apiSuccess(grouped);
-  } catch (error) {
-    console.error("GET /api/rss/catalog error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "GET /api/rss/catalog" },
+);

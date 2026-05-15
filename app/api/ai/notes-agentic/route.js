@@ -3,7 +3,8 @@ import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { createNoteTools } from "@/lib/ai/noteTools.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
-import { auth } from "@/auth";
+import { apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import {
   acquireNoteAILock,
   releaseNoteAILock,
@@ -84,86 +85,65 @@ Rules:
 9. You have a maximum of 10 agentic steps. Plan your tool usage efficiently.`;
 }
 
-export async function POST(request) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return new Response(
-      JSON.stringify({ success: false, error: "Unauthorized" }),
-      { status: 401, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  const userId = session.user.id;
-
-  // Concurrency check
-  if (!acquireNoteAILock(userId)) {
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: "An agent request is already in progress",
-      }),
-      { status: 429, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  try {
-    const {
-      input,
-      noteTitle,
-      noteContext,
-      language = "zh",
-    } = await request.json();
-
-    if (!input || !input.trim()) {
-      releaseNoteAILock(userId);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Input is required for /agent",
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      );
+export const POST = withAuth(
+  async ({ request, userId }) => {
+    if (!acquireNoteAILock(userId)) {
+      return apiError("An agent request is already in progress", 429);
     }
 
-    const tools = buildTools(userId);
+    try {
+      const {
+        input,
+        noteTitle,
+        noteContext,
+        language = "zh",
+      } = await request.json();
 
-    const result = streamText({
-      model: getModel(getNotesModelId()),
-      system: getNotesAgenticPrompt({ language, noteTitle, noteContext }),
-      messages: [{ role: "user", content: input.trim() }],
-      tools,
-      stopWhen: stepCountIs(10),
-      maxRetries: 2,
-      abortSignal: request.signal,
-      onStepFinish: ({ usage, toolResults }) => {
-        logAIEvent("notes_agent_step", {
-          inputTokens: usage?.promptTokens,
-          outputTokens: usage?.completionTokens,
-          toolCalls: toolResults?.length || 0,
-        });
-      },
-      onFinish: ({ totalUsage, steps }) => {
+      if (!input || !input.trim()) {
         releaseNoteAILock(userId);
-        logAIEvent("notes_agent_complete", {
-          totalSteps: steps.length,
-          totalInputTokens: totalUsage?.promptTokens,
-          totalOutputTokens: totalUsage?.completionTokens,
-        });
-      },
-      onError: ({ error }) => {
-        releaseNoteAILock(userId);
-        logAIEvent("notes_agent_error", { message: error.message }, "error");
-      },
-    });
+        return apiError("Input is required for /agent", 400);
+      }
 
-    return result.toUIMessageStreamResponse();
-  } catch (error) {
-    releaseNoteAILock(userId);
-    console.error("POST /api/ai/notes-agentic error:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: "Failed to process request" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
-  }
-}
+      const tools = buildTools(userId);
+
+      const result = streamText({
+        model: getModel(getNotesModelId()),
+        system: getNotesAgenticPrompt({ language, noteTitle, noteContext }),
+        messages: [{ role: "user", content: input.trim() }],
+        tools,
+        stopWhen: stepCountIs(10),
+        maxRetries: 2,
+        abortSignal: request.signal,
+        onStepFinish: ({ usage, toolResults }) => {
+          logAIEvent("notes_agent_step", {
+            inputTokens: usage?.promptTokens,
+            outputTokens: usage?.completionTokens,
+            toolCalls: toolResults?.length || 0,
+          });
+        },
+        onFinish: ({ totalUsage, steps }) => {
+          releaseNoteAILock(userId);
+          logAIEvent("notes_agent_complete", {
+            totalSteps: steps.length,
+            totalInputTokens: totalUsage?.promptTokens,
+            totalOutputTokens: totalUsage?.completionTokens,
+          });
+        },
+        onError: ({ error }) => {
+          releaseNoteAILock(userId);
+          logAIEvent("notes_agent_error", { message: error.message }, "error");
+        },
+      });
+
+      return result.toUIMessageStreamResponse();
+    } catch (err) {
+      // Synchronous error before stream — release lock before letting withAuth return 500
+      releaseNoteAILock(userId);
+      throw err;
+    }
+  },
+  {
+    label: "POST /api/ai/notes-agentic",
+    errorMessage: "Failed to process request",
+  },
+);

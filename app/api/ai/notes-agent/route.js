@@ -1,7 +1,8 @@
 import { streamText } from "ai";
 import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
-import { auth } from "@/auth";
+import { apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,17 +24,8 @@ Instructions:
 Format your response in Markdown. Be concise and useful.`;
 }
 
-export async function POST(request) {
-  const session = await auth();
-
-  if (!session?.user) {
-    return new Response(
-      JSON.stringify({ success: false, error: "Unauthorized" }),
-      { status: 401, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  try {
+export const POST = withAuth(
+  async ({ request }) => {
     const {
       command,
       input,
@@ -44,10 +36,7 @@ export async function POST(request) {
     } = await request.json();
 
     if (!command) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Command is required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      );
+      return apiError("Command is required", 400);
     }
 
     let userMessage;
@@ -61,17 +50,10 @@ export async function POST(request) {
           : "Summarize the entire note content.";
         break;
       case "digest":
-        userMessage =
-          "Generate a structured digest of this note's content.";
+        userMessage = "Generate a structured digest of this note's content.";
         break;
       default:
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `Unknown command: ${command}`,
-          }),
-          { status: 400, headers: { "Content-Type": "application/json" } },
-        );
+        return apiError(`Unknown command: ${command}`, 400);
     }
 
     const result = streamText({
@@ -90,11 +72,9 @@ export async function POST(request) {
     });
 
     return result.toTextStreamResponse();
-  } catch (error) {
-    console.error("POST /api/ai/notes-agent error:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: "Failed to process request" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
-  }
-}
+  },
+  {
+    label: "POST /api/ai/notes-agent",
+    errorMessage: "Failed to process request",
+  },
+);

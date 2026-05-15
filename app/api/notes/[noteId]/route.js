@@ -1,6 +1,6 @@
-import { auth } from "@/auth";
 import { ObjectId } from "mongodb";
-import { apiSuccess, apiError } from "@/lib/reminderUtils";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import {
   getNotesCollection,
   formatNote,
@@ -8,15 +8,9 @@ import {
 } from "@/lib/notes/db";
 
 // GET /api/notes/[noteId] - Get a single note by ID
-export async function GET(request, segmentData) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
-    const { noteId } = await segmentData.params;
+export const GET = withAuth(
+  async ({ params, userId }) => {
+    const { noteId } = await params;
 
     if (!ObjectId.isValid(noteId)) {
       return apiError("Invalid note ID", 400);
@@ -25,7 +19,7 @@ export async function GET(request, segmentData) {
     const notesCollection = await getNotesCollection();
     const note = await notesCollection.findOne({
       _id: new ObjectId(noteId),
-      userId: session.user.id,
+      userId,
       deletedAt: null,
     });
 
@@ -34,22 +28,14 @@ export async function GET(request, segmentData) {
     }
 
     return apiSuccess(formatNote(note));
-  } catch (error) {
-    console.error("GET /api/notes/[noteId] error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "GET /api/notes/[noteId]" },
+);
 
 // PATCH /api/notes/[noteId] - Partial update (title, content, parentId, icon, sortOrder)
-export async function PATCH(request, segmentData) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
-    const { noteId } = await segmentData.params;
+export const PATCH = withAuth(
+  async ({ request, params, userId }) => {
+    const { noteId } = await params;
 
     if (!ObjectId.isValid(noteId)) {
       return apiError("Invalid note ID", 400);
@@ -58,7 +44,6 @@ export async function PATCH(request, segmentData) {
     const body = await request.json();
     const { title, content, parentId, icon, sortOrder } = body;
 
-    // Build update object with only provided fields
     const updateData = { updatedAt: new Date() };
 
     if (title !== undefined) {
@@ -72,7 +57,8 @@ export async function PATCH(request, segmentData) {
     }
 
     if (content !== undefined) {
-      if (!Array.isArray(content)) return apiError("content must be an array", 400);
+      if (!Array.isArray(content))
+        return apiError("content must be an array", 400);
       updateData.content = content;
     }
 
@@ -100,21 +86,28 @@ export async function PATCH(request, segmentData) {
     // Guard: prevent modifying inbox document properties via generic route
     const existingNote = await notesCollection.findOne({
       _id: new ObjectId(noteId),
-      userId: session.user.id,
+      userId,
     });
     if (existingNote?.type === "inbox") {
-      if (title !== undefined || parentId !== undefined || sortOrder !== undefined) {
+      if (
+        title !== undefined ||
+        parentId !== undefined ||
+        sortOrder !== undefined
+      ) {
         return apiError("Cannot modify inbox note properties", 403);
       }
     }
 
     if (updateData.parentId) {
-      const parentExists = await notesCollection.findOne({ _id: updateData.parentId, userId: session.user.id });
+      const parentExists = await notesCollection.findOne({
+        _id: updateData.parentId,
+        userId,
+      });
       if (!parentExists) return apiError("Parent note not found", 404);
     }
 
     const updated = await notesCollection.findOneAndUpdate(
-      { _id: new ObjectId(noteId), userId: session.user.id },
+      { _id: new ObjectId(noteId), userId },
       { $set: updateData },
       { returnDocument: "after" },
     );
@@ -124,22 +117,14 @@ export async function PATCH(request, segmentData) {
     }
 
     return apiSuccess(formatNote(updated));
-  } catch (error) {
-    console.error("PATCH /api/notes/[noteId] error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "PATCH /api/notes/[noteId]" },
+);
 
 // DELETE /api/notes/[noteId] - Delete note and all descendants
-export async function DELETE(request, segmentData) {
-  try {
-    const session = await auth();
-
-    if (!session || !session.user) {
-      return apiError("Unauthorized", 401);
-    }
-
-    const { noteId } = await segmentData.params;
+export const DELETE = withAuth(
+  async ({ params, userId }) => {
+    const { noteId } = await params;
 
     if (!ObjectId.isValid(noteId)) {
       return apiError("Invalid note ID", 400);
@@ -148,10 +133,9 @@ export async function DELETE(request, segmentData) {
     const notesCollection = await getNotesCollection();
     const noteObjectId = new ObjectId(noteId);
 
-    // Verify note exists and belongs to user
     const note = await notesCollection.findOne({
       _id: noteObjectId,
-      userId: session.user.id,
+      userId,
     });
 
     if (!note) {
@@ -162,37 +146,34 @@ export async function DELETE(request, segmentData) {
       return apiError("Cannot delete inbox note", 403);
     }
 
-    // Check if note is already in trash
     if (note.deletedAt) {
       // Permanent delete — already trashed
       const descendantIds = await findDescendantIds(
         notesCollection,
-        session.user.id,
+        userId,
         noteObjectId,
       );
       const allIds = [noteObjectId, ...descendantIds];
       const result = await notesCollection.deleteMany({
         _id: { $in: allIds },
-        userId: session.user.id,
+        userId,
       });
       return apiSuccess({ deleted: result.deletedCount });
     } else {
-      // Soft delete — set deletedAt on note + descendants
+      // Soft delete
       const descendantIds = await findDescendantIds(
         notesCollection,
-        session.user.id,
+        userId,
         noteObjectId,
       );
       const allIds = [noteObjectId, ...descendantIds];
       const now = new Date();
       const result = await notesCollection.updateMany(
-        { _id: { $in: allIds }, userId: session.user.id },
+        { _id: { $in: allIds }, userId },
         { $set: { deletedAt: now } },
       );
       return apiSuccess({ deleted: result.modifiedCount });
     }
-  } catch (error) {
-    console.error("DELETE /api/notes/[noteId] error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "DELETE /api/notes/[noteId]" },
+);

@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { getModel, getParseModelId } from "@/lib/ai/provider.js";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 
 const MAX_INPUT_LENGTH = 8000;
 
@@ -46,23 +46,12 @@ function salvageTasksFromText(rawText) {
   }
 }
 
-export async function POST(request) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
+export const POST = withAuth(
+  async ({ request }) => {
     const { text, language = "zh", confirmedTasks = [] } = await request.json();
 
     if (!text?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Text is required" },
-        { status: 400 },
-      );
+      return apiError("Text is required", 400);
     }
 
     const truncated = text.length > MAX_INPUT_LENGTH;
@@ -135,15 +124,7 @@ Rules:
           : [],
       }));
 
-    return NextResponse.json({
-      success: true,
-      data: { tasks: validTasks, truncated },
-    });
-  } catch (error) {
-    console.error("[extract-tasks] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 },
-    );
-  }
-}
+    return apiSuccess({ tasks: validTasks, truncated });
+  },
+  { label: "POST /api/ai/extract-tasks" },
+);

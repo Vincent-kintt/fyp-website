@@ -1,6 +1,5 @@
-import { auth } from "@/auth";
-import { ObjectId } from "mongodb";
-import { apiSuccess, apiError } from "@/lib/reminderUtils";
+import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { withAuth } from "@/lib/api/auth.js";
 import {
   getRssFeedsCollection,
   getRssSubscriptionsCollection,
@@ -9,15 +8,12 @@ import {
 import { VALID_CATEGORIES } from "@/lib/rss/defaultFeeds";
 
 // GET /api/rss — list user's subscriptions
-export async function GET() {
-  try {
-    const session = await auth();
-    if (!session?.user) return apiError("Unauthorized", 401);
-
+export const GET = withAuth(
+  async ({ userId }) => {
     const subsCol = await getRssSubscriptionsCollection();
     const feedsCol = await getRssFeedsCollection();
 
-    const subs = await subsCol.find({ userId: session.user.id }).toArray();
+    const subs = await subsCol.find({ userId }).toArray();
     if (subs.length === 0) return apiSuccess([]);
 
     // Application-level join
@@ -26,21 +22,16 @@ export async function GET() {
     const feedMap = new Map(feeds.map((f) => [f._id.toString(), f]));
 
     const result = subs.map((s) =>
-      formatSubscription(s, feedMap.get(s.feedId.toString()))
+      formatSubscription(s, feedMap.get(s.feedId.toString())),
     );
     return apiSuccess(result);
-  } catch (error) {
-    console.error("GET /api/rss error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "GET /api/rss" },
+);
 
 // POST /api/rss — subscribe by category
-export async function POST(request) {
-  try {
-    const session = await auth();
-    if (!session?.user) return apiError("Unauthorized", 401);
-
+export const POST = withAuth(
+  async ({ request, userId }) => {
     const { categories } = await request.json();
     if (!Array.isArray(categories) || categories.length === 0) {
       return apiError("At least one category is required", 400);
@@ -54,7 +45,6 @@ export async function POST(request) {
 
     const feedsCol = await getRssFeedsCollection();
     const subsCol = await getRssSubscriptionsCollection();
-    const userId = session.user.id;
 
     const feeds = await feedsCol
       .find({ isDefault: true, category: { $in: categories } })
@@ -67,15 +57,13 @@ export async function POST(request) {
     const existingSubs = await subsCol
       .find({ userId, feedId: { $in: feeds.map((f) => f._id) } })
       .toArray();
-    const existingFeedIds = new Set(existingSubs.map((s) => s.feedId.toString()));
+    const existingFeedIds = new Set(
+      existingSubs.map((s) => s.feedId.toString()),
+    );
 
     const newSubs = feeds
       .filter((f) => !existingFeedIds.has(f._id.toString()))
-      .map((f) => ({
-        userId,
-        feedId: f._id,
-        subscribedAt: new Date(),
-      }));
+      .map((f) => ({ userId, feedId: f._id, subscribedAt: new Date() }));
 
     let insertedCount = 0;
     if (newSubs.length > 0) {
@@ -87,8 +75,6 @@ export async function POST(request) {
       subscribed: insertedCount,
       skipped: feeds.length - insertedCount,
     });
-  } catch (error) {
-    console.error("POST /api/rss error:", error);
-    return apiError("Internal server error", 500);
-  }
-}
+  },
+  { label: "POST /api/rss" },
+);
