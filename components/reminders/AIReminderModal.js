@@ -4,17 +4,12 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { FaTimes, FaTrash, FaChevronDown } from "react-icons/fa";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import useScrollLock from "@/hooks/useScrollLock";
 import { DEFAULT_REMINDER_MODEL_ID } from "@/lib/ai/modelIds";
 import { MUTATION_TOOLS, getToolName, isToolPart } from "./ai-modal/toolHelpers";
-import { modelOptions } from "./ai-modal/modelOptions";
-import ReasoningBlock from "./ai-modal/ReasoningBlock";
-import ToolInvocationBlock from "./ai-modal/ToolInvocationBlock";
-import ModelDropdown from "./ai-modal/ModelDropdown";
-import SettingsPopover from "./ai-modal/SettingsPopover";
+import ModalHeader from "./ai-modal/ModalHeader";
+import MessageList from "./ai-modal/MessageList";
+import InputBar from "./ai-modal/InputBar";
 
 export default function AIReminderModal({
   isOpen,
@@ -408,13 +403,6 @@ export default function AIReminderModal({
     }
   }, [setMessages, t]);
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
   const handleSettingsChange = (patch) => {
     const newSettings = { ...settings, ...patch };
     setSettings(newSettings);
@@ -428,8 +416,6 @@ export default function AIReminderModal({
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const supportsReasoning = isGeminiModel;
-  const currentModelLabel =
-    modelOptions.find((o) => o.value === settings.model)?.label || "Model";
 
   useEffect(() => {
     if (!showModelDropdown && !showSettings) return;
@@ -451,59 +437,6 @@ export default function AIReminderModal({
 
   if (!shouldRender) return null;
 
-  const emptyStateSuggestions = [
-    {
-      labelKey: "createReminder",
-      prompt: settings.language === "zh" ? "建立一個提醒" : "Create a reminder",
-      icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      ),
-    },
-    {
-      labelKey: "todaySchedule",
-      prompt: settings.language === "zh" ? "列出今天的提醒" : "List today's reminders",
-      icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-        </svg>
-      ),
-    },
-    {
-      labelKey: "planWeek",
-      prompt: settings.language === "zh" ? "幫我規劃本週" : "Help me plan this week",
-      icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-        </svg>
-      ),
-    },
-    {
-      labelKey: "analyzePatterns",
-      prompt: settings.language === "zh" ? "分析我的提醒模式" : "Analyze my reminder patterns",
-      icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-        </svg>
-      ),
-    },
-  ];
-
-  const headerBtnStyle = {
-    width: "28px",
-    height: "28px",
-    borderRadius: "6px",
-    border: "none",
-    background: "transparent",
-    color: "var(--modal-text-muted)",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "color 0.12s, background 0.12s",
-  };
-
   return (
     <>
       <div
@@ -520,126 +453,21 @@ export default function AIReminderModal({
         }}
         onMouseDown={isMobile ? undefined : handleMouseDown}
       >
-        {/* ===== Header ===== */}
-        <div
-          className={`modal-header flex items-center ${isMobile ? "" : "cursor-move"} select-none`}
-          style={{
-            padding: "0 14px",
-            height: "42px",
-            borderRadius: isMobile ? "0" : "14px 14px 0 0",
-            borderBottom: "1px solid var(--modal-header-border)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              flex: 1,
-              minWidth: 0,
-            }}
-          >
-            <span
-              style={{
-                fontSize: "13px",
-                fontWeight: 500,
-                color: "var(--modal-text-secondary)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {t("header")}
-            </span>
-            <div
-              style={{
-                width: "1px",
-                height: "14px",
-                background: "var(--glass-border)",
-                flexShrink: 0,
-              }}
-            />
-            <div
-              className="model-dropdown-anchor"
-              style={{ position: "relative" }}
-            >
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowModelDropdown(!showModelDropdown);
-                  setShowSettings(false);
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{
-                  padding: "2px 7px",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  background: "var(--glass-bg)",
-                  color: "var(--modal-text-muted)",
-                  fontSize: "11px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  maxWidth: isMobile ? "100px" : "none",
-                  transition: "color 0.12s, background 0.12s",
-                }}
-              >
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {currentModelLabel}
-                </span>
-                <FaChevronDown style={{ fontSize: "7px", flexShrink: 0, opacity: 0.5 }} />
-              </div>
-              <ModelDropdown
-                model={settings.model}
-                onChange={(model) => handleSettingsChange({ model })}
-                isOpen={showModelDropdown}
-                onToggle={() => setShowModelDropdown(false)}
-              />
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: "1px", flexShrink: 0 }}>
-            <div className="settings-anchor" style={{ position: "relative" }}>
-              <button
-                onClick={() => {
-                  setShowSettings(!showSettings);
-                  setShowModelDropdown(false);
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={headerBtnStyle}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                </svg>
-              </button>
-              <SettingsPopover
-                settings={settings}
-                onChange={handleSettingsChange}
-                isOpen={showSettings}
-                supportsReasoning={supportsReasoning}
-                supportsReasoningToggle={supportsReasoningToggle}
-              />
-            </div>
-            {messages.length > 0 && (
-              <button
-                onClick={handleClearChat}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={headerBtnStyle}
-              >
-                <FaTrash style={{ fontSize: "11px" }} />
-              </button>
-            )}
-            <button
-              onClick={handleAnimatedClose}
-              onMouseDown={(e) => e.stopPropagation()}
-              style={headerBtnStyle}
-            >
-              <FaTimes style={{ fontSize: "11px" }} />
-            </button>
-          </div>
-        </div>
+        <ModalHeader
+          isMobile={isMobile}
+          settings={settings}
+          onSettingsChange={handleSettingsChange}
+          showModelDropdown={showModelDropdown}
+          setShowModelDropdown={setShowModelDropdown}
+          showSettings={showSettings}
+          setShowSettings={setShowSettings}
+          supportsReasoning={supportsReasoning}
+          supportsReasoningToggle={supportsReasoningToggle}
+          hasMessages={messages.length > 0}
+          onClearChat={handleClearChat}
+          onClose={handleAnimatedClose}
+        />
 
-        {/* ===== Content area ===== */}
         <div
           style={{
             display: "flex",
@@ -647,407 +475,23 @@ export default function AIReminderModal({
             height: isMobile ? "calc(100vh - 42px)" : "calc(85vh - 42px)",
           }}
         >
-          {/* Message list */}
-          <div
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              padding: "16px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "16px",
-            }}
-          >
-            {initialText && messages.length <= 1 && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "5px 10px",
-                  background: "var(--glass-bg)",
-                  border: "1px solid var(--glass-border)",
-                  borderRadius: "6px",
-                  alignSelf: "flex-start",
-                  marginBottom: "4px",
-                }}
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--modal-text-muted)" strokeWidth="2">
-                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                </svg>
-                <span style={{ fontSize: "10px", color: "var(--modal-text-muted)" }}>
-                  {t("continuedFromQuickAdd")}
-                </span>
-              </div>
-            )}
-
-            {messages.length === 0 ? (
-              /* ===== Empty state ===== */
-              <div
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "24px",
-                  padding: "32px",
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: "15px",
-                    color: "var(--modal-text-muted)",
-                    textAlign: "center",
-                  }}
-                >
-                  {t("emptyStateTitle")}
-                </p>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "4px",
-                    width: "100%",
-                    maxWidth: "340px",
-                  }}
-                >
-                  {emptyStateSuggestions.map((item) => (
-                    <button
-                      key={item.labelKey}
-                      onClick={() => setInput(item.prompt)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        padding: "9px 12px",
-                        borderRadius: "8px",
-                        border: "none",
-                        background: "transparent",
-                        cursor: "pointer",
-                        textAlign: "left",
-                        transition: "background 0.12s",
-                        width: "100%",
-                      }}
-                      onMouseOver={(e) => { e.currentTarget.style.background = "var(--glass-bg)"; }}
-                      onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
-                    >
-                      <div
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "7px",
-                          background: "var(--glass-bg)",
-                          border: "1px solid var(--glass-border)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "var(--modal-text-muted)",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {item.icon}
-                      </div>
-                      <span style={{ fontSize: "13px", color: "var(--modal-text-secondary)", flex: 1 }}>
-                        {t(`emptyChip.${item.labelKey}`)}
-                      </span>
-                      <span style={{ color: "var(--glass-border)", fontSize: "14px" }}>&#x203A;</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <>
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                    }}
-                  >
-                    {msg.role === "user" ? (
-                      /* User message — right aligned chip */
-                      <div
-                        style={{
-                          alignSelf: "flex-end",
-                          maxWidth: "75%",
-                          padding: "9px 14px",
-                          background: "var(--user-bubble-bg)",
-                          border: "1px solid var(--user-bubble-border)",
-                          borderRadius: "12px 12px 4px 12px",
-                          fontSize: "13px",
-                          color: "var(--modal-text)",
-                        }}
-                      >
-                        {msg.parts?.map((part, i) =>
-                          part.type === "text" ? (
-                            <span key={i}>{part.text}</span>
-                          ) : null,
-                        )}
-                      </div>
-                    ) : (
-                      /* Assistant message — flat layout, no bubble */
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "8px",
-                          alignSelf: "flex-start",
-                          maxWidth: "88%",
-                          width: "100%",
-                        }}
-                      >
-                        {msg.parts?.map((part, pIdx) => {
-                          if (part.type === "step-start") {
-                            return null;
-                          }
-
-                          if (part.type === "reasoning") {
-                            return (
-                              <ReasoningBlock
-                                key={`reasoning-${pIdx}`}
-                                text={part.text}
-                                isStreaming={part.state === "streaming"}
-                              />
-                            );
-                          }
-
-                          if (isToolPart(part)) {
-                            return (
-                              <ToolInvocationBlock
-                                key={`tool-${pIdx}`}
-                                part={part}
-                                language={settings.language}
-                              />
-                            );
-                          }
-
-                          if (part.type === "text") {
-                            const cleanContent = (part.text || "").trim();
-                            if (!cleanContent) return null;
-
-                            return (
-                              <div
-                                key={`content-${pIdx}`}
-                                className="markdown-content"
-                                style={{
-                                  padding: "2px 0 2px 4px",
-                                  fontSize: "13px",
-                                  color: "var(--modal-text-secondary)",
-                                  lineHeight: "1.7",
-                                }}
-                              >
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                  {cleanContent}
-                                </ReactMarkdown>
-                              </div>
-                            );
-                          }
-
-                          return null;
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* Streaming indicator */}
-                {isProcessing &&
-                  (() => {
-                    const lastMsg = messages[messages.length - 1];
-                    const hasAssistantContent =
-                      lastMsg?.role === "assistant" &&
-                      lastMsg.parts?.length > 0;
-                    if (hasAssistantContent) return null;
-                    return (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          padding: "2px 4px",
-                          color: "var(--modal-text-muted)",
-                          fontSize: "12px",
-                        }}
-                      >
-                        <div style={{ display: "flex", gap: "3px" }}>
-                          {[0, 1, 2].map((i) => (
-                            <span
-                              key={i}
-                              style={{
-                                width: "4px",
-                                height: "4px",
-                                borderRadius: "50%",
-                                background: "var(--modal-text-muted)",
-                                animation: "pulse 1.4s infinite",
-                                animationDelay: `${i * 0.2}s`,
-                                opacity: 0.3,
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-              </>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* ===== Input area ===== */}
-          <div
-            style={{
-              padding: "10px 14px",
-              borderTop: "1px solid var(--glass-border)",
-            }}
-          >
-            {errorMessage && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  fontSize: "12px",
-                  color: "#ef4444",
-                  background: "var(--tool-error-bg)",
-                  padding: "8px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--tool-error-border)",
-                  marginBottom: "8px",
-                }}
-              >
-                <span>{errorMessage}</span>
-              </div>
-            )}
-            {/* Suggested follow-ups — ghost buttons */}
-            {!isProcessing &&
-              messages.length > 0 &&
-              suggestions.length > 0 && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "5px",
-                    marginBottom: "8px",
-                    overflowX: "auto",
-                    paddingBottom: "2px",
-                  }}
-                >
-                  {suggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setInput(s.prompt)}
-                      style={{
-                        padding: "5px 11px",
-                        borderRadius: "6px",
-                        fontSize: "11px",
-                        background: "transparent",
-                        color: "var(--modal-text-muted)",
-                        border: "1px solid var(--glass-border)",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        transition: "all 0.12s",
-                      }}
-                      onMouseOver={(e) => {
-                        e.currentTarget.style.background = "var(--glass-bg)";
-                        e.currentTarget.style.borderColor = "var(--glass-border-hover)";
-                        e.currentTarget.style.color = "var(--modal-text-secondary)";
-                      }}
-                      onMouseOut={(e) => {
-                        e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.borderColor = "var(--glass-border)";
-                        e.currentTarget.style.color = "var(--modal-text-muted)";
-                      }}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            <div
-              style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}
-            >
-              <textarea
-                data-testid="ai-modal-input"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder={
-                  isProcessing ? t("placeholderWaiting") : t("placeholderInput")
-                }
-                rows="2"
-                maxLength={2000}
-                disabled={isProcessing}
-                style={{
-                  flex: 1,
-                  padding: "10px 12px",
-                  background: "var(--modal-input-bg)",
-                  border: "1px solid var(--modal-input-border)",
-                  borderRadius: "10px",
-                  color: isProcessing ? "var(--modal-text-muted)" : "var(--modal-text)",
-                  fontSize: "13px",
-                  outline: "none",
-                  transition: "border-color 0.15s",
-                  fontFamily: "inherit",
-                  resize: "none",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "var(--modal-input-focus-border)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "var(--modal-input-border)";
-                }}
-              />
-              {isProcessing ? (
-                <button
-                  onClick={() => {/* stop is handled by useChat */}}
-                  style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "8px",
-                    border: "none",
-                    background: "var(--glass-bg)",
-                    color: "var(--modal-text-muted)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="6" width="12" height="12" rx="1" />
-                  </svg>
-                </button>
-              ) : (
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim()}
-                  style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "8px",
-                    border: "none",
-                    background: input.trim() ? "var(--modal-text)" : "var(--glass-bg)",
-                    color: input.trim() ? "var(--modal-bg)" : "var(--modal-text-muted)",
-                    cursor: input.trim() ? "pointer" : "default",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    transition: "all 0.12s",
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
+          <MessageList
+            messages={messages}
+            isProcessing={isProcessing}
+            initialText={initialText}
+            language={settings.language}
+            onSelectPrompt={setInput}
+            messagesEndRef={messagesEndRef}
+          />
+          <InputBar
+            input={input}
+            setInput={setInput}
+            onSend={handleSend}
+            isProcessing={isProcessing}
+            errorMessage={errorMessage}
+            suggestions={suggestions}
+            hasMessages={messages.length > 0}
+          />
         </div>
       </div>
     </>
