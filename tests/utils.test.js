@@ -17,7 +17,6 @@ import {
   hasTimeOverlap,
   REMINDER_STATUSES,
   REMINDER_CATEGORIES,
-  MS_PER_MINUTE,
   minutesToMs,
 } from "@/lib/utils.js";
 
@@ -285,10 +284,6 @@ describe("REMINDER_CATEGORIES contract", () => {
 
   it("matches the canonical category contract", () => {
     expect(REMINDER_CATEGORIES).toEqual(expected);
-    // Also covers the MS_PER_MINUTE-style "constant didn't drift" check
-    // for the time helper — see how MS_PER_MINUTE is asserted via
-    // minutesToMs(0.5) above.
-    expect(MS_PER_MINUTE).toBe(minutesToMs(1));
   });
 
   it("getMainCategory recognizes every canonical category and falls back to 'other'", () => {
