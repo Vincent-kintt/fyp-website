@@ -205,10 +205,14 @@ export default function AIReminderModal({
     const getLocation = async () => {
       const cached = localStorage.getItem("user_location");
       if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 3600000) {
-          setUserLocation(data);
-          return;
+        try {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < 3600000) {
+            setUserLocation(data);
+            return;
+          }
+        } catch {
+          localStorage.removeItem("user_location");
         }
       }
 
@@ -238,8 +242,7 @@ export default function AIReminderModal({
                 "user_location",
                 JSON.stringify({ data: locationData, timestamp: Date.now() }),
               );
-            } catch (err) {
-              console.log("Reverse geocoding failed, using coordinates only");
+            } catch {
               const locationData = {
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
@@ -248,8 +251,7 @@ export default function AIReminderModal({
               setUserLocation(locationData);
             }
           },
-          (error) => {
-            console.log("Geolocation denied or unavailable:", error.message);
+          () => {
             const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
             setUserLocation({ timezone, inferred: true });
           },
@@ -267,7 +269,8 @@ export default function AIReminderModal({
   // --- Load saved settings ---
   useEffect(() => {
     const savedSettings = localStorage.getItem("ai_reminder_settings");
-    if (savedSettings) {
+    if (!savedSettings) return;
+    try {
       const parsed = JSON.parse(savedSettings);
       setSettings({
         model: parsed.model || DEFAULT_REMINDER_MODEL_ID,
@@ -279,6 +282,8 @@ export default function AIReminderModal({
         language: parsed.language || "zh",
         reasoningLanguage: parsed.reasoningLanguage || "zh",
       });
+    } catch {
+      localStorage.removeItem("ai_reminder_settings");
     }
   }, []);
 
