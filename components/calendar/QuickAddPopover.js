@@ -27,6 +27,7 @@ export default function QuickAddPopover({
 }) {
   const t = useTranslations("calendar");
   const [title, setTitle] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef(null);
 
   const hourStr = String(hour).padStart(2, "0");
@@ -41,12 +42,15 @@ export default function QuickAddPopover({
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await onSubmit?.({ title: title.trim(), dateTime });
       onClose?.();
     } catch {
       // useTasks.quickAdd's onError toasts; keep popover open so user can retry
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -111,7 +115,7 @@ export default function QuickAddPopover({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!title.trim()}
+          disabled={!title.trim() || isSubmitting}
           className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-40"
           style={{
             backgroundColor: "var(--accent)",
