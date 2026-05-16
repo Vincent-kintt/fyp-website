@@ -22,6 +22,7 @@ export default function PageTreeItem({
   onDeleteNote,
   onRename,
   onDuplicate,
+  onNoteSelect,
 }) {
   const t = useTranslations("notes");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -176,6 +177,7 @@ export default function PageTreeItem({
               title={note.title}
               draggable={false}
               onDragStart={(event) => event.preventDefault()}
+              onClick={() => onNoteSelect?.(note.id)}
             >
               {note.title || t("untitled")}
             </Link>

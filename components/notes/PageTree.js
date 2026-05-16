@@ -26,6 +26,7 @@ export default function PageTree({
   trashedNotes,
   onRestore,
   onPermanentDelete,
+  onNoteSelect,
 }) {
   const t = useTranslations("notes");
   const [trashOpen, setTrashOpen] = useState(false);
@@ -278,7 +279,7 @@ export default function PageTree({
                 <Link
                   key={n.id}
                   href={`/notes/${n.id}`}
-                  onClick={() => setFilterQuery("")}
+                  onClick={() => { setFilterQuery(""); onNoteSelect?.(n.id); }}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
                     n.id === activeNoteId ? "font-medium" : ""
                   }`}
@@ -337,6 +338,7 @@ export default function PageTree({
                     onDeleteNote={onDeleteNote}
                     onRename={onRename}
                     onDuplicate={onDuplicate}
+                    onNoteSelect={onNoteSelect}
                   />
                 );
               })}

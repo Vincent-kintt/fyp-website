@@ -38,15 +38,13 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
   const executedCommandsRef = useRef(new Map());
   const executeAiCommandRef = useRef(null);
 
-  useEffect(() => {
-    setTitle(note?.title || "");
-    setSaveStatus(null);
-    executedCommandsRef.current.clear();
-  }, [note?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
   useEffect(() => { titleRef.current = title; }, [title]);
   useEffect(() => { localeRef.current = locale; }, [locale]);
 
+  // State reset on note navigation is handled by parent `<NoteEditor key={note.id} />`:
+  // a new note id remounts this component, so useState/useRef/useCreateBlockNote re-initialise
+  // from the new `note` prop. Do not add a "sync from prop" effect here — it would either
+  // need eslint-disable (hardfix) or list `note.title`/`note.content` and clobber active edits.
   const editor = useCreateBlockNote({
     schema: noteEditorSchema,
     initialContent: note?.content?.length > 0 ? note.content : undefined,
@@ -58,13 +56,6 @@ export default function NoteEditor({ note, onSave, onSaveStatusChange, onIconCha
       },
     },
   });
-
-  useEffect(() => {
-    if (note?.content?.length > 0) {
-      editor.replaceBlocks(editor.document, note.content);
-    }
-    // Empty content — skip replaceBlocks so BlockNote keeps its default empty state with placeholder
-  }, [note?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Expose editor content to parent via ref callback
   useEffect(() => {

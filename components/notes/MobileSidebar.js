@@ -30,10 +30,6 @@ export default function MobileSidebar({
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
-  useEffect(() => {
-    if (open && activeNoteId) onClose();
-  }, [activeNoteId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   if (!open) return null;
 
   return (
@@ -79,6 +75,7 @@ export default function MobileSidebar({
             trashedNotes={trashedNotes}
             onRestore={onRestore}
             onPermanentDelete={onPermanentDelete}
+            onNoteSelect={onClose}
           />
         </div>
       </aside>
