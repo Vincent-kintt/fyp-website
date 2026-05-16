@@ -2,10 +2,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import { FaDownload, FaSpinner, FaFileCsv, FaFileCode } from "react-icons/fa";
+import { reminderListQueryOptions } from "@/hooks/useReminderList.js";
 
 export default function ExportButton() {
   const t = useTranslations("export");
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const menuRef = useRef(null);
@@ -26,11 +29,9 @@ export default function ExportButton() {
     setOpen(false);
     setLoading(true);
     try {
-      const res = await fetch("/api/reminders");
-      if (!res.ok) throw new Error("Failed to fetch reminders");
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || "Failed to fetch");
-      const reminders = json.data;
+      const reminders = await queryClient.fetchQuery(
+        reminderListQueryOptions(),
+      );
 
       const today = new Date().toISOString().split("T")[0];
 
