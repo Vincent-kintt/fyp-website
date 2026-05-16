@@ -1,5 +1,28 @@
 import { test, expect } from "@playwright/test";
 
+// Cleanup leftover test artifacts from prior runs to ensure deterministic state.
+const TEST_TITLE_PATTERNS = [/^DnD-/, /^E2E /];
+
+async function cleanupTestTasks(page) {
+  try {
+    const res = await page.request.get("/api/reminders");
+    if (!res.ok()) return;
+    const body = await res.json();
+    const items = body.data;
+    if (!Array.isArray(items)) return;
+    const targets = items.filter(
+      (t) => t?.title && TEST_TITLE_PATTERNS.some((re) => re.test(t.title)),
+    );
+    await Promise.all(
+      targets.map((t) =>
+        page.request.delete(`/api/reminders/${t.id}`).catch(() => {}),
+      ),
+    );
+  } catch {
+    // best effort — never let cleanup crash the test
+  }
+}
+
 /**
  * Helper: create a task via QuickAdd and wait for it to appear.
  */
@@ -11,6 +34,10 @@ async function createTask(page, title) {
 }
 
 test.describe("Task CRUD", () => {
+  test.beforeEach(async ({ page }) => {
+    await cleanupTestTasks(page);
+  });
+
   test("creates a task via QuickAdd", async ({ page }) => {
     const taskTitle = `E2E Create ${Date.now()}`;
     await page.goto("/dashboard");

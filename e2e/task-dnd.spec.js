@@ -91,9 +91,38 @@ async function getHandleBox(page, taskRow) {
   return handle.boundingBox();
 }
 
+// ---- setup / teardown ------------------------------------------------------
+
+// Cleanup leftover test artifacts from prior runs to ensure deterministic state.
+// Runs before every test so a crashed run never pollutes the next.
+const TEST_TITLE_PATTERNS = [/^DnD-/, /^E2E /];
+
+async function cleanupTestTasks(page) {
+  try {
+    const res = await page.request.get("/api/reminders");
+    if (!res.ok()) return;
+    const body = await res.json();
+    const items = body.data;
+    if (!Array.isArray(items)) return;
+    const targets = items.filter(
+      (t) => t?.title && TEST_TITLE_PATTERNS.some((re) => re.test(t.title)),
+    );
+    await Promise.all(
+      targets.map((t) =>
+        page.request.delete(`/api/reminders/${t.id}`).catch(() => {}),
+      ),
+    );
+  } catch {
+    // best effort — never let cleanup crash the test
+  }
+}
+
 // ---- tests -----------------------------------------------------------------
 
 test.describe("Task drag-and-drop", () => {
+  test.beforeEach(async ({ page }) => {
+    await cleanupTestTasks(page);
+  });
   /**
    * Scenario A: Within-section reorder (Today -> Today)
    * Create 2 today tasks with explicit sort orders, drag first below second,
@@ -270,21 +299,90 @@ test.describe("Task drag-and-drop", () => {
       );
       await expect(completedSection).toBeVisible({ timeout: 5000 });
 
-      // Scroll Completed section into view so the drag target is reachable
-      await completedSection.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(200);
+      // Grab the INNER droppable (aria-live="polite"), same pattern as Scenario B.
+      // Completed section defaults to expanded (defaultCollapsed={false}), but be
+      // defensive in case it's collapsed from prior state.
+      let completedDropZone = completedSection.locator('[aria-live="polite"]').first();
+      if ((await completedDropZone.count()) === 0) {
+        await completedSection.locator("button").first().click();
+        await page.waitForTimeout(200);
+        completedDropZone = completedSection.locator('[aria-live="polite"]').first();
+      }
+      await expect(completedDropZone).toBeVisible({ timeout: 5000 });
 
-      const handleBox = await getHandleBox(page, taskRow);
-      const completedBox = await completedSection.boundingBox();
+      // Hover the task row so the opacity-0 handle becomes visible.
+      await taskRow.hover();
+      const handle = taskRow.locator('[aria-label="Drag to reorder"]');
+      await expect(handle).toBeVisible({ timeout: 3000 });
 
-      if (!handleBox || !completedBox) {
-        test.skip("Cannot obtain bounding boxes");
+      // Get the task row's data-testid so we can locate it precisely in evaluate.
+      const taskTestId = await taskRow.getAttribute("data-testid");
+
+      // Compute page-absolute positions of handle and completed drop zone using
+      // getBoundingClientRect + scrollY so we don't trigger any Playwright scroll.
+      const positions = await page.evaluate(
+        ([taskId, completedSel]) => {
+          const taskEl = document.querySelector(`[data-testid="${taskId}"]`);
+          const completedEl = document.querySelector(completedSel);
+          if (!taskEl || !completedEl) return null;
+          const handleEl = taskEl.querySelector('[aria-label="Drag to reorder"]');
+          if (!handleEl) return null;
+          const handleRect = handleEl.getBoundingClientRect();
+          const completedRect = completedEl.getBoundingClientRect();
+          const scrollY = window.scrollY;
+          return {
+            handlePageY: handleRect.top + scrollY,
+            handlePageX: handleRect.left + window.scrollX,
+            handleWidth: handleRect.width,
+            handleHeight: handleRect.height,
+            completedPageY: completedRect.top + scrollY,
+            completedPageX: completedRect.left + window.scrollX,
+            completedWidth: completedRect.width,
+            completedHeight: completedRect.height,
+          };
+        },
+        [taskTestId, '[data-testid="task-section-section-completed"] [aria-live="polite"]'],
+      );
+
+      if (!positions) {
+        test.skip("Cannot locate elements for bbox calculation");
         return;
       }
 
-      // Use 0.7 fraction to land in the lower portion of the Completed section,
-      // avoiding the Snoozed section just above it
-      await dragToTarget(page, handleBox, completedBox, 0.7);
+      // Scroll so that the Completed drop zone bottom aligns near viewport bottom.
+      // The handle (in Today section) is above the Completed section in DOM order,
+      // so scrolling to show Completed should also keep the handle in view —
+      // unless Overdue is very long. In that case we accept the handle may be near top.
+      const viewportH = 720;
+      // scrollForCompleted: scroll so completed bottom is ~20px above viewport bottom
+      const scrollForCompleted = Math.max(
+        0,
+        positions.completedPageY + positions.completedHeight - viewportH + 20,
+      );
+      await page.evaluate((sy) => window.scrollTo(0, sy), scrollForCompleted);
+      await page.waitForTimeout(150);
+
+      // Read viewport-relative bboxes. If handle is above viewport (e.g. many
+      // Overdue tasks push Today section above the scroll target), nudge scroll up.
+      let handleBox = await handle.boundingBox();
+      let completedBox = await completedDropZone.boundingBox();
+
+      if (handleBox && handleBox.y < 20) {
+        // Handle is too close to/above viewport top — scroll up a bit.
+        const adjust = 20 - handleBox.y;
+        await page.evaluate((dy) => window.scrollBy(0, -dy), adjust);
+        await page.waitForTimeout(100);
+        handleBox = await handle.boundingBox();
+        completedBox = await completedDropZone.boundingBox();
+      }
+
+      if (!handleBox || !completedBox) {
+        test.skip("Cannot obtain bounding boxes after scroll");
+        return;
+      }
+
+      // Both boxes are in viewport. Drag to center of the actual drop zone.
+      await dragToTarget(page, handleBox, completedBox);
 
       // Task should appear in completed section
       const completedRow = completedSection
