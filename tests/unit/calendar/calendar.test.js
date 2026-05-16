@@ -14,6 +14,7 @@ import {
   groupOverlappingReminders,
   buildTasksByDate,
   getRemindersForDate,
+  getActiveRemindersForDate,
   formatHourLabel,
 } from "@/lib/calendar.js";
 
@@ -267,6 +268,30 @@ describe("getRemindersForDate", () => {
     expect(getRemindersForDate(null, new Date())).toHaveLength(0);
     expect(getRemindersForDate(reminders, null)).toHaveLength(0);
     expect(getRemindersForDate(undefined, new Date())).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getActiveRemindersForDate
+// ---------------------------------------------------------------------------
+
+describe("getActiveRemindersForDate", () => {
+  it("excludes reminders with status: 'completed' (persisted shape)", () => {
+    const reminders = [
+      { id: "1", dateTime: "2026-04-07T09:00", status: "pending" },
+      { id: "2", dateTime: "2026-04-07T10:00", status: "completed" },
+    ];
+    const result = getActiveRemindersForDate(reminders, new Date("2026-04-07"));
+    expect(result.map((r) => r.id)).toEqual(["1"]);
+  });
+
+  it("excludes reminders with completed: true (optimistic shape before status sync)", () => {
+    const reminders = [
+      { id: "1", dateTime: "2026-04-07T09:00", status: "pending", completed: false },
+      { id: "2", dateTime: "2026-04-07T10:00", status: "pending", completed: true },
+    ];
+    const result = getActiveRemindersForDate(reminders, new Date("2026-04-07"));
+    expect(result.map((r) => r.id)).toEqual(["1"]);
   });
 });
 
