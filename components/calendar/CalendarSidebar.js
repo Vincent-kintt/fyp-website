@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { format, isToday } from "date-fns";
 import { useTranslations } from "next-intl";
 import { getRemindersForDate } from "@/lib/calendar";
+import { isReminderCompleted } from "@/lib/utils";
 import MiniCalendar from "./MiniCalendar";
 
 /**
@@ -89,8 +90,7 @@ export default function CalendarSidebar({
           </div>
         ) : (
           dateReminders.map((reminder) => {
-            const isCompleted =
-              reminder.status === "completed" || reminder.completed;
+            const isCompleted = isReminderCompleted(reminder);
 
             let timeLabel = "";
             try {

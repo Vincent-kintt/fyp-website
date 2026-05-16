@@ -6,7 +6,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { File } from "lucide-react";
-import { getTagClasses } from "@/lib/utils";
+import { getTagClasses, isReminderCompleted } from "@/lib/utils";
 import { formatDateShort } from "@/lib/format";
 import { useAIModal } from "@/components/ai/AIModalProvider";
 
@@ -211,10 +211,10 @@ export default function GlobalSearch() {
 
   // Status-based grouping
   const upcoming = reminders.filter(
-    (r) => r.status !== "completed" && r.status !== "snoozed",
+    (r) => !isReminderCompleted(r) && r.status !== "snoozed",
   );
   const snoozed = reminders.filter((r) => r.status === "snoozed");
-  const completed = reminders.filter((r) => r.status === "completed");
+  const completed = reminders.filter(isReminderCompleted);
 
   const isBrowsing = !searchValue;
 

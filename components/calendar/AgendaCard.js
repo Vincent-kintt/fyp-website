@@ -1,6 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
+import { isReminderCompleted } from "@/lib/utils";
 
 /**
  * AgendaCard — a single task/event card in the agenda list.
@@ -12,7 +13,7 @@ import { format } from "date-fns";
  */
 export default function AgendaCard({ reminder, onToggleComplete, onClick }) {
   const isTask = !reminder.type || reminder.type === "one-time";
-  const isCompleted = reminder.status === "completed" || reminder.completed;
+  const isCompleted = isReminderCompleted(reminder);
 
   const borderStyle = isTask ? "dashed" : "solid";
 

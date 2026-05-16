@@ -1,6 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
+import { isReminderCompleted } from "@/lib/utils";
 
 export default function EventBlock({
   reminder,
@@ -12,7 +13,7 @@ export default function EventBlock({
   onToggleComplete,
 }) {
   const isTask = !reminder.type || reminder.type === "one-time";
-  const isCompleted = reminder.status === "completed" || reminder.completed;
+  const isCompleted = isReminderCompleted(reminder);
 
   // Overlap layout
   const overlapping = totalColumns > 1;
