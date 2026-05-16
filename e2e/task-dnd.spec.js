@@ -190,8 +190,28 @@ test.describe("Task drag-and-drop", () => {
       );
       await expect(tomorrowSection).toBeVisible({ timeout: 5000 });
 
+      // Scroll tomorrow section into view so the drag target is reachable
+      await tomorrowSection.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(200);
+
+      // If Tomorrow is collapsed (defaultCollapsed=true when todayTasks.length > 3),
+      // click its header button to expand it so the inner droppable is rendered.
+      const tomorrowHeader = tomorrowSection.locator("button").first();
+      const tomorrowDropZoneCheck = tomorrowSection.locator('[aria-live="polite"]').first();
+      const isCollapsed = await tomorrowDropZoneCheck.isVisible().then((v) => !v);
+      if (isCollapsed) {
+        await tomorrowHeader.click();
+        await page.waitForTimeout(200);
+      }
+
       const handleBox = await getHandleBox(page, taskRow);
-      const tomorrowBox = await tomorrowSection.boundingBox();
+
+      // Grab the INNER droppable (TaskListContent div with aria-live="polite"),
+      // not the outer data-testid wrapper. The actual dnd-kit drop zone is on
+      // the inner element (TaskSection.js:155-166).
+      const tomorrowDropZone = tomorrowSection.locator('[aria-live="polite"]').first();
+      await expect(tomorrowDropZone).toBeVisible({ timeout: 5000 });
+      const tomorrowBox = await tomorrowDropZone.boundingBox();
 
       if (!handleBox || !tomorrowBox) {
         test.skip("Cannot obtain bounding boxes");

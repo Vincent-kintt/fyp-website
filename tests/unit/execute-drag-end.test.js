@@ -356,7 +356,7 @@ describe("executeDragEnd — move to COMPLETED", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. Cross-section to SNOOZED — success
+// 7. Cross-section to SNOOZED — success AND failure rollback
 // ---------------------------------------------------------------------------
 describe("executeDragEnd — move to SNOOZED", () => {
   it("success: snoozedUntil set from getDefaultSnoozeUntil, patchReminderStatus called", async () => {
@@ -397,10 +397,40 @@ describe("executeDragEnd — move to SNOOZED", () => {
     expect(reorderReminders).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
   });
+
+  it("failure: patchReminderStatus rejects → rollback + toast.error(moveFailed)", async () => {
+    const { task1, originalTasks, queryClient, toast, t, reorderReminders, setQueryDataSpy } = makeMocks();
+
+    const patchReminderStatus = vi.fn(() => Promise.reject(new Error("network error")));
+    const tasks = [task1];
+    const taskToSection = new Map([["t1", SECTION_IDS.TODAY]]);
+    const getSectionTasks = vi.fn(() => [task1]);
+    const event = makeEvent({ activeId: "t1", overId: SECTION_IDS.SNOOZED });
+
+    await executeDragEnd({
+      event,
+      tasks,
+      taskToSection,
+      getSectionTasks,
+      queryClient,
+      reorderReminders,
+      patchReminderStatus,
+      toast,
+      t,
+    });
+
+    // setQueryData called twice: optimistic then rollback
+    expect(setQueryDataSpy).toHaveBeenCalledTimes(2);
+    expect(setQueryDataSpy.mock.calls[1][1]).toBe(originalTasks);
+
+    expect(toast.error).toHaveBeenCalledWith("moveFailed");
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(reorderReminders).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
-// 8. From COMPLETED back to Today (status reset + date change)
+// 8. From COMPLETED back to Today (status reset + date change) — success + failure
 // ---------------------------------------------------------------------------
 describe("executeDragEnd — from COMPLETED to date section", () => {
   it("success: status reset to pending, patchReminderStatus with {status, completed, dateTime}", async () => {
@@ -463,6 +493,166 @@ describe("executeDragEnd — from COMPLETED to date section", () => {
     expect(toast.success).toHaveBeenCalledOnce();
     expect(reorderReminders).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("failure: COMPLETED → Today — patchReminderStatus rejects → rollback + toast.error(moveFailed)", async () => {
+    const completedTask = makeTask({
+      id: "t1",
+      status: "completed",
+      completed: true,
+      completedAt: new Date("2026-05-15T10:00:00Z").toISOString(),
+      snoozedUntil: null,
+      dateTime: new Date("2026-05-15T09:00:00Z").toISOString(),
+    });
+    const originalTasks = [completedTask];
+    const setQueryDataSpy = vi.fn();
+    const queryClient = {
+      getQueryData: vi.fn(() => originalTasks),
+      setQueryData: setQueryDataSpy,
+    };
+    const toast = { error: vi.fn(), success: vi.fn(), warning: vi.fn() };
+    const t = vi.fn((key, params) =>
+      params ? `${key}:${JSON.stringify(params)}` : key,
+    );
+    const reorderReminders = vi.fn(() => Promise.resolve({}));
+    const patchReminderStatus = vi.fn(() => Promise.reject(new Error("fail")));
+
+    const tasks = [completedTask];
+    const taskToSection = new Map([["t1", SECTION_IDS.COMPLETED]]);
+    const getSectionTasks = vi.fn(() => [completedTask]);
+    const event = makeEvent({ activeId: "t1", overId: SECTION_IDS.TODAY });
+
+    await executeDragEnd({
+      event,
+      tasks,
+      taskToSection,
+      getSectionTasks,
+      queryClient,
+      reorderReminders,
+      patchReminderStatus,
+      toast,
+      t,
+    });
+
+    // setQueryData called twice: optimistic then rollback
+    expect(setQueryDataSpy).toHaveBeenCalledTimes(2);
+    expect(setQueryDataSpy.mock.calls[1][1]).toBe(originalTasks);
+    expect(toast.error).toHaveBeenCalledWith("moveFailed");
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(reorderReminders).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8b. From SNOOZED back to Today (status reset + date change) — success + failure
+// ---------------------------------------------------------------------------
+describe("executeDragEnd — from SNOOZED to date section", () => {
+  it("success: SNOOZED → Today — status reset to pending, snoozedUntil=null, dateTime updated", async () => {
+    const snoozedTask = makeTask({
+      id: "t1",
+      status: "snoozed",
+      completed: false,
+      snoozedUntil: new Date("2026-05-17T09:00:00Z").toISOString(),
+      dateTime: new Date("2026-05-15T09:00:00Z").toISOString(),
+    });
+    const originalTasks = [snoozedTask];
+    const setQueryDataSpy = vi.fn();
+    const queryClient = {
+      getQueryData: vi.fn(() => originalTasks),
+      setQueryData: setQueryDataSpy,
+    };
+    const toast = { error: vi.fn(), success: vi.fn(), warning: vi.fn() };
+    const t = vi.fn((key, params) =>
+      params ? `${key}:${JSON.stringify(params)}` : key,
+    );
+    const reorderReminders = vi.fn(() => Promise.resolve({}));
+    const patchReminderStatus = vi.fn(() => Promise.resolve({}));
+
+    const tasks = [snoozedTask];
+    const taskToSection = new Map([["t1", SECTION_IDS.SNOOZED]]);
+    const getSectionTasks = vi.fn(() => [snoozedTask]);
+    const event = makeEvent({ activeId: "t1", overId: SECTION_IDS.TODAY });
+
+    await executeDragEnd({
+      event,
+      tasks,
+      taskToSection,
+      getSectionTasks,
+      queryClient,
+      reorderReminders,
+      patchReminderStatus,
+      toast,
+      t,
+    });
+
+    expect(setQueryDataSpy).toHaveBeenCalledOnce();
+    const updatedTasks = setQueryDataSpy.mock.calls[0][1];
+    const updatedTask = updatedTasks.find((t) => t.id === "t1");
+    // Status fields reset
+    expect(updatedTask.status).toBe("pending");
+    expect(updatedTask.completed).toBe(false);
+    expect(updatedTask.snoozedUntil).toBeNull();
+    // dateTime should be updated to today (different from snoozedTask.dateTime)
+    expect(updatedTask.dateTime).toBeDefined();
+    expect(updatedTask.dateTime).not.toBe(snoozedTask.dateTime);
+
+    // patchReminderStatus called with status reset + new dateTime
+    expect(patchReminderStatus).toHaveBeenCalledOnce();
+    const [patchId, patchBody] = patchReminderStatus.mock.calls[0];
+    expect(patchId).toBe("t1");
+    expect(patchBody.status).toBe("pending");
+    expect(patchBody.completed).toBe(false);
+    expect(patchBody.dateTime).toBe(updatedTask.dateTime);
+
+    expect(toast.success).toHaveBeenCalledOnce();
+    expect(reorderReminders).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("failure: SNOOZED → Today — patchReminderStatus rejects → rollback + toast.error(moveFailed)", async () => {
+    const snoozedTask = makeTask({
+      id: "t1",
+      status: "snoozed",
+      completed: false,
+      snoozedUntil: new Date("2026-05-17T09:00:00Z").toISOString(),
+      dateTime: new Date("2026-05-15T09:00:00Z").toISOString(),
+    });
+    const originalTasks = [snoozedTask];
+    const setQueryDataSpy = vi.fn();
+    const queryClient = {
+      getQueryData: vi.fn(() => originalTasks),
+      setQueryData: setQueryDataSpy,
+    };
+    const toast = { error: vi.fn(), success: vi.fn(), warning: vi.fn() };
+    const t = vi.fn((key, params) =>
+      params ? `${key}:${JSON.stringify(params)}` : key,
+    );
+    const reorderReminders = vi.fn(() => Promise.resolve({}));
+    const patchReminderStatus = vi.fn(() => Promise.reject(new Error("fail")));
+
+    const tasks = [snoozedTask];
+    const taskToSection = new Map([["t1", SECTION_IDS.SNOOZED]]);
+    const getSectionTasks = vi.fn(() => [snoozedTask]);
+    const event = makeEvent({ activeId: "t1", overId: SECTION_IDS.TODAY });
+
+    await executeDragEnd({
+      event,
+      tasks,
+      taskToSection,
+      getSectionTasks,
+      queryClient,
+      reorderReminders,
+      patchReminderStatus,
+      toast,
+      t,
+    });
+
+    // setQueryData called twice: optimistic then rollback
+    expect(setQueryDataSpy).toHaveBeenCalledTimes(2);
+    expect(setQueryDataSpy.mock.calls[1][1]).toBe(originalTasks);
+    expect(toast.error).toHaveBeenCalledWith("moveFailed");
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(reorderReminders).not.toHaveBeenCalled();
   });
 });
 
