@@ -4,35 +4,18 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import {
-  FaSun,
-  FaCalendarDay,
-  FaCalendarWeek,
-  FaCheckCircle,
-  FaMoon,
-} from "react-icons/fa";
-
-import {
-  DndContext,
-  DragOverlay,
-  MeasuringStrategy,
-} from "@dnd-kit/core";
+import { FaSun } from "react-icons/fa";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTasks } from "@/hooks/useTasks";
 import { useTaskSections } from "@/hooks/useTaskSections";
 import { useTaskDnD } from "@/hooks/useTaskDnD";
-import TaskItem from "@/components/tasks/TaskItem";
-import TaskSection from "@/components/tasks/TaskSection";
 import QuickAdd from "@/components/tasks/QuickAdd";
 import NextTaskCard from "@/components/dashboard/NextTaskCard";
+import SectionList from "@/components/dashboard/SectionList";
 import StatsOverview from "@/components/dashboard/StatsOverview";
 import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 import { useAIModal } from "@/components/ai/AIModalProvider";
-import {
-  SECTION_IDS,
-  DROP_ANIMATION_CONFIG,
-} from "@/lib/dnd";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -205,185 +188,32 @@ export default function DashboardPage() {
 
       {/* Drag-and-Drop Context for all sections */}
       <div className="page-enter-5">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={collisionDetection}
-        measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
-      >
-        {/* Overdue Tasks */}
-        {(overdueTasks.length > 0 || activeDragId) && (
-          <TaskSection
-            title={t("overdue")}
-            icon={<FaCalendarDay />}
-            tasks={overdueTasks}
-            onToggleComplete={handleToggleComplete}
-            onDelete={handleDelete}
-            onUpdate={handleUpdate}
-            onSnooze={handleSnooze}
-            onEdit={handleEditTask}
-            accentColor="orange"
-            emptyMessage={t("noOverdue")}
-            sortable
-            sectionId={SECTION_IDS.OVERDUE}
-            droppable
-            isExternalDragOver={
-              activeDragId &&
-              overSectionId === SECTION_IDS.OVERDUE &&
-              activeDragSourceSection !== SECTION_IDS.OVERDUE
-            }
-            completingIds={completingIds}
-            forceExpand={expandedByDrag === SECTION_IDS.OVERDUE}
-          />
-        )}
-
-        {/* Today's Tasks */}
-        <TaskSection
-          title={t("todaySection")}
-          icon={<FaSun />}
-          tasks={todayTasks}
-          onToggleComplete={handleToggleComplete}
-          onDelete={handleDelete}
-          onUpdate={handleUpdate}
-          onSnooze={handleSnooze}
-          onEdit={handleEditTask}
-          accentColor="blue"
-          showDate={false}
-          emptyMessage={t("noToday")}
-          emptyAction={{
-            text: t("planWithAI"),
-            subtext: t("planWithAISubtext"),
-            onClick: () => aiModal.open(),
+        <SectionList
+          sections={{
+            overdueTasks, todayTasks, tomorrowTasks, thisWeekTasks, snoozedTasks, completedToday,
           }}
-          sortable
-          sectionId={SECTION_IDS.TODAY}
-          droppable
-          isExternalDragOver={
-            activeDragId &&
-            overSectionId === SECTION_IDS.TODAY &&
-            activeDragSourceSection !== SECTION_IDS.TODAY
-          }
+          taskHandlers={{
+            onToggleComplete: handleToggleComplete,
+            onDelete: handleDelete,
+            onUpdate: handleUpdate,
+            onSnooze: handleSnooze,
+            onEdit: handleEditTask,
+          }}
+          dragHandlers={{
+            sensors,
+            collisionDetection,
+            onDragStart: handleDragStart,
+            onDragOver: handleDragOver,
+            onDragEnd: handleDragEnd,
+            onDragCancel: handleDragCancel,
+          }}
+          dragState={{
+            activeDragId, overSectionId, expandedByDrag, activeDragTask, activeDragSourceSection,
+          }}
           completingIds={completingIds}
-          forceExpand={expandedByDrag === SECTION_IDS.TODAY}
+          onPlanWithAI={() => aiModal.open()}
+          t={t}
         />
-
-        {/* Tomorrow's Tasks */}
-        <TaskSection
-          title={t("tomorrow")}
-          icon={<FaCalendarDay />}
-          tasks={tomorrowTasks}
-          onToggleComplete={handleToggleComplete}
-          onDelete={handleDelete}
-          onUpdate={handleUpdate}
-          onSnooze={handleSnooze}
-          onEdit={handleEditTask}
-          accentColor="green"
-          defaultCollapsed={todayTasks.length > 3}
-          emptyMessage={t("noTomorrow")}
-          sortable
-          sectionId={SECTION_IDS.TOMORROW}
-          droppable
-          isExternalDragOver={
-            activeDragId &&
-            overSectionId === SECTION_IDS.TOMORROW &&
-            activeDragSourceSection !== SECTION_IDS.TOMORROW
-          }
-          completingIds={completingIds}
-          forceExpand={expandedByDrag === SECTION_IDS.TOMORROW}
-        />
-
-        {/* This Week */}
-        {(thisWeekTasks.length > 0 || activeDragId) && (
-          <TaskSection
-            title={t("thisWeek")}
-            icon={<FaCalendarWeek />}
-            tasks={thisWeekTasks}
-            onToggleComplete={handleToggleComplete}
-            onDelete={handleDelete}
-            onUpdate={handleUpdate}
-            onSnooze={handleSnooze}
-            onEdit={handleEditTask}
-            accentColor="purple"
-            defaultCollapsed={true}
-            sortable
-            sectionId={SECTION_IDS.THIS_WEEK}
-            droppable
-            isExternalDragOver={
-              activeDragId &&
-              overSectionId === SECTION_IDS.THIS_WEEK &&
-              activeDragSourceSection !== SECTION_IDS.THIS_WEEK
-            }
-            completingIds={completingIds}
-            forceExpand={expandedByDrag === SECTION_IDS.THIS_WEEK}
-          />
-        )}
-
-        {/* Snoozed Tasks */}
-        {(snoozedTasks.length > 0 || activeDragId) && (
-          <TaskSection
-            title={t("snoozed")}
-            icon={<FaMoon />}
-            tasks={snoozedTasks}
-            onToggleComplete={handleToggleComplete}
-            onDelete={handleDelete}
-            onUpdate={handleUpdate}
-            onSnooze={handleSnooze}
-            onEdit={handleEditTask}
-            accentColor="purple"
-            defaultCollapsed={!activeDragId && true}
-            sortable
-            sectionId={SECTION_IDS.SNOOZED}
-            droppable
-            isExternalDragOver={
-              activeDragId &&
-              overSectionId === SECTION_IDS.SNOOZED &&
-              activeDragSourceSection !== SECTION_IDS.SNOOZED
-            }
-            completingIds={completingIds}
-            forceExpand={expandedByDrag === SECTION_IDS.SNOOZED}
-          />
-        )}
-
-        {/* Completed Today — always visible */}
-        <TaskSection
-          title={t("completedToday")}
-          icon={<FaCheckCircle />}
-          tasks={completedToday}
-          onToggleComplete={handleToggleComplete}
-          onDelete={handleDelete}
-          onUpdate={handleUpdate}
-          onSnooze={handleSnooze}
-          onEdit={handleEditTask}
-          accentColor="gray"
-          defaultCollapsed={false}
-          showDate={false}
-          sortable
-          sectionId={SECTION_IDS.COMPLETED}
-          droppable
-          isExternalDragOver={
-            activeDragId &&
-            overSectionId === SECTION_IDS.COMPLETED &&
-            activeDragSourceSection !== SECTION_IDS.COMPLETED
-          }
-          completingIds={completingIds}
-          forceExpand={expandedByDrag === SECTION_IDS.COMPLETED}
-        />
-
-        <DragOverlay dropAnimation={DROP_ANIMATION_CONFIG}>
-          {activeDragTask ? (
-            <TaskItem
-              task={activeDragTask}
-              onToggleComplete={() => {}}
-              onDelete={() => {}}
-              onUpdate={() => {}}
-              onEdit={() => {}}
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
       </div>
 
       <TaskDetailPanel
