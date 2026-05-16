@@ -5,6 +5,7 @@ import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { FiFileText, FiPlus, FiClock } from "react-icons/fi";
 import { extractPreview } from "@/lib/notes/preview";
+import { MS_PER_MINUTE } from "@/lib/utils";
 
 export default function NotesPage() {
   const t = useTranslations("notes");
@@ -50,7 +51,7 @@ export default function NotesPage() {
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now - date;
-    const diffMin = Math.floor(diffMs / 60000);
+    const diffMin = Math.floor(diffMs / MS_PER_MINUTE);
     if (diffMin < 1) return t("editedAgo", { time: "just now" });
     if (diffMin < 60) return t("editedAgo", { time: `${diffMin}m` });
     const diffHours = Math.floor(diffMin / 60);
