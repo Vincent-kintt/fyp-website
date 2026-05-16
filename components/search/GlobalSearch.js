@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Command } from "cmdk";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "@/i18n/navigation";
@@ -9,8 +9,8 @@ import { File } from "lucide-react";
 import { getTagClasses, isReminderCompleted } from "@/lib/utils";
 import { formatDateShort } from "@/lib/format";
 import { useAIModal } from "@/components/ai/AIModalProvider";
-
-const CACHE_TTL = 30_000; // 30 seconds
+import { useReminderList } from "@/hooks/useReminderList.js";
+import { useNoteList } from "@/hooks/useNoteList.js";
 
 const STATUS_COLORS = {
   pending: "#f59e0b",
@@ -111,11 +111,18 @@ export default function GlobalSearch() {
   const t = useTranslations("search");
   const aiModal = useAIModal();
   const [open, setOpen] = useState(false);
-  const [reminders, setReminders] = useState([]);
-  const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [searchValue, setSearchValue] = useState("");
-  const cacheRef = useRef({ data: null, timestamp: 0 });
+
+  // Shared React Query cache; 30s staleTime preserves the previous CACHE_TTL feel.
+  const { data: reminders = [], isLoading: remindersLoading } = useReminderList({
+    enabled: open,
+    staleTime: 30_000,
+  });
+  const { data: notes = [], isLoading: notesLoading } = useNoteList({
+    enabled: open,
+    staleTime: 30_000,
+  });
+  const loading = remindersLoading || notesLoading;
 
   // Ctrl+K / Cmd+K shortcut — skip inside inputs
   useEffect(() => {
@@ -144,53 +151,10 @@ export default function GlobalSearch() {
     return () => window.removeEventListener("open-global-search", handler);
   }, []);
 
-  // Fetch reminders on open with cache
+  // Clear searchValue when the dialog closes; data fetching is owned by the
+  // useReminderList / useNoteList hooks above (gated on `open`).
   useEffect(() => {
-    if (!open) {
-      setSearchValue("");
-      return;
-    }
-
-    const now = Date.now();
-    if (cacheRef.current.data && now - cacheRef.current.timestamp < CACHE_TTL) {
-      const cached = cacheRef.current.data;
-      // Handle both old (array) and new (object) cache shapes
-      if (Array.isArray(cached)) {
-        setReminders(cached);
-      } else {
-        setReminders(cached.reminders || []);
-        setNotes(cached.notes || []);
-      }
-      return;
-    }
-
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [remindersRes, notesRes] = await Promise.all([
-          fetch("/api/reminders"),
-          fetch("/api/notes"),
-        ]);
-        const remindersData = await remindersRes.json();
-        const notesData = await notesRes.json();
-        if (remindersData.success) {
-          setReminders(remindersData.data);
-        }
-        if (notesData.success) {
-          setNotes(notesData.data || []);
-        }
-        cacheRef.current = {
-          data: { reminders: remindersData.data || [], notes: notesData.data || [] },
-          timestamp: Date.now(),
-        };
-      } catch (err) {
-        console.error("Error fetching search data:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    if (!open) setSearchValue("");
   }, [open]);
 
   const handleSelect = useCallback(
