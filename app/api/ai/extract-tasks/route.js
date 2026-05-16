@@ -3,6 +3,7 @@ import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 
 const MAX_INPUT_LENGTH = 8000;
 
@@ -99,9 +100,9 @@ Rules:
       tasks = result.output ?? [];
     } catch (error) {
       if (NoObjectGeneratedError.isInstance(error)) {
-        console.warn(
-          "[extract-tasks] Structured output failed, salvaging from text",
-        );
+        logAIEvent("extract_tasks_structured_output_fallback", {
+          route: "extract-tasks",
+        });
         tasks = salvageTasksFromText(error.text);
       } else {
         throw error;

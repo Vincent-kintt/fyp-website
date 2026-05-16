@@ -6,6 +6,7 @@ import * as chrono from "chrono-node";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { nowAsWallClockIn } from "@/lib/ai/dateUtils.js";
+import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { computeOverallConfidence } from "./confidence.js";
 
 const parseTaskSchema = z.object({
@@ -101,7 +102,7 @@ function salvageFromText(rawText) {
 
 export const POST = withAuth(
   async ({ request }) => {
-    const { text, language = "zh", timezone, tzOffset } = await request.json();
+    const { text, language = "zh", timezone } = await request.json();
 
     if (!text?.trim()) {
       return apiError("Text is required", 400);
@@ -111,21 +112,12 @@ export const POST = withAuth(
       return apiError("Input too long", 400);
     }
 
-    // Build a reference Date whose wall-clock parts match the user's local "now".
-    // Prefer IANA timezone (DST-aware via Intl); fall back to numeric tzOffset for older
-    // clients that haven't been redeployed; default to server clock if neither is supplied.
-    let now;
-    if (typeof timezone === "string" && timezone) {
-      now = nowAsWallClockIn(timezone);
-    } else if (typeof tzOffset === "number") {
-      const serverNow = new Date();
-      now = new Date(
-        serverNow.getTime() +
-          (serverNow.getTimezoneOffset() - tzOffset) * 60000,
-      );
-    } else {
-      now = new Date();
-    }
+    // Reference Date whose wall-clock parts match the user's local "now" (DST-aware via Intl).
+    // Falls back to the server clock when the client omits `timezone`.
+    const now =
+      typeof timezone === "string" && timezone
+        ? nowAsWallClockIn(timezone)
+        : new Date();
 
     const currentTimeStr = new Date().toLocaleString("en-US", {
       weekday: "long",
@@ -171,18 +163,19 @@ Extract structured data from user input.
       llmParsed = result.output;
     } catch (error) {
       if (NoObjectGeneratedError.isInstance(error)) {
-        console.warn(
-          "[parse-task] Structured output failed, salvaging from text",
-        );
+        logAIEvent("parse_task_structured_output_fallback", {
+          route: "parse-task",
+        });
         const salvaged = salvageFromText(error.text);
         if (salvaged) {
           llmParsed = salvageSchema.parse(salvaged);
         }
       }
       if (!llmParsed) {
-        console.error(
-          "[parse-task] All parsing failed:",
-          error.message || error,
+        logAIEvent(
+          "parse_task_failed",
+          { route: "parse-task", message: error.message || String(error) },
+          "error",
         );
         llmParsed = { title: text.trim() };
       }
