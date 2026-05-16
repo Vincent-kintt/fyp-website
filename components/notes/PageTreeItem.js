@@ -203,11 +203,11 @@ export default function PageTreeItem({
                 <MoreHorizontal size={14} strokeWidth={1.5} />
               </button>
               <button
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onCreateSubPage?.(note.id);
-                  onNoteSelect?.();
+                  const created = await onCreateSubPage?.(note.id);
+                  if (created) onNoteSelect?.();
                 }}
                 className="p-1 rounded"
                 style={{ color: "var(--text-muted)" }}
@@ -230,7 +230,11 @@ export default function PageTreeItem({
                 role="menu"
               >
                 <button
-                  onClick={() => { setMenuOpen(false); onCreateSubPage?.(note.id); onNoteSelect?.(); }}
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    const created = await onCreateSubPage?.(note.id);
+                    if (created) onNoteSelect?.();
+                  }}
                   className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left transition-colors"
                   style={{ color: "var(--text-secondary)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
@@ -250,7 +254,11 @@ export default function PageTreeItem({
                   <Pencil size={14} strokeWidth={1.5} /> {t("rename")}
                 </button>
                 <button
-                  onClick={() => { setMenuOpen(false); onDuplicate?.(note.id); onNoteSelect?.(); }}
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    const duplicated = await onDuplicate?.(note.id);
+                    if (duplicated) onNoteSelect?.();
+                  }}
                   className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left transition-colors"
                   style={{ color: "var(--text-secondary)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}

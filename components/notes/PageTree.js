@@ -363,7 +363,10 @@ export default function PageTree({
 
       {/* New Page button */}
       <button
-        onClick={() => { onCreateNote?.(); onNoteSelect?.(); }}
+        onClick={async () => {
+          const created = await onCreateNote?.();
+          if (created) onNoteSelect?.();
+        }}
         className="flex items-center gap-[6px] mx-2 py-1.5 rounded-md text-[13px]"
         style={{ color: "var(--text-muted)", paddingLeft: "32px", paddingRight: "8px" }}
         onMouseEnter={(e) => {

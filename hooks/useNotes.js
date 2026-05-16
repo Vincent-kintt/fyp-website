@@ -124,6 +124,7 @@ export default function useNotes() {
           });
           await invalidateAll();
           router.push(`/notes/${data.data.id}`);
+          return data.data;
         }
       } catch {
         toast.error(t("saveFailed"));
