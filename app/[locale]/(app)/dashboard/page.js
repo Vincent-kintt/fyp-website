@@ -18,22 +18,20 @@ import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 import { useAIModal } from "@/components/ai/AIModalProvider";
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const t = useTranslations("dashboard");
   const locale = useLocale();
   const {
-    tasks: rawTasks,
+    tasks,
     loading,
     toggleComplete,
     deleteTask,
-    updateTask,
     snoozeTask,
     quickAdd,
     refetch,
   } = useTasks();
   const queryClient = useQueryClient();
-  const tasks = rawTasks;
   const aiModal = useAIModal();
   const [completingIds, setCompletingIds] = useState(new Set());
   const [selectedTaskId, setSelectedTaskId] = useState(null);
