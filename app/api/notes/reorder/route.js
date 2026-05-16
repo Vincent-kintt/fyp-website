@@ -13,7 +13,7 @@ const notesReorderSchema = z
   })
   .superRefine((data, ctx) => {
     for (const item of data.updates) {
-      if (!item.id || !ObjectId.isValid(item.id)) {
+      if (typeof item.id !== "string" || !ObjectId.isValid(item.id)) {
         ctx.addIssue({
           code: "custom",
           message: `Invalid note ID: ${item.id}`,
@@ -28,7 +28,7 @@ const notesReorderSchema = z
         return;
       }
       if (item.parentId !== undefined && item.parentId !== null) {
-        if (!ObjectId.isValid(item.parentId)) {
+        if (typeof item.parentId !== "string" || !ObjectId.isValid(item.parentId)) {
           ctx.addIssue({
             code: "custom",
             message: `Invalid parentId format: ${item.parentId}`,

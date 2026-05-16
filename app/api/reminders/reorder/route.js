@@ -13,7 +13,7 @@ const reminderReorderSchema = z
   })
   .superRefine((data, ctx) => {
     for (const item of data.items) {
-      if (!item.id || !ObjectId.isValid(item.id)) {
+      if (typeof item.id !== "string" || !ObjectId.isValid(item.id)) {
         ctx.addIssue({
           code: "custom",
           message: `Invalid reminder ID: ${item.id}`,
