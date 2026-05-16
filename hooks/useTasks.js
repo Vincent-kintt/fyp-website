@@ -6,13 +6,22 @@ import { useRef, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { reminderKeys } from "@/lib/queryKeys";
+import { fetchReminderList } from "@/hooks/useReminderList.js";
+import { useCreateReminder } from "@/hooks/useCreateReminder.js";
 
-async function fetchTasksFromApi() {
-  const res = await fetch("/api/reminders");
-  if (!res.ok) throw new Error("Failed to fetch tasks");
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error || "Failed to fetch tasks");
-  return data.data;
+/**
+ * Pure helper composing useCreateReminder + toast policy.
+ * Exported for unit testing without rendering React.
+ */
+export async function executeQuickAdd({ data, createReminder, t, toast }) {
+  try {
+    const result = await createReminder.mutateAsync(data);
+    toast.success(t("taskAdded"));
+    return result;
+  } catch (err) {
+    toast.error(t("addFailed"));
+    throw err;
+  }
 }
 
 export function useTasks() {
@@ -25,7 +34,7 @@ export function useTasks() {
   // ---- Query ----
   const query = useQuery({
     queryKey: reminderKeys.list({}),
-    queryFn: fetchTasksFromApi,
+    queryFn: fetchReminderList,
     enabled: !!session,
   });
 
@@ -204,23 +213,12 @@ export function useTasks() {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all }),
   });
 
-  // ---- Quick add (invalidate on success) ----
-  const quickAddMutation = useMutation({
-    mutationFn: (data) =>
-      fetch("/api/reminders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }).then((r) => {
-        if (!r.ok) throw new Error("Failed");
-        return r.json();
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
-      toast.success(t("taskAdded"));
-    },
-    onError: () => toast.error(t("addFailed")),
-  });
+  // ---- Quick add — compose useCreateReminder with toast policy ----
+  const createReminder = useCreateReminder();
+  const quickAdd = useCallback(
+    (data) => executeQuickAdd({ data, createReminder, t, toast }),
+    [createReminder, t],
+  );
 
   // ---- Cleanup delete timers on unmount ----
   useEffect(() => {
@@ -239,7 +237,7 @@ export function useTasks() {
     updateTask: (patch) => updateMutation.mutate(patch),
     snoozeTask: (id, snoozedUntil) =>
       snoozeMutation.mutate({ id, snoozedUntil }),
-    quickAdd: (data) => quickAddMutation.mutateAsync(data),
+    quickAdd,
     refetch: () =>
       queryClient.invalidateQueries({ queryKey: reminderKeys.all }),
   };
