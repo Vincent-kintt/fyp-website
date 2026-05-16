@@ -1,49 +1,43 @@
 import { getCollection } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { z } from "zod";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
+
+// Validate username: 3-20 chars, alphanumeric and underscores only
+const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+
+// Validate email: HTML5-spec regex (rejects <>"' etc.) + RFC 5321 length limit
+const emailRegex =
+  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+
+const registerSchema = z.object({
+  username: z
+    .string({ error: "Username, email, and password are required." })
+    .min(1, "Username, email, and password are required.")
+    .regex(
+      usernameRegex,
+      "Username must be 3-20 characters and contain only letters, numbers, and underscores.",
+    ),
+  email: z
+    .string({ error: "Username, email, and password are required." })
+    .min(1, "Username, email, and password are required.")
+    .max(254, "Please provide a valid email address.")
+    .regex(emailRegex, "Please provide a valid email address."),
+  password: z
+    .string({ error: "Username, email, and password are required." })
+    .min(8, "Password must be at least 8 characters."),
+});
 
 export async function POST(request) {
-  const { data: body, error: parseError } = await parseJsonBody(request);
+  const { data: body, error: parseError } = await parseJsonBodyWithSchema(
+    request,
+    registerSchema,
+  );
   if (parseError) return parseError;
 
   try {
     const { username, email, password } = body;
-
-    // Validate required fields
-    if (!username || !email || !password) {
-      return NextResponse.json(
-        { error: "Username, email, and password are required." },
-        { status: 400 }
-      );
-    }
-
-    // Validate username: 3-20 chars, alphanumeric and underscores only
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-    if (!usernameRegex.test(username)) {
-      return NextResponse.json(
-        { error: "Username must be 3-20 characters and contain only letters, numbers, and underscores." },
-        { status: 400 }
-      );
-    }
-
-    // Validate email: HTML5-spec regex (rejects <>"' etc.) + RFC 5321 length limit
-    const emailRegex =
-      /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-    if (email.length > 254 || !emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: "Please provide a valid email address." },
-        { status: 400 }
-      );
-    }
-
-    // Validate password length
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters." },
-        { status: 400 }
-      );
-    }
 
     const usersCollection = await getCollection("users");
 
