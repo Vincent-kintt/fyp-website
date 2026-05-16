@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa";
 import { useTranslations, useLocale } from "next-intl";
 import { getTagClasses, formatDuration, DURATION_PRESETS } from "@/lib/utils";
+import { addTagToList } from "@/lib/tasks/addTagToList";
 import { PRIORITY } from "@/lib/taskConfig";
 
 const DEBOUNCE_MS = 600;
@@ -257,16 +258,13 @@ export default function QuickAdd({
     setManualTime("");
   };
 
-  const addTag = (tag) => {
-    if (!tag.trim()) return;
-    const normalized = tag
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .slice(0, 30);
-    setParsedData((prev) => ({
-      ...prev,
-      tags: [...new Set([...(prev?.tags || []), normalized])],
-    }));
+  const addTag = (rawTag) => {
+    const existing = parsedData?.tags || [];
+    const updated = addTagToList(rawTag, existing);
+    if (updated === null) return;
+    if (updated !== existing) {
+      setParsedData((prev) => ({ ...prev, tags: updated }));
+    }
     setNewTag("");
     setShowTagInput(false);
   };
