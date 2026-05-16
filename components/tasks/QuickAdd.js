@@ -156,7 +156,7 @@ export default function QuickAdd({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
@@ -180,8 +180,8 @@ export default function QuickAdd({
         setInlineResult(null);
         setIsExpanded(false);
       }, 5000);
-    } catch (error) {
-      console.error("Error adding task:", error);
+    } catch {
+      // useTasks.quickAdd's onError already toasts addFailed — swallow here so the inline success card isn't shown.
     } finally {
       setIsSubmitting(false);
     }

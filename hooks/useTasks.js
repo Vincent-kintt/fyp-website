@@ -239,7 +239,7 @@ export function useTasks() {
     updateTask: (patch) => updateMutation.mutate(patch),
     snoozeTask: (id, snoozedUntil) =>
       snoozeMutation.mutate({ id, snoozedUntil }),
-    quickAdd: (data) => quickAddMutation.mutate(data),
+    quickAdd: (data) => quickAddMutation.mutateAsync(data),
     refetch: () =>
       queryClient.invalidateQueries({ queryKey: reminderKeys.all }),
   };

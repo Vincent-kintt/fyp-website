@@ -100,9 +100,7 @@ export default function DashboardPage() {
   );
 
   const handleQuickAdd = useCallback(
-    (data) => {
-      quickAdd(data);
-    },
+    (data) => quickAdd(data),
     [quickAdd],
   );
 
