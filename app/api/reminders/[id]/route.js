@@ -15,6 +15,7 @@ import {
 } from "@/lib/reminderUtils";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 
 // GET /api/reminders/[id] - Get a single reminder (must belong to user)
 export const GET = withAuth(
@@ -44,7 +45,8 @@ export const GET = withAuth(
 export const PUT = withAuth(
   async ({ request, params, userId }) => {
     const { id } = await params;
-    const body = await request.json();
+    const { data: body, error } = await parseJsonBody(request);
+    if (error) return error;
     const {
       title,
       description,
@@ -212,7 +214,8 @@ export const DELETE = withAuth(
 export const PATCH = withAuth(
   async ({ request, params, userId }) => {
     const { id } = await params;
-    const body = await request.json();
+    const { data: body, error } = await parseJsonBody(request);
+    if (error) return error;
 
     if (!ObjectId.isValid(id)) {
       return apiError("Invalid reminder ID", 400);

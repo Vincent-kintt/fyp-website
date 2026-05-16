@@ -5,6 +5,7 @@ import { createNoteTools } from "@/lib/ai/noteTools.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 import {
   acquireNoteAILock,
   releaseNoteAILock,
@@ -101,12 +102,17 @@ export const POST = withAuth(
     };
 
     try {
+      const { data, error: parseError } = await parseJsonBody(request);
+      if (parseError) {
+        releaseOnce();
+        return parseError;
+      }
       const {
         input,
         noteTitle,
         noteContext,
         language = "zh",
-      } = await request.json();
+      } = data;
 
       if (!input || !input.trim()) {
         releaseOnce();

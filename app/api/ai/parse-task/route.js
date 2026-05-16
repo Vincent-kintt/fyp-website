@@ -5,6 +5,7 @@ import { z } from "zod";
 import * as chrono from "chrono-node";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 import { nowAsWallClockIn } from "@/lib/ai/dateUtils.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { computeOverallConfidence } from "./confidence.js";
@@ -102,7 +103,9 @@ function salvageFromText(rawText) {
 
 export const POST = withAuth(
   async ({ request }) => {
-    const { text, language = "zh", timezone } = await request.json();
+    const { data, error } = await parseJsonBody(request);
+    if (error) return error;
+    const { text, language = "zh", timezone } = data;
 
     if (!text?.trim()) {
       return apiError("Text is required", 400);

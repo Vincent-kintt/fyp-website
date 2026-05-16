@@ -1,10 +1,13 @@
 import { getCollection } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
+import { parseJsonBody } from "@/lib/api/body.js";
 
 export async function POST(request) {
+  const { data: body, error: parseError } = await parseJsonBody(request);
+  if (parseError) return parseError;
+
   try {
-    const body = await request.json();
     const { username, email, password } = body;
 
     // Validate required fields

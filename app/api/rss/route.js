@@ -1,5 +1,6 @@
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 import {
   getRssFeedsCollection,
   getRssSubscriptionsCollection,
@@ -32,7 +33,9 @@ export const GET = withAuth(
 // POST /api/rss — subscribe by category
 export const POST = withAuth(
   async ({ request, userId }) => {
-    const { categories } = await request.json();
+    const { data, error } = await parseJsonBody(request);
+    if (error) return error;
+    const { categories } = data;
     if (!Array.isArray(categories) || categories.length === 0) {
       return apiError("At least one category is required", 400);
     }

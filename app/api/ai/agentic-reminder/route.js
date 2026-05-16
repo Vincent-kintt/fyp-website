@@ -4,19 +4,22 @@ import { createTools } from "@/lib/ai/tools.js";
 import { getSystemPrompt } from "@/lib/ai/prompt.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export const POST = withAuth(
   async ({ request, userId }) => {
+    const { data, error } = await parseJsonBody(request);
+    if (error) return error;
     const {
       messages: uiMessages,
       model,
       reasoningEffort = "medium",
       language = "zh",
       userLocation = null,
-    } = await request.json();
+    } = data;
 
     const messages = await convertToModelMessages(uiMessages);
 

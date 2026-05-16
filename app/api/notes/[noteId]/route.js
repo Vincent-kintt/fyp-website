@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 import {
   getNotesCollection,
   formatNote,
@@ -41,7 +42,8 @@ export const PATCH = withAuth(
       return apiError("Invalid note ID", 400);
     }
 
-    const body = await request.json();
+    const { data: body, error } = await parseJsonBody(request);
+    if (error) return error;
     const { title, content, parentId, icon, sortOrder } = body;
 
     const updateData = { updatedAt: new Date() };

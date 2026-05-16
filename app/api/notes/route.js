@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 import { getNotesCollection, formatNote } from "@/lib/notes/db";
 
 // GET /api/notes - List all notes for logged-in user
@@ -20,7 +21,8 @@ export const GET = withAuth(
 // POST /api/notes - Create a new note for logged-in user
 export const POST = withAuth(
   async ({ request, userId }) => {
-    const body = await request.json();
+    const { data: body, error } = await parseJsonBody(request);
+    if (error) return error;
     const { title, parentId, icon } = body;
 
     if (!title || typeof title !== "string" || title.trim().length === 0) {

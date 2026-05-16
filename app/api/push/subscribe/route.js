@@ -1,11 +1,13 @@
 import { getCollection } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 
 // POST /api/push/subscribe — save or refresh push subscription
 export const POST = withAuth(
   async ({ request, userId }) => {
-    const body = await request.json();
+    const { data: body, error } = await parseJsonBody(request);
+    if (error) return error;
     const { endpoint, keys } = body;
 
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
@@ -47,7 +49,8 @@ export const POST = withAuth(
 // DELETE /api/push/subscribe — remove push subscription
 export const DELETE = withAuth(
   async ({ request, userId }) => {
-    const body = await request.json();
+    const { data: body, error } = await parseJsonBody(request);
+    if (error) return error;
     const { endpoint } = body;
 
     if (!endpoint) {

@@ -4,6 +4,7 @@ import { createRssTools } from "@/lib/ai/rssTools.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 import {
   acquireNoteAILock,
   releaseNoteAILock,
@@ -57,7 +58,12 @@ export const POST = withAuth(
     };
 
     try {
-      const { language = "zh", timezone } = await request.json();
+      const { data, error: parseError } = await parseJsonBody(request);
+      if (parseError) {
+        releaseOnce();
+        return parseError;
+      }
+      const { language = "zh", timezone } = data;
       const { todayStart, todayEnd } = computeDateBounds(timezone);
       const tools = createRssTools(userId, todayStart, todayEnd);
 

@@ -7,6 +7,7 @@ import {
 } from "@/lib/reminderUtils";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 
 // GET /api/reminders - Get all reminders for logged-in user
 export const GET = withAuth(
@@ -93,7 +94,8 @@ export const GET = withAuth(
 // POST /api/reminders - Create a new reminder for logged-in user
 export const POST = withAuth(
   async ({ request, session, userId }) => {
-    const body = await request.json();
+    const { data: body, error } = await parseJsonBody(request);
+    if (error) return error;
     const {
       title,
       description,

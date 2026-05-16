@@ -1,12 +1,14 @@
 import { ObjectId } from "mongodb";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 import { getNotesCollection } from "@/lib/notes/db";
 
 // POST /api/notes/reorder - Batch update sortOrder and parentId
 export const POST = withAuth(
   async ({ request, userId }) => {
-    const body = await request.json();
+    const { data: body, error } = await parseJsonBody(request);
+    if (error) return error;
     const { updates } = body;
 
     if (!Array.isArray(updates) || updates.length === 0) {

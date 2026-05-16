@@ -1,5 +1,6 @@
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 import { getNotesCollection, formatNote } from "@/lib/notes/db";
 
 // POST /api/inbox/note — Get-or-create the inbox note for the current user
@@ -33,7 +34,8 @@ export const POST = withAuth(
 // PATCH /api/inbox/note — Save inbox content
 export const PATCH = withAuth(
   async ({ request, userId }) => {
-    const body = await request.json();
+    const { data: body, error } = await parseJsonBody(request);
+    if (error) return error;
     const { content, extractedTasks, confirmedTasks } = body;
 
     if (content !== undefined && !Array.isArray(content)) {

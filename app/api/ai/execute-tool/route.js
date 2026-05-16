@@ -1,5 +1,6 @@
 import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 import { createTools } from "@/lib/ai/tools.js";
 
 export const runtime = "nodejs";
@@ -17,7 +18,9 @@ const ALLOWED_TOOLS = new Set([
 
 export const POST = withAuth(
   async ({ request, userId }) => {
-    const { toolName, params } = await request.json();
+    const { data, error } = await parseJsonBody(request);
+    if (error) return error;
+    const { toolName, params } = data;
 
     if (!toolName) {
       return apiError("Tool name is required", 400);

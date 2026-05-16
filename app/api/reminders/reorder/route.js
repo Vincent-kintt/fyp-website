@@ -2,11 +2,13 @@ import { getCollection } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 
 // PATCH /api/reminders/reorder - Batch update sortOrder (and optionally dateTime)
 export const PATCH = withAuth(
   async ({ request, userId }) => {
-    const body = await request.json();
+    const { data: body, error } = await parseJsonBody(request);
+    if (error) return error;
     const { items } = body;
 
     if (!Array.isArray(items) || items.length === 0) {

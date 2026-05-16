@@ -3,6 +3,7 @@ import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { parseJsonBody } from "@/lib/api/body.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 
 const MAX_INPUT_LENGTH = 8000;
@@ -49,7 +50,9 @@ function salvageTasksFromText(rawText) {
 
 export const POST = withAuth(
   async ({ request }) => {
-    const { text, language = "zh", confirmedTasks = [] } = await request.json();
+    const { data, error } = await parseJsonBody(request);
+    if (error) return error;
+    const { text, language = "zh", confirmedTasks = [] } = data;
 
     if (!text?.trim()) {
       return apiError("Text is required", 400);
