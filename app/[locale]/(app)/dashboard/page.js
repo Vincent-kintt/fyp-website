@@ -11,18 +11,16 @@ import {
   FaCheckCircle,
   FaMoon,
 } from "react-icons/fa";
-import { toast } from "sonner";
+
 import {
   DndContext,
   DragOverlay,
   MeasuringStrategy,
 } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTasks } from "@/hooks/useTasks";
 import { useTaskSections } from "@/hooks/useTaskSections";
 import { useTaskDnD } from "@/hooks/useTaskDnD";
-import { reminderKeys } from "@/lib/queryKeys";
 import TaskItem from "@/components/tasks/TaskItem";
 import TaskSection from "@/components/tasks/TaskSection";
 import QuickAdd from "@/components/tasks/QuickAdd";
@@ -31,15 +29,7 @@ import StatsOverview from "@/components/dashboard/StatsOverview";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 import { useAIModal } from "@/components/ai/AIModalProvider";
 import {
-  computeSortOrders,
-  reorderReminders,
-  patchReminderStatus,
   SECTION_IDS,
-  getSectionTargetDate,
-  getSectionTargetStatus,
-  getDefaultSnoozeUntil,
-  computeNewDateTime,
-  getSectionLabelKey,
   DROP_ANIMATION_CONFIG,
 } from "@/lib/dnd";
 
@@ -158,174 +148,11 @@ export default function DashboardPage() {
     expandedByDrag,
     handleDragStart,
     handleDragOver,
+    handleDragEnd,
     handleDragCancel,
     activeDragTask,
     activeDragSourceSection,
-    resetDragState,
-  } = useTaskDnD({ tasks, taskToSection });
-
-  const handleDragEnd = useCallback(
-    async (event) => {
-      const { active, over } = event;
-      resetDragState();
-
-      if (!over || active.id === over.id) return;
-
-      const sourceSection = taskToSection.get(active.id);
-      const rawTarget = taskToSection.get(over.id) || over.id;
-      const validSections = new Set(Object.values(SECTION_IDS));
-      const targetSection = validSections.has(rawTarget) ? rawTarget : null;
-
-      if (!sourceSection || !targetSection) return;
-
-      const originalTasks = queryClient.getQueryData(reminderKeys.list({}));
-
-      if (sourceSection === targetSection) {
-        // Within-section reorder (unchanged)
-        const sectionTasks = getSectionTasks(sourceSection);
-        const oldIndex = sectionTasks.findIndex((t) => t.id === active.id);
-        const newIndex = sectionTasks.findIndex((t) => t.id === over.id);
-        if (oldIndex === -1 || newIndex === -1) return;
-
-        const reordered = arrayMove(sectionTasks, oldIndex, newIndex);
-        const reorderedWithOrder = reordered.map((task, index) => ({
-          ...task,
-          sortOrder: (index + 1) * 1000,
-        }));
-        const reorderedIds = new Set(reorderedWithOrder.map((t) => t.id));
-        const otherTasks = tasks.filter((t) => !reorderedIds.has(t.id));
-        queryClient.setQueryData(
-          reminderKeys.list({}),
-          [...otherTasks, ...reorderedWithOrder],
-        );
-
-        try {
-          const sortUpdates = computeSortOrders(reordered);
-          await reorderReminders(sortUpdates);
-        } catch {
-          queryClient.setQueryData(reminderKeys.list({}), originalTasks);
-          toast.error(t("reorderFailed"));
-        }
-      } else {
-        // Cross-section move
-        const draggedTask = tasks.find((t) => t.id === active.id);
-        if (!draggedTask) return;
-
-        const STATUS_SECTIONS = new Set([
-          SECTION_IDS.COMPLETED,
-          SECTION_IDS.SNOOZED,
-        ]);
-        const isToStatus = STATUS_SECTIONS.has(targetSection);
-        const isFromStatus = STATUS_SECTIONS.has(sourceSection);
-
-        // Block drag TO Overdue — it's a computed state, not a drop target
-        if (targetSection === SECTION_IDS.OVERDUE) return;
-
-        // Block invalid transitions: COMPLETED ↔ SNOOZED
-        if (isFromStatus && isToStatus) {
-          toast.warning(t("restoreFirst"));
-          return;
-        }
-
-        if (isToStatus) {
-          // Move TO a status section (COMPLETED or SNOOZED)
-          const statusBody = { ...getSectionTargetStatus(targetSection) };
-          let optimisticUpdate;
-
-          if (targetSection === SECTION_IDS.COMPLETED) {
-            optimisticUpdate = {
-              ...draggedTask,
-              status: "completed",
-              completed: true,
-              completedAt: new Date().toISOString(),
-            };
-          } else {
-            // SNOOZED — snoozedUntil is required by API
-            const snoozedUntil = getDefaultSnoozeUntil();
-            statusBody.snoozedUntil = snoozedUntil;
-            optimisticUpdate = {
-              ...draggedTask,
-              status: "snoozed",
-              snoozedUntil,
-            };
-          }
-
-          queryClient.setQueryData(
-            reminderKeys.list({}),
-            tasks.map((t) => (t.id === active.id ? optimisticUpdate : t)),
-          );
-
-          try {
-            await patchReminderStatus(active.id, statusBody);
-            toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
-          } catch {
-            queryClient.setQueryData(reminderKeys.list({}), originalTasks);
-            toast.error(t("moveFailed"));
-          }
-        } else {
-          // Move TO a date section (from any source)
-          const targetDate = getSectionTargetDate(targetSection);
-          if (!targetDate) return;
-
-          const newDateTime = computeNewDateTime(
-            draggedTask.dateTime,
-            targetDate,
-          );
-
-          if (isFromStatus) {
-            // From COMPLETED/SNOOZED → date section: status reset + date change
-            const statusBody = {
-              ...getSectionTargetStatus(targetSection),
-              dateTime: newDateTime,
-            };
-            const optimisticUpdate = {
-              ...draggedTask,
-              status: "pending",
-              completed: false,
-              dateTime: newDateTime,
-              snoozedUntil: null,
-            };
-
-            queryClient.setQueryData(
-              reminderKeys.list({}),
-              tasks.map((t) => (t.id === active.id ? optimisticUpdate : t)),
-            );
-
-            try {
-              await patchReminderStatus(active.id, statusBody);
-              toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
-            } catch {
-              queryClient.setQueryData(reminderKeys.list({}), originalTasks);
-              toast.error(t("moveFailed"));
-            }
-          } else {
-            // Date → Date move (existing logic)
-            queryClient.setQueryData(
-              reminderKeys.list({}),
-              tasks.map((t) =>
-                t.id === active.id ? { ...t, dateTime: newDateTime } : t,
-              ),
-            );
-
-            try {
-              await reorderReminders([
-                {
-                  id: active.id,
-                  sortOrder: draggedTask.sortOrder || 0,
-                  dateTime: newDateTime,
-                },
-              ]);
-              toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
-            } catch {
-              queryClient.setQueryData(reminderKeys.list({}), originalTasks);
-              toast.error(t("moveFailed"));
-            }
-          }
-        }
-      }
-    },
-    [tasks, taskToSection, getSectionTasks, queryClient, t, resetDragState],
-  );
+  } = useTaskDnD({ tasks, taskToSection, getSectionTasks, queryClient, t });
 
   if (status === "loading" || loading) {
     return (
