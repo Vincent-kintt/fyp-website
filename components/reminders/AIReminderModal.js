@@ -41,8 +41,8 @@ export default function AIReminderModal({
   settingsRef.current = settings;
   const userLocationRef = useRef(userLocation);
   userLocationRef.current = userLocation;
-  const onSuccessRefForChat = useRef(onSuccess);
-  onSuccessRefForChat.current = onSuccess;
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
 
   const t = useTranslations("aiModal");
 
@@ -83,7 +83,7 @@ export default function AIReminderModal({
       });
       if (hasMutation) {
         hasPendingRefreshRef.current = true;
-        onSuccessRefForChat.current?.();
+        onSuccessRef.current?.();
       }
     },
   });
@@ -281,12 +281,6 @@ export default function AIReminderModal({
       });
     }
   }, []);
-
-  // Store onSuccess in a ref so cleanup can access latest value
-  const onSuccessRef = useRef(onSuccess);
-  useEffect(() => {
-    onSuccessRef.current = onSuccess;
-  }, [onSuccess]);
 
   // Handle component unmount - refresh if there were mutations
   useEffect(() => {
