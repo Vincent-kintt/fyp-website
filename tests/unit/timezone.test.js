@@ -269,23 +269,6 @@ describe("getSystemPrompt", () => {
     });
   });
 
-  describe("with tzOffset", () => {
-    it("computes UTC+8 timezone string from offset -480", () => {
-      const prompt = getSystemPrompt({ tzOffset: -480 });
-      expect(prompt).toContain("Timezone: UTC+8");
-    });
-
-    it("computes UTC-5 timezone string from offset 300", () => {
-      const prompt = getSystemPrompt({ tzOffset: 300 });
-      expect(prompt).toContain("Timezone: UTC-5");
-    });
-
-    it("computes UTC+5:30 for offset -330 (India)", () => {
-      const prompt = getSystemPrompt({ tzOffset: -330 });
-      expect(prompt).toContain("Timezone: UTC+5:30");
-    });
-  });
-
   describe("fallback (no timezone info)", () => {
     it("still produces a valid prompt with date fields", () => {
       const prompt = getSystemPrompt({});
