@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { msUntilNextMidnight } from "@/hooks/useTaskSections.js";
 
 // Mock client-only dnd-kit imports (same pattern as dashboard-sections.test.js)
 vi.mock("@dnd-kit/core", () => ({
@@ -140,5 +141,46 @@ describe("useTaskSections — getSectionTasks switch", () => {
     expect(getSectionTasks("unknown")).toEqual([]);
     expect(getSectionTasks(undefined)).toEqual([]);
     expect(getSectionTasks("")).toEqual([]);
+  });
+});
+
+describe("msUntilNextMidnight — midnight tick helper", () => {
+  // Helper is pure on its `from` argument — no fake timers needed.
+  // We use new Date(year, month, day, h, m, s, ms) which creates a LOCAL time,
+  // so the expected values are computed in local-time arithmetic as well.
+
+  it("returns 14h + 100ms for local 10:00:00.000", () => {
+    const from = new Date(2026, 4, 16, 10, 0, 0, 0); // May is month 4
+    const result = msUntilNextMidnight(from);
+    const expected = 14 * 60 * 60 * 1000 + 100; // 14 hours to midnight + 100ms buffer
+    expect(result).toBe(expected);
+  });
+
+  it("returns 1100ms for local 23:59:59.000 (1 second to midnight + 100ms buffer)", () => {
+    const from = new Date(2026, 4, 16, 23, 59, 59, 0);
+    const result = msUntilNextMidnight(from);
+    expect(result).toBe(1100);
+  });
+
+  it("returns a full 24h + 100ms for exactly local midnight — setHours(24,...) rolls to NEXT day", () => {
+    // If from is 2026-05-16T00:00:00.000 local, setHours(24,0,0,100) produces
+    // 2026-05-17T00:00:00.100 local, not 100ms later on the same day.
+    const from = new Date(2026, 4, 16, 0, 0, 0, 0);
+    const result = msUntilNextMidnight(from);
+    const expected = 24 * 60 * 60 * 1000 + 100;
+    expect(result).toBe(expected);
+  });
+
+  it("is always positive for any time of day", () => {
+    const times = [
+      new Date(2026, 4, 16, 0, 0, 0, 0),
+      new Date(2026, 4, 16, 0, 0, 0, 1),
+      new Date(2026, 4, 16, 6, 0, 0, 0),
+      new Date(2026, 4, 16, 12, 0, 0, 0),
+      new Date(2026, 4, 16, 23, 59, 59, 999),
+    ];
+    for (const t of times) {
+      expect(msUntilNextMidnight(t)).toBeGreaterThan(0);
+    }
   });
 });

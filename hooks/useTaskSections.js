@@ -1,12 +1,25 @@
 "use client";
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState, useEffect } from "react";
 import { SECTION_IDS } from "@/lib/dnd.js";
 import { groupTasksBySection } from "@/lib/dashboard/sectionGrouping.js";
 
+export function msUntilNextMidnight(from) {
+  const next = new Date(from);
+  next.setHours(24, 0, 0, 100);
+  return next.getTime() - from.getTime();
+}
+
 export function useTaskSections({ tasks, completingIds }) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setTimeout(() => setNow(new Date()), msUntilNextMidnight(now));
+    return () => clearTimeout(id);
+  }, [now]);
+
   const sections = useMemo(
-    () => groupTasksBySection({ tasks, completingIds, now: new Date() }),
-    [tasks, completingIds],
+    () => groupTasksBySection({ tasks, completingIds, now }),
+    [tasks, completingIds, now],
   );
 
   const getSectionTasks = useCallback(
