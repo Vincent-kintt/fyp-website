@@ -10,16 +10,25 @@ export function msUntilNextMidnight(from) {
 }
 
 export function useTaskSections({ tasks, completingIds }) {
-  const [now, setNow] = useState(() => new Date());
+  // midnightTick forces a recompute when the day rolls over even if tasks/completingIds
+  // are unchanged. The actual `now` is read inside the useMemo callback so that intra-day
+  // task mutations recompute with the current time (otherwise nextTask would compare
+  // against a stale `now` captured at mount).
+  const [midnightTick, setMidnightTick] = useState(0);
 
   useEffect(() => {
-    const id = setTimeout(() => setNow(new Date()), msUntilNextMidnight(now));
+    const id = setTimeout(
+      () => setMidnightTick((n) => n + 1),
+      msUntilNextMidnight(new Date()),
+    );
     return () => clearTimeout(id);
-  }, [now]);
+  }, [midnightTick]);
 
   const sections = useMemo(
-    () => groupTasksBySection({ tasks, completingIds, now }),
-    [tasks, completingIds, now],
+    () => groupTasksBySection({ tasks, completingIds, now: new Date() }),
+    // midnightTick is an intentional trigger: `now` is read fresh inside the callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tasks, completingIds, midnightTick],
   );
 
   const getSectionTasks = useCallback(
