@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { reminderKeys } from "@/lib/queryKeys";
 import { blocksToText } from "@/lib/notes/blocksToText";
+import { buildInboxReminderPayload } from "@/lib/inbox/buildInboxReminderPayload.js";
+import { useCreateReminder } from "@/hooks/useCreateReminder.js";
 
 import NoteEditor from "@/components/notes/NoteEditor";
 import InboxTopBar from "@/components/inbox/InboxTopBar";
@@ -18,7 +18,7 @@ export default function InboxPage() {
   const router = useRouter();
   const t = useTranslations("inbox");
   const locale = useLocale();
-  const queryClient = useQueryClient();
+  const createReminder = useCreateReminder();
 
   const [inboxNote, setInboxNote] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -125,22 +125,12 @@ export default function InboxPage() {
   }, [extractedTasks.length, confirmedTasks, locale, t, syncExtractionState]);
 
   // Confirm a single task → create reminder
+  // useCreateReminder.onSuccess invalidates reminderKeys.all, so no manual
+  // queryClient.invalidateQueries call is needed.
   const handleConfirm = useCallback(
     async (task) => {
       try {
-        const hasDate = !!task.dateTime;
-        const res = await fetch("/api/reminders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: task.title,
-            dateTime: task.dateTime || null,
-            priority: task.priority || "medium",
-            tags: task.tags || [],
-            inboxState: hasDate ? "processed" : "inbox",
-          }),
-        });
-        if (!res.ok) throw new Error("Failed");
+        await createReminder.mutateAsync(buildInboxReminderPayload(task));
         const newExtracted = extractedTasks.map((t) =>
           t === task ? { ...t, confirmed: true } : t,
         );
@@ -148,13 +138,12 @@ export default function InboxPage() {
         setExtractedTasks(newExtracted);
         setConfirmedTasks(newConfirmed);
         syncExtractionState(newExtracted, newConfirmed);
-        queryClient.invalidateQueries({ queryKey: reminderKeys.all });
         toast.success(t("confirmed"));
       } catch {
         toast.error(t("confirmFailed"));
       }
     },
-    [extractedTasks, confirmedTasks, queryClient, t, syncExtractionState],
+    [extractedTasks, confirmedTasks, createReminder, t, syncExtractionState],
   );
 
   // Confirm all tasks
@@ -167,19 +156,7 @@ export default function InboxPage() {
 
     for (const task of pending) {
       try {
-        const hasDate = !!task.dateTime;
-        const res = await fetch("/api/reminders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: task.title,
-            dateTime: task.dateTime || null,
-            priority: task.priority || "medium",
-            tags: task.tags || [],
-            inboxState: hasDate ? "processed" : "inbox",
-          }),
-        });
-        if (!res.ok) throw new Error("Failed");
+        await createReminder.mutateAsync(buildInboxReminderPayload(task));
         success++;
         newConfirmed.push(task.title);
         const idx = updated.findIndex((t) => t === task);
@@ -192,14 +169,13 @@ export default function InboxPage() {
     setExtractedTasks(updated);
     setConfirmedTasks(newConfirmed);
     syncExtractionState(updated, newConfirmed);
-    queryClient.invalidateQueries({ queryKey: reminderKeys.all });
 
     if (failed === 0) {
       toast.success(t("confirmed"));
     } else {
       toast.error(t("partialSuccess", { success, failed }));
     }
-  }, [extractedTasks, confirmedTasks, queryClient, t, syncExtractionState]);
+  }, [extractedTasks, confirmedTasks, createReminder, t, syncExtractionState]);
 
   // Dismiss a task
   const handleDismiss = useCallback(
