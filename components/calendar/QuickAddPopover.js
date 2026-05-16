@@ -11,7 +11,7 @@ import { formatHourLabel } from "@/lib/calendar";
  * @param {string} props.dateStr           — "YYYY-MM-DD"
  * @param {number} props.hour              — 0–23
  * @param {number} [props.minute=0]        — 0–59
- * @param {({title, dateTime}) => void} props.onSubmit
+ * @param {({title, dateTime}) => void | Promise<unknown>} props.onSubmit
  * @param {({title, dateTime}) => void} props.onMoreOptions
  * @param {() => void} props.onClose
  * @param {string} [props.locale]          — "zh-TW" | "en"
@@ -39,11 +39,15 @@ export default function QuickAddPopover({
     inputRef.current?.focus();
   }, []);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!title.trim()) return;
-    onSubmit?.({ title: title.trim(), dateTime });
-    onClose?.();
+    try {
+      await onSubmit?.({ title: title.trim(), dateTime });
+      onClose?.();
+    } catch {
+      // useTasks.quickAdd's onError toasts; keep popover open so user can retry
+    }
   }
 
   function handleMoreOptions() {

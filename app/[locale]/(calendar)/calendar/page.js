@@ -121,9 +121,8 @@ export default function CalendarPage() {
   }, []);
 
   const handleQuickAddSubmit = useCallback(
-    ({ title, dateTime }) => {
-      quickAdd({ title, dateTime, status: "pending" });
-    },
+    ({ title, dateTime }) =>
+      quickAdd({ title, dateTime, status: "pending" }),
     [quickAdd]
   );
 
