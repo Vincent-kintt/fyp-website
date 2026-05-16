@@ -162,7 +162,11 @@ export default function DashboardPage() {
 
       {/* Stats Overview */}
       <div className="page-enter-2">
-        <StatsOverview tasks={overdueTasks.concat(todayTasks, completedToday)} />
+        <StatsOverview
+          completedCount={completedToday.length}
+          pendingCount={overdueTasks.length + todayTasks.length}
+          overdueCount={overdueTasks.length}
+        />
       </div>
 
       {/* Next Task Card (Hero) */}
