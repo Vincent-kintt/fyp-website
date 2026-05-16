@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
@@ -21,6 +21,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTasks } from "@/hooks/useTasks";
 import { useTaskSections } from "@/hooks/useTaskSections";
+import { useTaskDnD } from "@/hooks/useTaskDnD";
 import { reminderKeys } from "@/lib/queryKeys";
 import TaskItem from "@/components/tasks/TaskItem";
 import TaskSection from "@/components/tasks/TaskSection";
@@ -30,7 +31,6 @@ import StatsOverview from "@/components/dashboard/StatsOverview";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
 import { useAIModal } from "@/components/ai/AIModalProvider";
 import {
-  useDndSensors,
   computeSortOrders,
   reorderReminders,
   patchReminderStatus,
@@ -41,7 +41,6 @@ import {
   computeNewDateTime,
   getSectionLabelKey,
   DROP_ANIMATION_CONFIG,
-  createSectionAwareCollision,
 } from "@/lib/dnd";
 
 export default function DashboardPage() {
@@ -62,16 +61,9 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const tasks = rawTasks;
   const aiModal = useAIModal();
-  const [activeDragId, setActiveDragId] = useState(null);
-  const [overSectionId, setOverSectionId] = useState(null);
   const [completingIds, setCompletingIds] = useState(new Set());
-  const [expandedByDrag, setExpandedByDrag] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const completingTimers = useRef(new Map());
-  const expandTimer = useRef(null);
-  // Ref for collision detection (runs outside React render cycle)
-  const taskToSectionRef = useRef(new Map());
-  const sensors = useDndSensors();
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -158,66 +150,24 @@ export default function DashboardPage() {
     getSectionTasks,
   } = useTaskSections({ tasks, completingIds });
 
-  // Keep ref in sync for collision detection
-  useEffect(() => {
-    taskToSectionRef.current = taskToSection;
-  }, [taskToSection]);
-
-  // Stable collision detection — ref identity never changes
-  const collisionDetection = useMemo(
-    () => createSectionAwareCollision(taskToSectionRef),
-    [],
-  );
-
-  const handleDragStart = useCallback((event) => {
-    setActiveDragId(event.active.id);
-  }, []);
-
-  const handleDragOver = useCallback(
-    (event) => {
-      const { active, over } = event;
-      if (!over) {
-        setOverSectionId(null);
-        clearTimeout(expandTimer.current);
-        return;
-      }
-      // over.id can be a task ID or a section ID
-      const section = taskToSection.get(over.id) || over.id;
-
-      // Suppress overlay on Overdue for cross-section drags (Overdue is not a drop target)
-      const activeSection = taskToSection.get(active.id);
-      if (
-        section === SECTION_IDS.OVERDUE &&
-        activeSection !== SECTION_IDS.OVERDUE
-      ) {
-        setOverSectionId(null);
-        clearTimeout(expandTimer.current);
-        return;
-      }
-
-      setOverSectionId(section);
-
-      // Auto-expand collapsed sections after 500ms hover (industry standard)
-      if (section !== expandedByDrag) {
-        clearTimeout(expandTimer.current);
-        const validSections = new Set(Object.values(SECTION_IDS));
-        if (validSections.has(section)) {
-          expandTimer.current = setTimeout(() => {
-            setExpandedByDrag(section);
-          }, 500);
-        }
-      }
-    },
-    [taskToSection, expandedByDrag],
-  );
+  const {
+    sensors,
+    collisionDetection,
+    activeDragId,
+    overSectionId,
+    expandedByDrag,
+    handleDragStart,
+    handleDragOver,
+    handleDragCancel,
+    activeDragTask,
+    activeDragSourceSection,
+    resetDragState,
+  } = useTaskDnD({ tasks, taskToSection });
 
   const handleDragEnd = useCallback(
     async (event) => {
       const { active, over } = event;
-      setActiveDragId(null);
-      setOverSectionId(null);
-      setExpandedByDrag(null);
-      clearTimeout(expandTimer.current);
+      resetDragState();
 
       if (!over || active.id === over.id) return;
 
@@ -374,22 +324,8 @@ export default function DashboardPage() {
         }
       }
     },
-    [tasks, taskToSection, getSectionTasks, queryClient, t],
+    [tasks, taskToSection, getSectionTasks, queryClient, t, resetDragState],
   );
-
-  const handleDragCancel = useCallback(() => {
-    setActiveDragId(null);
-    setOverSectionId(null);
-    setExpandedByDrag(null);
-    clearTimeout(expandTimer.current);
-  }, []);
-
-  const activeDragTask = activeDragId
-    ? tasks.find((t) => t.id === activeDragId)
-    : null;
-  const activeDragSourceSection = activeDragId
-    ? taskToSection.get(activeDragId)
-    : null;
 
   if (status === "loading" || loading) {
     return (
