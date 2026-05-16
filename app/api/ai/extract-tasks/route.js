@@ -5,6 +5,7 @@ import { apiSuccess } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
+import { sanitizeExtractedTasks } from "@/lib/ai/extract-tasks-helpers.js";
 
 const MAX_INPUT_LENGTH = 8000;
 
@@ -24,8 +25,9 @@ const taskElementSchema = z.object({
 });
 
 /**
- * Attempt to salvage task array from raw text (fallback when Output.array fails).
- * Strip code fences, JSON.parse, filter/sanitize each task.
+ * Attempt to salvage a raw task array from the model's text output (fallback
+ * when `Output.array` validation fails). Strips code fences then JSON.parses;
+ * downstream `sanitizeExtractedTasks` filters and normalizes each task.
  */
 function salvageTasksFromText(rawText) {
   if (!rawText) return [];
@@ -35,22 +37,7 @@ function salvageTasksFromText(rawText) {
     if (fenceMatch) jsonString = fenceMatch[1];
 
     const parsed = JSON.parse(jsonString);
-    const tasks = Array.isArray(parsed) ? parsed : [];
-
-    return tasks
-      .filter((t) => t.title && typeof t.title === "string")
-      .map((t) => ({
-        title: t.title.trim(),
-        dateTime: typeof t.dateTime === "string" ? t.dateTime : null,
-        priority: ["high", "medium", "low"].includes(t.priority)
-          ? t.priority
-          : "medium",
-        tags: Array.isArray(t.tags)
-          ? t.tags
-              .filter((tag) => typeof tag === "string")
-              .map((tag) => tag.toLowerCase().trim())
-          : [],
-      }));
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -119,21 +106,10 @@ Rules:
       }
     }
 
-    // Sanitize tags (lowercase trim) — structured output gives raw values
-    const validTasks = tasks
-      .filter((t) => t.title && typeof t.title === "string")
-      .map((t) => ({
-        title: t.title.trim(),
-        dateTime: typeof t.dateTime === "string" ? t.dateTime : null,
-        priority: ["high", "medium", "low"].includes(t.priority)
-          ? t.priority
-          : "medium",
-        tags: Array.isArray(t.tags)
-          ? t.tags
-              .filter((tag) => typeof tag === "string")
-              .map((tag) => tag.toLowerCase().trim())
-          : [],
-      }));
+    // Filter blanks and run tags through canonical normalizeTags so the
+    // inbox preview matches what /api/reminders will store (otherwise the
+    // user confirms e.g. "front end" but DB ends up with "front-end").
+    const validTasks = sanitizeExtractedTasks(tasks);
 
     return apiSuccess({ tasks: validTasks, truncated });
   },
