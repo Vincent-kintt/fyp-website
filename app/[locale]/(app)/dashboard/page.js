@@ -12,7 +12,6 @@ import {
   FaMoon,
 } from "react-icons/fa";
 import { toast } from "sonner";
-import { isToday, isTomorrow, isThisWeek, startOfDay } from "date-fns";
 import {
   DndContext,
   DragOverlay,
@@ -21,6 +20,7 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTasks } from "@/hooks/useTasks";
+import { useTaskSections } from "@/hooks/useTaskSections";
 import { reminderKeys } from "@/lib/queryKeys";
 import TaskItem from "@/components/tasks/TaskItem";
 import TaskSection from "@/components/tasks/TaskSection";
@@ -146,99 +146,17 @@ export default function DashboardPage() {
     aiModal.open(text || "");
   };
 
-  // Build task-to-section mapping for drag logic
-  const now = new Date();
-
-  // Sort by dateTime for initial grouping, then re-sort sections by sortOrder
-  // Tasks without dateTime (inbox tasks) are excluded from date-based sections
-  const datedTasks = tasks.filter((t) => t.dateTime);
-  const sortedTasks = [...datedTasks].sort(
-    (a, b) => new Date(a.dateTime) - new Date(b.dateTime),
-  );
-
-  const sortByOrder = (arr) =>
-    arr.sort((a, b) => {
-      const oa = a.sortOrder || 0,
-        ob = b.sortOrder || 0;
-      if (oa !== ob) return oa - ob;
-      return new Date(a.dateTime) - new Date(b.dateTime);
-    });
-
-  // Tasks in completingIds stay in their original section during the completion animation
-  const isPending = (t) => !t.completed || completingIds.has(t.id);
-
-  const todayTasks = sortByOrder(
-    sortedTasks.filter((t) => {
-      const taskDate = new Date(t.dateTime);
-      return isToday(taskDate) && isPending(t) && t.status !== "snoozed";
-    }),
-  );
-
-  // Find next upcoming task (exclude completing ones)
-  const nextTask =
-    todayTasks.find((t) => !t.completed && new Date(t.dateTime) > now) ||
-    todayTasks.find((t) => !t.completed);
-
-  const tomorrowTasks = sortByOrder(
-    sortedTasks.filter((t) => {
-      const taskDate = new Date(t.dateTime);
-      return isTomorrow(taskDate) && isPending(t) && t.status !== "snoozed";
-    }),
-  );
-
-  const thisWeekTasks = sortByOrder(
-    sortedTasks.filter((t) => {
-      const taskDate = new Date(t.dateTime);
-      return (
-        isThisWeek(taskDate, { weekStartsOn: 1 }) &&
-        taskDate >= startOfDay(now) &&
-        !isToday(taskDate) &&
-        !isTomorrow(taskDate) &&
-        isPending(t) &&
-        t.status !== "snoozed"
-      );
-    }),
-  );
-
-  // Completed today: tasks completed today (by completedAt), excluding those still animating
-  const completedToday = sortedTasks.filter((t) => {
-    if (!t.completed || completingIds.has(t.id)) return false;
-    const completedDate = t.completedAt ? new Date(t.completedAt) : null;
-    const taskDate = new Date(t.dateTime);
-    return isToday(taskDate) || (completedDate && isToday(completedDate));
-  });
-
-  const overdueTasks = sortByOrder(
-    sortedTasks.filter((t) => {
-      const taskDate = new Date(t.dateTime);
-      return (
-        taskDate < startOfDay(now) && isPending(t) && t.status !== "snoozed"
-      );
-    }),
-  );
-
-  const snoozedTasks = sortedTasks.filter(
-    (t) => t.status === "snoozed" && !t.completed,
-  );
-
-  // Map taskId -> sectionId for drag logic
-  const taskToSection = useMemo(() => {
-    const map = new Map();
-    overdueTasks.forEach((t) => map.set(t.id, SECTION_IDS.OVERDUE));
-    todayTasks.forEach((t) => map.set(t.id, SECTION_IDS.TODAY));
-    tomorrowTasks.forEach((t) => map.set(t.id, SECTION_IDS.TOMORROW));
-    thisWeekTasks.forEach((t) => map.set(t.id, SECTION_IDS.THIS_WEEK));
-    snoozedTasks.forEach((t) => map.set(t.id, SECTION_IDS.SNOOZED));
-    completedToday.forEach((t) => map.set(t.id, SECTION_IDS.COMPLETED));
-    return map;
-  }, [
+  const {
     overdueTasks,
     todayTasks,
     tomorrowTasks,
     thisWeekTasks,
     snoozedTasks,
     completedToday,
-  ]);
+    nextTask,
+    taskToSection,
+    getSectionTasks,
+  } = useTaskSections({ tasks, completingIds });
 
   // Keep ref in sync for collision detection
   useEffect(() => {
@@ -249,35 +167,6 @@ export default function DashboardPage() {
   const collisionDetection = useMemo(
     () => createSectionAwareCollision(taskToSectionRef),
     [],
-  );
-
-  const getSectionTasks = useCallback(
-    (sectionId) => {
-      switch (sectionId) {
-        case SECTION_IDS.OVERDUE:
-          return overdueTasks;
-        case SECTION_IDS.TODAY:
-          return todayTasks;
-        case SECTION_IDS.TOMORROW:
-          return tomorrowTasks;
-        case SECTION_IDS.THIS_WEEK:
-          return thisWeekTasks;
-        case SECTION_IDS.SNOOZED:
-          return snoozedTasks;
-        case SECTION_IDS.COMPLETED:
-          return completedToday;
-        default:
-          return [];
-      }
-    },
-    [
-      overdueTasks,
-      todayTasks,
-      tomorrowTasks,
-      thisWeekTasks,
-      snoozedTasks,
-      completedToday,
-    ],
   );
 
   const handleDragStart = useCallback((event) => {
