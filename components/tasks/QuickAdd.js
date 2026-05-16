@@ -41,6 +41,7 @@ export default function QuickAdd({
   const debounceRef = useRef(null);
   const dismissTimerRef = useRef(null);
   const inputRef = useRef(null);
+  const parseAbortRef = useRef(null);
 
   // Debounced NLP parsing
   const parseInput = useCallback(
@@ -49,6 +50,11 @@ export default function QuickAdd({
         setParsedData(null);
         return;
       }
+
+      // Cancel any earlier in-flight parse so a stale response can't overwrite a newer one
+      parseAbortRef.current?.abort();
+      const controller = new AbortController();
+      parseAbortRef.current = controller;
 
       setIsParsing(true);
       try {
@@ -60,18 +66,25 @@ export default function QuickAdd({
             language,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
+          signal: controller.signal,
         });
 
+        if (controller.signal.aborted) return;
         if (response.ok) {
           const result = await response.json();
+          if (controller.signal.aborted) return;
           if (result.success) {
             setParsedData(result.data);
           }
         }
       } catch (error) {
+        if (error.name === "AbortError") return;
         console.error("Parse error:", error);
       } finally {
-        setIsParsing(false);
+        // Only newer (un-aborted) requests own the spinner state
+        if (!controller.signal.aborted) {
+          setIsParsing(false);
+        }
       }
     },
     [language],
@@ -94,6 +107,7 @@ export default function QuickAdd({
     if (isComplexRequest(value)) {
       setShowEscalation(true);
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      parseAbortRef.current?.abort();
       setParsedData(null);
       setIsParsing(false);
       return;
@@ -115,6 +129,7 @@ export default function QuickAdd({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+      parseAbortRef.current?.abort();
     };
   }, []);
 
@@ -163,6 +178,9 @@ export default function QuickAdd({
       const taskData = buildTaskData();
       await onAdd(taskData);
 
+      // A late parse response could rehydrate parsedData after the reset below; cancel it.
+      parseAbortRef.current?.abort();
+
       setInlineResult({
         title: taskData.title,
         dateTime: taskData.dateTime,
@@ -198,6 +216,7 @@ export default function QuickAdd({
   };
 
   const handleCancel = () => {
+    parseAbortRef.current?.abort();
     if (dismissTimerRef.current) {
       clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = null;
