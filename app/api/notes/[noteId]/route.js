@@ -1,12 +1,26 @@
 import { ObjectId } from "mongodb";
+import { z } from "zod";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import {
   getNotesCollection,
   formatNote,
   findDescendantIds,
 } from "@/lib/notes/db";
+
+const updateNoteSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, "Title must be a non-empty string")
+    .max(200, "Title must be 200 characters or less")
+    .optional(),
+  content: z.array(z.unknown(), { error: "content must be an array" }).optional(),
+  parentId: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
+  sortOrder: z.number().optional(),
+});
 
 // GET /api/notes/[noteId] - Get a single note by ID
 export const GET = withAuth(
@@ -42,25 +56,20 @@ export const PATCH = withAuth(
       return apiError("Invalid note ID", 400);
     }
 
-    const { data: body, error } = await parseJsonBody(request);
+    const { data: body, error } = await parseJsonBodyWithSchema(
+      request,
+      updateNoteSchema,
+    );
     if (error) return error;
     const { title, content, parentId, icon, sortOrder } = body;
 
     const updateData = { updatedAt: new Date() };
 
     if (title !== undefined) {
-      if (typeof title !== "string" || title.trim().length === 0) {
-        return apiError("Title must be a non-empty string", 400);
-      }
-      if (title.length > 200) {
-        return apiError("Title must be 200 characters or less", 400);
-      }
-      updateData.title = title.trim();
+      updateData.title = title;
     }
 
     if (content !== undefined) {
-      if (!Array.isArray(content))
-        return apiError("content must be an array", 400);
       updateData.content = content;
     }
 

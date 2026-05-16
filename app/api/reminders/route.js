@@ -1,4 +1,5 @@
 import { getCollection } from "@/lib/db";
+import { z } from "zod";
 import { normalizeTags, getMainCategory, validateDuration } from "@/lib/utils";
 import {
   formatReminder,
@@ -7,7 +8,25 @@ import {
 } from "@/lib/reminderUtils";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
+
+const createReminderSchema = z.object({
+  title: z
+    .string({ error: "Missing required field (title)" })
+    .min(1, "Missing required field (title)"),
+  description: z.string().optional(),
+  dateTime: z.string().nullable().optional(),
+  duration: z.number().nullable().optional(),
+  category: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  recurring: z.boolean().optional(),
+  recurringType: z.string().nullable().optional(),
+  priority: z.string().optional(),
+  subtasks: z.array(z.unknown()).optional(),
+  remark: z.string().optional(),
+  inboxState: z.string().optional(),
+  sortOrder: z.number().optional(),
+});
 
 // GET /api/reminders - Get all reminders for logged-in user
 export const GET = withAuth(
@@ -94,7 +113,10 @@ export const GET = withAuth(
 // POST /api/reminders - Create a new reminder for logged-in user
 export const POST = withAuth(
   async ({ request, session, userId }) => {
-    const { data: body, error } = await parseJsonBody(request);
+    const { data: body, error } = await parseJsonBodyWithSchema(
+      request,
+      createReminderSchema,
+    );
     if (error) return error;
     const {
       title,
@@ -110,9 +132,6 @@ export const POST = withAuth(
       remark,
     } = body;
 
-    if (!title) {
-      return apiError("Missing required field (title)", 400);
-    }
     const inboxState = body.inboxState || "processed";
     if (inboxState !== "inbox" && !dateTime) {
       return apiError(

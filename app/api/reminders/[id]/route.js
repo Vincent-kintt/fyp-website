@@ -1,5 +1,6 @@
 import { getCollection } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { z } from "zod";
 import {
   normalizeTags,
   getMainCategory,
@@ -15,7 +16,40 @@ import {
 } from "@/lib/reminderUtils";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
+
+const updateReminderSchema = z.object({
+  title: z
+    .string({ error: "Missing required field (title)" })
+    .min(1, "Missing required field (title)"),
+  description: z.string().optional(),
+  remark: z.string().optional(),
+  dateTime: z.string().nullable().optional(),
+  duration: z.number().nullable().optional(),
+  status: z.string().optional(),
+  category: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  recurring: z.boolean().optional(),
+  recurringType: z.string().nullable().optional(),
+  priority: z.string().optional(),
+  subtasks: z.array(z.unknown()).optional(),
+});
+
+const patchReminderSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  remark: z.string().optional(),
+  dateTime: z.string().nullable().optional(),
+  duration: z.number().nullable().optional(),
+  status: z.string().optional(),
+  completed: z.boolean().optional(),
+  category: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  priority: z.string().optional(),
+  sortOrder: z.number().optional(),
+  subtasks: z.array(z.unknown()).optional(),
+  snoozedUntil: z.string().nullable().optional(),
+});
 
 // GET /api/reminders/[id] - Get a single reminder (must belong to user)
 export const GET = withAuth(
@@ -45,7 +79,15 @@ export const GET = withAuth(
 export const PUT = withAuth(
   async ({ request, params, userId }) => {
     const { id } = await params;
-    const { data: body, error } = await parseJsonBody(request);
+
+    if (!ObjectId.isValid(id)) {
+      return apiError("Invalid reminder ID", 400);
+    }
+
+    const { data: body, error } = await parseJsonBodyWithSchema(
+      request,
+      updateReminderSchema,
+    );
     if (error) return error;
     const {
       title,
@@ -61,14 +103,6 @@ export const PUT = withAuth(
       priority,
       subtasks,
     } = body;
-
-    if (!ObjectId.isValid(id)) {
-      return apiError("Invalid reminder ID", 400);
-    }
-
-    if (!title) {
-      return apiError("Missing required field (title)", 400);
-    }
 
     const fieldError = validateReminderFields({
       title,
@@ -214,12 +248,16 @@ export const DELETE = withAuth(
 export const PATCH = withAuth(
   async ({ request, params, userId }) => {
     const { id } = await params;
-    const { data: body, error } = await parseJsonBody(request);
-    if (error) return error;
 
     if (!ObjectId.isValid(id)) {
       return apiError("Invalid reminder ID", 400);
     }
+
+    const { data: body, error } = await parseJsonBodyWithSchema(
+      request,
+      patchReminderSchema,
+    );
+    if (error) return error;
 
     const fieldError = validateReminderFields(body);
     if (fieldError) return fieldError;
