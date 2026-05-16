@@ -3,11 +3,12 @@
  * Covers naiveToUTC, formatInTimezone, formatTimezoneParts (dateUtils.js)
  * and getSystemPrompt (prompt.js).
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   naiveToUTC,
   formatInTimezone,
   formatTimezoneParts,
+  nowAsWallClockIn,
 } from "@/lib/ai/dateUtils.js";
 import { getSystemPrompt } from "@/lib/ai/prompt.js";
 
@@ -303,5 +304,68 @@ describe("getSystemPrompt", () => {
       expect(prompt).toContain("local timezone");
       expect(prompt).toContain("YYYY-MM-DDTHH:mm");
     });
+  });
+});
+
+// ─── nowAsWallClockIn ─────────────────────────────────────────
+// Returns a Date encoded in server-local TZ whose getXxx() values match what a
+// clock in the given IANA timezone shows right now. Used by parse-task to give
+// chrono-node a "user-local now" reference without changing server TZ.
+
+describe("nowAsWallClockIn", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("returns wall-clock parts for Asia/Taipei (UTC+8, no DST)", () => {
+    vi.setSystemTime(new Date("2026-05-16T10:00:00Z"));
+    const d = nowAsWallClockIn("Asia/Taipei");
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(4); // May
+    expect(d.getDate()).toBe(16);
+    expect(d.getHours()).toBe(18); // 10:00 UTC + 8 = 18:00 in Taipei
+    expect(d.getMinutes()).toBe(0);
+  });
+
+  it("returns wall-clock parts for America/New_York during EST (UTC-5)", () => {
+    // 2026-02-01 noon UTC = 07:00 EST in New York
+    vi.setSystemTime(new Date("2026-02-01T12:00:00Z"));
+    const d = nowAsWallClockIn("America/New_York");
+    expect(d.getDate()).toBe(1);
+    expect(d.getHours()).toBe(7);
+  });
+
+  it("handles US DST spring-forward (2026-03-08)", () => {
+    // 2026-03-08 06:30 UTC -> 01:30 EST in NY (still standard time)
+    vi.setSystemTime(new Date("2026-03-08T06:30:00Z"));
+    expect(nowAsWallClockIn("America/New_York").getHours()).toBe(1);
+    // 2026-03-08 07:30 UTC -> 03:30 EDT in NY (clocks jumped to 03:00 at 02:00 local)
+    vi.setSystemTime(new Date("2026-03-08T07:30:00Z"));
+    expect(nowAsWallClockIn("America/New_York").getHours()).toBe(3);
+  });
+
+  it("handles US DST fall-back (2026-11-01)", () => {
+    // 2026-11-01 05:30 UTC -> 01:30 EDT in NY (before fall back at 02:00)
+    vi.setSystemTime(new Date("2026-11-01T05:30:00Z"));
+    expect(nowAsWallClockIn("America/New_York").getHours()).toBe(1);
+    // 2026-11-01 06:30 UTC -> 01:30 EST in NY (after fall back, second occurrence of 01:30)
+    vi.setSystemTime(new Date("2026-11-01T06:30:00Z"));
+    expect(nowAsWallClockIn("America/New_York").getHours()).toBe(1);
+  });
+
+  it("falls back to server clock when timezone is null/undefined/empty", () => {
+    vi.setSystemTime(new Date("2026-05-16T10:00:00Z"));
+    const ref = new Date();
+    expect(nowAsWallClockIn(null).getTime()).toBe(ref.getTime());
+    expect(nowAsWallClockIn(undefined).getTime()).toBe(ref.getTime());
+    expect(nowAsWallClockIn("").getTime()).toBe(ref.getTime());
+  });
+
+  it("crosses day boundary correctly (UTC late, Tokyo next-day morning)", () => {
+    // 2026-05-16 22:30 UTC -> 2026-05-17 07:30 in Tokyo (UTC+9, no DST)
+    vi.setSystemTime(new Date("2026-05-16T22:30:00Z"));
+    const d = nowAsWallClockIn("Asia/Tokyo");
+    expect(d.getDate()).toBe(17);
+    expect(d.getHours()).toBe(7);
+    expect(d.getMinutes()).toBe(30);
   });
 });

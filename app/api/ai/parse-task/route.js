@@ -5,6 +5,7 @@ import { z } from "zod";
 import * as chrono from "chrono-node";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
+import { nowAsWallClockIn } from "@/lib/ai/dateUtils.js";
 import { computeOverallConfidence } from "./confidence.js";
 
 const parseTaskSchema = z.object({
@@ -100,7 +101,7 @@ function salvageFromText(rawText) {
 
 export const POST = withAuth(
   async ({ request }) => {
-    const { text, language = "zh", tzOffset } = await request.json();
+    const { text, language = "zh", timezone, tzOffset } = await request.json();
 
     if (!text?.trim()) {
       return apiError("Text is required", 400);
@@ -110,17 +111,23 @@ export const POST = withAuth(
       return apiError("Input too long", 400);
     }
 
-    const serverNow = new Date();
-    // Shift to user's local time so chrono-node resolves "today"/"tomorrow" correctly
-    const now =
-      typeof tzOffset === "number"
-        ? new Date(
-            serverNow.getTime() +
-              (serverNow.getTimezoneOffset() - tzOffset) * 60000,
-          )
-        : serverNow;
+    // Build a reference Date whose wall-clock parts match the user's local "now".
+    // Prefer IANA timezone (DST-aware via Intl); fall back to numeric tzOffset for older
+    // clients that haven't been redeployed; default to server clock if neither is supplied.
+    let now;
+    if (typeof timezone === "string" && timezone) {
+      now = nowAsWallClockIn(timezone);
+    } else if (typeof tzOffset === "number") {
+      const serverNow = new Date();
+      now = new Date(
+        serverNow.getTime() +
+          (serverNow.getTimezoneOffset() - tzOffset) * 60000,
+      );
+    } else {
+      now = new Date();
+    }
 
-    const currentTimeStr = now.toLocaleString("en-US", {
+    const currentTimeStr = new Date().toLocaleString("en-US", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -128,6 +135,7 @@ export const POST = withAuth(
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
+      ...(timezone ? { timeZone: timezone } : {}),
     });
 
     const systemPrompt = `You are a smart task parser. Current time: ${currentTimeStr}

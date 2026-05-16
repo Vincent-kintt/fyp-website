@@ -55,7 +55,11 @@ export default function QuickAdd({
         const response = await fetch("/api/ai/parse-task", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, language, tzOffset: new Date().getTimezoneOffset() }),
+          body: JSON.stringify({
+            text,
+            language,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }),
         });
 
         if (response.ok) {
