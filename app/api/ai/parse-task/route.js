@@ -3,12 +3,22 @@ import { getModel, getParseModelId } from "@/lib/ai/provider.js";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import * as chrono from "chrono-node";
-import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { apiSuccess } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { nowAsWallClockIn } from "@/lib/ai/dateUtils.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { computeOverallConfidence } from "./confidence.js";
+
+const parseTaskRequestSchema = z
+  .object({
+    text: z
+      .string({ error: "Text is required" })
+      .refine((v) => v.trim().length > 0, { message: "Text is required" })
+      .refine((v) => v.length <= 2000, { message: "Input too long" }),
+    language: z.string().optional(),
+    timezone: z.string().optional(),
+  });
 
 const parseTaskSchema = z.object({
   title: z.string().default(""),
@@ -103,17 +113,12 @@ function salvageFromText(rawText) {
 
 export const POST = withAuth(
   async ({ request }) => {
-    const { data, error } = await parseJsonBody(request);
+    const { data, error } = await parseJsonBodyWithSchema(
+      request,
+      parseTaskRequestSchema,
+    );
     if (error) return error;
     const { text, language = "zh", timezone } = data;
-
-    if (!text?.trim()) {
-      return apiError("Text is required", 400);
-    }
-
-    if (text.length > 2000) {
-      return apiError("Input too long", 400);
-    }
 
     // Reference Date whose wall-clock parts match the user's local "now" (DST-aware via Intl).
     // Falls back to the server clock when the client omits `timezone`.

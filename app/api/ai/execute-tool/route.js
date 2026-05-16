@@ -1,6 +1,7 @@
+import { z } from "zod";
 import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { createTools } from "@/lib/ai/tools.js";
 
 export const runtime = "nodejs";
@@ -16,15 +17,21 @@ const ALLOWED_TOOLS = new Set([
   "exportReminders",
 ]);
 
+const executeToolSchema = z.object({
+  toolName: z
+    .string({ error: "Tool name is required" })
+    .min(1, "Tool name is required"),
+  params: z.unknown().optional(),
+});
+
 export const POST = withAuth(
   async ({ request, userId }) => {
-    const { data, error } = await parseJsonBody(request);
+    const { data, error } = await parseJsonBodyWithSchema(
+      request,
+      executeToolSchema,
+    );
     if (error) return error;
     const { toolName, params } = data;
-
-    if (!toolName) {
-      return apiError("Tool name is required", 400);
-    }
 
     if (!ALLOWED_TOOLS.has(toolName)) {
       return apiError(`Tool not allowed: ${toolName}`, 403);

@@ -1,17 +1,30 @@
 import { streamText, stepCountIs, convertToModelMessages } from "ai";
+import { z } from "zod";
 import { getModel, getAgentModelId } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { getSystemPrompt } from "@/lib/ai/prompt.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const agenticReminderSchema = z.object({
+  // messages is loose because items pass through convertToModelMessages.
+  messages: z.array(z.unknown()).min(1),
+  model: z.string().optional(),
+  reasoningEffort: z.string().optional(),
+  language: z.string().optional(),
+  userLocation: z.unknown().optional(),
+});
+
 export const POST = withAuth(
   async ({ request, userId }) => {
-    const { data, error } = await parseJsonBody(request);
+    const { data, error } = await parseJsonBodyWithSchema(
+      request,
+      agenticReminderSchema,
+    );
     if (error) return error;
     const {
       messages: uiMessages,

@@ -1,12 +1,24 @@
 import { streamText } from "ai";
+import { z } from "zod";
 import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const notesAgentSchema = z.object({
+  command: z
+    .string({ error: "Command is required" })
+    .min(1, "Command is required"),
+  input: z.string().optional(),
+  noteTitle: z.string().optional(),
+  noteContext: z.string().optional(),
+  language: z.string().optional(),
+  model: z.string().optional(),
+});
 
 function getNotesSystemPrompt({ language, noteTitle, noteContext }) {
   const lang = language === "zh" ? "繁體中文" : "English";
@@ -27,7 +39,10 @@ Format your response in Markdown. Be concise and useful.`;
 
 export const POST = withAuth(
   async ({ request }) => {
-    const { data, error } = await parseJsonBody(request);
+    const { data, error } = await parseJsonBodyWithSchema(
+      request,
+      notesAgentSchema,
+    );
     if (error) return error;
     const {
       command,
@@ -37,10 +52,6 @@ export const POST = withAuth(
       language = "zh",
       model,
     } = data;
-
-    if (!command) {
-      return apiError("Command is required", 400);
-    }
 
     let userMessage;
     switch (command) {

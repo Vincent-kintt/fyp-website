@@ -1,10 +1,11 @@
 import { streamText, stepCountIs } from "ai";
+import { z } from "zod";
 import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
 import { createRssTools } from "@/lib/ai/rssTools.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import {
   acquireNoteAILock,
   releaseNoteAILock,
@@ -12,6 +13,11 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const notesRssSchema = z.object({
+  language: z.string().optional(),
+  timezone: z.string().optional(),
+});
 
 function getRssSystemPrompt({ language }) {
   const lang = language === "zh" ? "繁體中文" : "English";
@@ -58,7 +64,10 @@ export const POST = withAuth(
     };
 
     try {
-      const { data, error: parseError } = await parseJsonBody(request);
+      const { data, error: parseError } = await parseJsonBodyWithSchema(
+        request,
+        notesRssSchema,
+      );
       if (parseError) {
         releaseOnce();
         return parseError;

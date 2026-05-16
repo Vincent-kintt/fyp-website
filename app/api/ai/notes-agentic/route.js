@@ -1,11 +1,12 @@
 import { streamText, stepCountIs } from "ai";
+import { z } from "zod";
 import { getModel, getNotesModelId } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { createNoteTools } from "@/lib/ai/noteTools.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import {
   acquireNoteAILock,
   releaseNoteAILock,
@@ -13,6 +14,17 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const notesAgenticSchema = z.object({
+  input: z
+    .string({ error: "Input is required for /agent" })
+    .refine((v) => v.trim().length > 0, {
+      message: "Input is required for /agent",
+    }),
+  noteTitle: z.string().optional(),
+  noteContext: z.string().optional(),
+  language: z.string().optional(),
+});
 
 const ALLOWED_REMINDER_TOOLS = new Set([
   "listReminders",
@@ -102,7 +114,10 @@ export const POST = withAuth(
     };
 
     try {
-      const { data, error: parseError } = await parseJsonBody(request);
+      const { data, error: parseError } = await parseJsonBodyWithSchema(
+        request,
+        notesAgenticSchema,
+      );
       if (parseError) {
         releaseOnce();
         return parseError;
@@ -113,11 +128,6 @@ export const POST = withAuth(
         noteContext,
         language = "zh",
       } = data;
-
-      if (!input || !input.trim()) {
-        releaseOnce();
-        return apiError("Input is required for /agent", 400);
-      }
 
       const tools = buildTools(userId);
 

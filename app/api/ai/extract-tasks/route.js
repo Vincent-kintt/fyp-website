@@ -1,12 +1,20 @@
 import { getModel, getParseModelId } from "@/lib/ai/provider.js";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
-import { apiSuccess, apiError } from "@/lib/api/response.js";
+import { apiSuccess } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 
 const MAX_INPUT_LENGTH = 8000;
+
+const extractTasksRequestSchema = z.object({
+  text: z
+    .string({ error: "Text is required" })
+    .refine((v) => v.trim().length > 0, { message: "Text is required" }),
+  language: z.string().optional(),
+  confirmedTasks: z.array(z.unknown()).optional(),
+});
 
 const taskElementSchema = z.object({
   title: z.string(),
@@ -50,13 +58,12 @@ function salvageTasksFromText(rawText) {
 
 export const POST = withAuth(
   async ({ request }) => {
-    const { data, error } = await parseJsonBody(request);
+    const { data, error } = await parseJsonBodyWithSchema(
+      request,
+      extractTasksRequestSchema,
+    );
     if (error) return error;
     const { text, language = "zh", confirmedTasks = [] } = data;
-
-    if (!text?.trim()) {
-      return apiError("Text is required", 400);
-    }
 
     const truncated = text.length > MAX_INPUT_LENGTH;
     const input = truncated ? text.slice(0, MAX_INPUT_LENGTH) : text;
