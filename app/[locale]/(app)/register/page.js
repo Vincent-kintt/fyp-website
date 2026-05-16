@@ -7,6 +7,11 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { FaBell } from "react-icons/fa";
 import ErrorState from "@/components/ui/ErrorState";
+import {
+  USERNAME_REGEX,
+  EMAIL_REGEX,
+  EMAIL_MAX_LENGTH,
+} from "@/lib/auth/validation.js";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -32,15 +37,17 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
 
-    // Client-side validation
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-    if (!usernameRegex.test(formData.username)) {
+    // Client-side validation (mirrors server lib/auth/validation.js so a
+    // valid-looking preflight cannot be 400'd by the server after submit).
+    if (!USERNAME_REGEX.test(formData.username)) {
       setError(t("errorUsername"));
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
+    if (
+      formData.email.length > EMAIL_MAX_LENGTH ||
+      !EMAIL_REGEX.test(formData.email)
+    ) {
       setError(t("errorEmail"));
       return;
     }
