@@ -1,35 +1,20 @@
 "use client";
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback } from "react";
 import { SECTION_IDS } from "@/lib/dnd.js";
 import { groupTasksBySection } from "@/lib/dashboard/sectionGrouping.js";
-
-export function msUntilNextMidnight(from) {
-  const next = new Date(from);
-  next.setHours(24, 0, 0, 100);
-  return next.getTime() - from.getTime();
-}
+import { useDayKey } from "@/hooks/useDayKey.js";
 
 export function useTaskSections({ tasks, completingIds }) {
-  // midnightTick forces a recompute when the day rolls over even if tasks/completingIds
-  // are unchanged. The actual `now` is read inside the useMemo callback so that intra-day
-  // task mutations recompute with the current time (otherwise nextTask would compare
-  // against a stale `now` captured at mount).
-  const [midnightTick, setMidnightTick] = useState(0);
+  const dayKey = useDayKey();
 
-  useEffect(() => {
-    const id = setTimeout(
-      () => setMidnightTick((n) => n + 1),
-      msUntilNextMidnight(new Date()),
-    );
-    return () => clearTimeout(id);
-  }, [midnightTick]);
-
-  const sections = useMemo(
-    () => groupTasksBySection({ tasks, completingIds, now: new Date() }),
-    // midnightTick is an intentional trigger: `now` is read fresh inside the callback.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tasks, completingIds, midnightTick],
-  );
+  const sections = useMemo(() => {
+    // dayKey is a stable "YYYY-MM-DD" string from useDayKey. Including it in deps
+    // ensures the memo re-runs at midnight even when tasks/completingIds are unchanged.
+    // new Date() is called here (not outside) so the exact current time is captured
+    // at recompute time (needed by groupTasksBySection for nextTask selection).
+    void dayKey;
+    return groupTasksBySection({ tasks, completingIds, now: new Date() });
+  }, [tasks, completingIds, dayKey]);
 
   const getSectionTasks = useCallback(
     (sectionId) => {
