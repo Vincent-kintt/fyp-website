@@ -1,27 +1,16 @@
 "use client";
 
 import { createReactInlineContentSpec } from "@blocknote/react";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { File } from "lucide-react";
-import { noteKeys } from "@/lib/queryKeys";
+import { useNoteList } from "@/hooks/useNoteList";
 import NoteIcon from "./NoteIcon";
-
-async function fetchNotes() {
-  const res = await fetch("/api/notes");
-  if (!res.ok) throw new Error("Failed to fetch notes");
-  const data = await res.json();
-  return data.data || [];
-}
 
 function NoteLinkChip({ noteId }) {
   const t = useTranslations("notes");
   const router = useRouter();
-  const { data: notes = [], isLoading } = useQuery({
-    queryKey: noteKeys.lists(),
-    queryFn: fetchNotes,
-  });
+  const { data: notes = [], isLoading } = useNoteList();
 
   const note = notes.find((n) => n.id === noteId);
 

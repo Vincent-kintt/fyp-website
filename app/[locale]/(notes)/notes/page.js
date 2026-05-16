@@ -1,50 +1,16 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { FiFileText, FiPlus, FiClock } from "react-icons/fi";
 import { extractPreview } from "@/lib/notes/preview";
 import { MS_PER_MINUTE } from "@/lib/utils";
+import useNotes from "@/hooks/useNotes";
 
 export default function NotesPage() {
   const t = useTranslations("notes");
   const router = useRouter();
-  const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchNotes = useCallback(async () => {
-    try {
-      const res = await fetch("/api/notes");
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.success) setNotes(data.data);
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchNotes();
-  }, [fetchNotes]);
-
-  const handleCreate = async () => {
-    try {
-      const res = await fetch("/api/notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: t("untitled") }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        router.push(`/notes/${data.data.id}`);
-      }
-    } catch {
-      // silently fail
-    }
-  };
+  const { notes, loading, createNote } = useNotes();
 
   const formatTime = (dateStr) => {
     if (!dateStr) return "";
@@ -97,7 +63,7 @@ export default function NotesPage() {
             {t("emptyState")}
           </p>
           <button
-            onClick={handleCreate}
+            onClick={() => createNote()}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{
               backgroundColor: "var(--primary-light)",
@@ -151,7 +117,7 @@ export default function NotesPage() {
 
       {notes.length > 0 && (
         <button
-          onClick={handleCreate}
+          onClick={() => createNote()}
           className="fixed bottom-20 right-4 md:bottom-8 md:right-8 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 z-40"
           style={{
             backgroundColor: "var(--primary)",

@@ -7,13 +7,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { noteKeys } from "@/lib/queryKeys";
-
-async function fetchNotes() {
-  const res = await fetch("/api/notes");
-  if (!res.ok) throw new Error("Failed to fetch notes");
-  const data = await res.json();
-  return data.data || [];
-}
+import { useNoteList } from "@/hooks/useNoteList";
 
 async function fetchTrashedNotes() {
   const res = await fetch("/api/notes/trash");
@@ -28,9 +22,7 @@ export default function useNotes() {
   const t = useTranslations("notes");
   const router = useRouter();
 
-  const { data: notes = [], isLoading: loading } = useQuery({
-    queryKey: noteKeys.lists(),
-    queryFn: fetchNotes,
+  const { data: notes = [], isLoading: loading } = useNoteList({
     enabled: !!session,
   });
 
