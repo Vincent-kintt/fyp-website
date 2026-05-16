@@ -8,12 +8,13 @@ export function useTaskSections({ tasks, completingIds }) {
   const dayKey = useDayKey();
 
   const sections = useMemo(() => {
-    // dayKey is a stable "YYYY-MM-DD" string from useDayKey. Including it in deps
-    // ensures the memo re-runs at midnight even when tasks/completingIds are unchanged.
-    // new Date() is called here (not outside) so the exact current time is captured
-    // at recompute time (needed by groupTasksBySection for nextTask selection).
-    void dayKey;
-    return groupTasksBySection({ tasks, completingIds, now: new Date() });
+    const today = new Date(`${dayKey}T00:00:00`);
+    return groupTasksBySection({
+      tasks,
+      completingIds,
+      now: new Date(),
+      today,
+    });
   }, [tasks, completingIds, dayKey]);
 
   const getSectionTasks = useCallback(
