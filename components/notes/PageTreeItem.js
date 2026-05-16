@@ -207,6 +207,7 @@ export default function PageTreeItem({
                   e.preventDefault();
                   e.stopPropagation();
                   onCreateSubPage?.(note.id);
+                  onNoteSelect?.();
                 }}
                 className="p-1 rounded"
                 style={{ color: "var(--text-muted)" }}
@@ -229,7 +230,7 @@ export default function PageTreeItem({
                 role="menu"
               >
                 <button
-                  onClick={() => { setMenuOpen(false); onCreateSubPage?.(note.id); }}
+                  onClick={() => { setMenuOpen(false); onCreateSubPage?.(note.id); onNoteSelect?.(); }}
                   className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left transition-colors"
                   style={{ color: "var(--text-secondary)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
@@ -249,7 +250,7 @@ export default function PageTreeItem({
                   <Pencil size={14} strokeWidth={1.5} /> {t("rename")}
                 </button>
                 <button
-                  onClick={() => { setMenuOpen(false); onDuplicate?.(note.id); }}
+                  onClick={() => { setMenuOpen(false); onDuplicate?.(note.id); onNoteSelect?.(); }}
                   className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left transition-colors"
                   style={{ color: "var(--text-secondary)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
