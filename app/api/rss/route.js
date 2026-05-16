@@ -1,12 +1,31 @@
+import { z } from "zod";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import {
   getRssFeedsCollection,
   getRssSubscriptionsCollection,
   formatSubscription,
 } from "@/lib/rss/db";
 import { VALID_CATEGORIES } from "@/lib/rss/defaultFeeds";
+
+const rssSubscribeSchema = z
+  .object({
+    categories: z
+      .array(z.string(), { error: "At least one category is required" })
+      .min(1, "At least one category is required"),
+  })
+  .superRefine((data, ctx) => {
+    for (const cat of data.categories) {
+      if (!VALID_CATEGORIES.includes(cat)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Invalid category: ${cat}`,
+        });
+        return;
+      }
+    }
+  });
 
 // GET /api/rss — list user's subscriptions
 export const GET = withAuth(
@@ -33,18 +52,12 @@ export const GET = withAuth(
 // POST /api/rss — subscribe by category
 export const POST = withAuth(
   async ({ request, userId }) => {
-    const { data, error } = await parseJsonBody(request);
+    const { data, error } = await parseJsonBodyWithSchema(
+      request,
+      rssSubscribeSchema,
+    );
     if (error) return error;
     const { categories } = data;
-    if (!Array.isArray(categories) || categories.length === 0) {
-      return apiError("At least one category is required", 400);
-    }
-
-    for (const cat of categories) {
-      if (!VALID_CATEGORIES.includes(cat)) {
-        return apiError(`Invalid category: ${cat}`, 400);
-      }
-    }
 
     const feedsCol = await getRssFeedsCollection();
     const subsCol = await getRssSubscriptionsCollection();

@@ -1,7 +1,16 @@
+import { z } from "zod";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { getNotesCollection, formatNote } from "@/lib/notes/db";
+
+const inboxNotePatchSchema = z.object({
+  content: z
+    .array(z.unknown(), { error: "content must be an array" })
+    .optional(),
+  extractedTasks: z.array(z.unknown()).optional(),
+  confirmedTasks: z.array(z.unknown()).optional(),
+});
 
 // POST /api/inbox/note — Get-or-create the inbox note for the current user
 export const POST = withAuth(
@@ -34,13 +43,12 @@ export const POST = withAuth(
 // PATCH /api/inbox/note — Save inbox content
 export const PATCH = withAuth(
   async ({ request, userId }) => {
-    const { data: body, error } = await parseJsonBody(request);
+    const { data: body, error } = await parseJsonBodyWithSchema(
+      request,
+      inboxNotePatchSchema,
+    );
     if (error) return error;
     const { content, extractedTasks, confirmedTasks } = body;
-
-    if (content !== undefined && !Array.isArray(content)) {
-      return apiError("content must be an array", 400);
-    }
 
     const updateFields = { updatedAt: new Date() };
     if (content !== undefined) updateFields.content = content;

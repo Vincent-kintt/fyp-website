@@ -1,21 +1,57 @@
 import { getCollection } from "@/lib/db";
+import { z } from "zod";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
+
+const subscribeSchema = z.object({
+  endpoint: z
+    .string({
+      error: "Invalid subscription: endpoint and keys (p256dh, auth) required",
+    })
+    .min(1, "Invalid subscription: endpoint and keys (p256dh, auth) required"),
+  keys: z.object(
+    {
+      p256dh: z
+        .string({
+          error:
+            "Invalid subscription: endpoint and keys (p256dh, auth) required",
+        })
+        .min(
+          1,
+          "Invalid subscription: endpoint and keys (p256dh, auth) required",
+        ),
+      auth: z
+        .string({
+          error:
+            "Invalid subscription: endpoint and keys (p256dh, auth) required",
+        })
+        .min(
+          1,
+          "Invalid subscription: endpoint and keys (p256dh, auth) required",
+        ),
+    },
+    {
+      error: "Invalid subscription: endpoint and keys (p256dh, auth) required",
+    },
+  ),
+});
+
+const unsubscribeSchema = z.object({
+  endpoint: z
+    .string({ error: "endpoint is required" })
+    .min(1, "endpoint is required"),
+});
 
 // POST /api/push/subscribe — save or refresh push subscription
 export const POST = withAuth(
   async ({ request, userId }) => {
-    const { data: body, error } = await parseJsonBody(request);
+    const { data: body, error } = await parseJsonBodyWithSchema(
+      request,
+      subscribeSchema,
+    );
     if (error) return error;
     const { endpoint, keys } = body;
-
-    if (!endpoint || !keys?.p256dh || !keys?.auth) {
-      return apiError(
-        "Invalid subscription: endpoint and keys (p256dh, auth) required",
-        400,
-      );
-    }
 
     // Validate endpoint URL format (prevent SSRF)
     try {
@@ -49,13 +85,12 @@ export const POST = withAuth(
 // DELETE /api/push/subscribe — remove push subscription
 export const DELETE = withAuth(
   async ({ request, userId }) => {
-    const { data: body, error } = await parseJsonBody(request);
+    const { data: body, error } = await parseJsonBodyWithSchema(
+      request,
+      unsubscribeSchema,
+    );
     if (error) return error;
     const { endpoint } = body;
-
-    if (!endpoint) {
-      return apiError("endpoint is required", 400);
-    }
 
     const subscriptionsCollection = await getCollection("push_subscriptions");
 

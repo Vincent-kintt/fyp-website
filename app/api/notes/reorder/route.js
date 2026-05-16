@@ -1,33 +1,53 @@
 import { ObjectId } from "mongodb";
+import { z } from "zod";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { getNotesCollection } from "@/lib/notes/db";
+
+const notesReorderSchema = z
+  .object({
+    updates: z
+      .array(z.object({}).loose(), { error: "updates array is required" })
+      .min(1, "updates array is required"),
+  })
+  .superRefine((data, ctx) => {
+    for (const item of data.updates) {
+      if (!item.id || !ObjectId.isValid(item.id)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Invalid note ID: ${item.id}`,
+        });
+        return;
+      }
+      if (typeof item.sortOrder !== "number") {
+        ctx.addIssue({
+          code: "custom",
+          message: `sortOrder must be a number for ID: ${item.id}`,
+        });
+        return;
+      }
+      if (item.parentId !== undefined && item.parentId !== null) {
+        if (!ObjectId.isValid(item.parentId)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Invalid parentId format: ${item.parentId}`,
+          });
+          return;
+        }
+      }
+    }
+  });
 
 // POST /api/notes/reorder - Batch update sortOrder and parentId
 export const POST = withAuth(
   async ({ request, userId }) => {
-    const { data: body, error } = await parseJsonBody(request);
+    const { data: body, error } = await parseJsonBodyWithSchema(
+      request,
+      notesReorderSchema,
+    );
     if (error) return error;
     const { updates } = body;
-
-    if (!Array.isArray(updates) || updates.length === 0) {
-      return apiError("updates array is required", 400);
-    }
-
-    for (const item of updates) {
-      if (!item.id || !ObjectId.isValid(item.id)) {
-        return apiError(`Invalid note ID: ${item.id}`, 400);
-      }
-      if (typeof item.sortOrder !== "number") {
-        return apiError(`sortOrder must be a number for ID: ${item.id}`, 400);
-      }
-      if (item.parentId !== undefined && item.parentId !== null) {
-        if (!ObjectId.isValid(item.parentId)) {
-          return apiError(`Invalid parentId format: ${item.parentId}`, 400);
-        }
-      }
-    }
 
     const notesCollection = await getNotesCollection();
 

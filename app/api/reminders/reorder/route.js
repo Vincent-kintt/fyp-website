@@ -1,28 +1,44 @@
 import { getCollection } from "@/lib/db";
 import { ObjectId } from "mongodb";
+import { z } from "zod";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
-import { parseJsonBody } from "@/lib/api/body.js";
+import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
+
+const reminderReorderSchema = z
+  .object({
+    items: z
+      .array(z.object({}).loose(), { error: "items array is required" })
+      .min(1, "items array is required"),
+  })
+  .superRefine((data, ctx) => {
+    for (const item of data.items) {
+      if (!item.id || !ObjectId.isValid(item.id)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Invalid reminder ID: ${item.id}`,
+        });
+        return;
+      }
+      if (typeof item.sortOrder !== "number") {
+        ctx.addIssue({
+          code: "custom",
+          message: `sortOrder must be a number for ID: ${item.id}`,
+        });
+        return;
+      }
+    }
+  });
 
 // PATCH /api/reminders/reorder - Batch update sortOrder (and optionally dateTime)
 export const PATCH = withAuth(
   async ({ request, userId }) => {
-    const { data: body, error } = await parseJsonBody(request);
+    const { data: body, error } = await parseJsonBodyWithSchema(
+      request,
+      reminderReorderSchema,
+    );
     if (error) return error;
     const { items } = body;
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return apiError("items array is required", 400);
-    }
-
-    for (const item of items) {
-      if (!item.id || !ObjectId.isValid(item.id)) {
-        return apiError(`Invalid reminder ID: ${item.id}`, 400);
-      }
-      if (typeof item.sortOrder !== "number") {
-        return apiError(`sortOrder must be a number for ID: ${item.id}`, 400);
-      }
-    }
 
     const remindersCollection = await getCollection("reminders");
 
