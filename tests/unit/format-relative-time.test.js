@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { formatRelativeTime } from "@/lib/format.js";
 
 const NOW = new Date("2026-05-17T12:00:00Z");
+const now = NOW;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -23,6 +24,23 @@ describe("formatRelativeTime", () => {
 
   it("returns an empty string for an invalid date string", () => {
     expect(formatRelativeTime("not-a-date", "en")).toBe("");
+  });
+
+  // Characterization: addSuffix:false in lib/format.js means future dates
+  // produce the same bare phrase as past dates (date-fns ignores direction).
+  // Callers wrap with t("editedAgo", { time }) to attach localised copy.
+  it("returns a bare relative phrase for future dates (no 'in X' prefix unless suffix enabled)", () => {
+    const future = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes ahead
+    const result = formatRelativeTime(future, "en");
+    expect(result).toMatch(/minute/i);
+    expect(result).not.toMatch(/^in /); // no "in 5 minutes" since addSuffix: false
+  });
+
+  // Characterization: numeric 0 is falsy, so the `if (!dateTime) return ""`
+  // guard short-circuits before new Date(0) (which would otherwise produce
+  // the epoch — over 56 years ago in this test's frozen NOW).
+  it("returns empty string for numeric 0 (falsy guard)", () => {
+    expect(formatRelativeTime(0, "en")).toBe("");
   });
 
   it("returns a minute-bearing phrase for ~5 minutes ago in English", () => {

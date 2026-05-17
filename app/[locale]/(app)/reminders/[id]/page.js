@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
-import { FaClock, FaTag, FaEdit, FaArrowLeft, FaTrash, FaHourglass, FaFlag, FaStickyNote, FaSync, FaPlay, FaCheck, FaPause, FaCheckCircle } from "react-icons/fa";
+import { FaClock, FaTag, FaEdit, FaArrowLeft, FaTrash, FaHourglass, FaFlag, FaStickyNote, FaSync, FaCheckCircle } from "react-icons/fa";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import EditReminderModal from "@/components/reminders/EditReminderModal";
+import { getStatusIconComponent } from "@/components/reminders/statusIcons";
 import { getStatusConfig, getTagClasses, formatDuration } from "@/lib/utils";
 import { getPriority } from "@/lib/taskConfig";
 import { formatDateFull } from "@/lib/format";
@@ -76,13 +77,6 @@ export default function ReminderDetailPage() {
     toast.success(t("updated"));
   };
 
-  const StatusIcon = {
-    pending: FaClock,
-    in_progress: FaPlay,
-    completed: FaCheck,
-    snoozed: FaPause,
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -106,7 +100,7 @@ export default function ReminderDetailPage() {
 
   const status = reminder.status || "pending";
   const statusConfig = getStatusConfig(status);
-  const StatusIconComponent = StatusIcon[status] || FaClock;
+  const StatusIcon = getStatusIconComponent(status);
   const tags = reminder.tags?.length > 0 ? reminder.tags : [reminder.category || "personal"];
   const priority = reminder.priority || "medium";
   const pConfig = getPriority(priority);
@@ -133,7 +127,7 @@ export default function ReminderDetailPage() {
           <div className="flex items-center gap-2 flex-wrap">
             {/* Status */}
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${statusConfig.color}`}>
-              <StatusIconComponent className="w-3 h-3" />
+              <StatusIcon className="w-3 h-3" />
               {tStatus(status)}
             </span>
 
