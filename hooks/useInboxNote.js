@@ -6,10 +6,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 // is sufficient because session boundaries already isolate caches.
 const inboxNoteKey = ["inbox", "note"];
 
-// /api/inbox/note uses POST as get-or-create (returns the singleton inbox note).
-// Unusual semantically, but it is the current API contract.
+// REST contract for /api/inbox/note:
+//   GET   — read (404 if missing)
+//   POST  — ensure (idempotent create); safe under the partial unique index
+//   PATCH — update (strict 404 if missing)
+//
+// On first visit the inbox note may not exist yet, so we fall back: GET → if
+// 404, POST to ensure, then re-GET. The POST response is intentionally not
+// consumed — the second GET is the canonical read.
 export async function fetchInboxNoteRequest() {
-  const res = await fetch("/api/inbox/note", { method: "POST" });
+  let res = await fetch("/api/inbox/note");
+  if (res.status === 404) {
+    const ensureRes = await fetch("/api/inbox/note", { method: "POST" });
+    if (!ensureRes.ok) throw new Error("Failed to create inbox note");
+    res = await fetch("/api/inbox/note");
+  }
   if (!res.ok) throw new Error("Failed to load inbox note");
   const data = await res.json();
   if (!data.success) throw new Error(data.error || "Failed to load inbox note");

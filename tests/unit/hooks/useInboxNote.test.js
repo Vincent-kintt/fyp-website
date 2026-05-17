@@ -1,9 +1,14 @@
 /**
  * Tests for hooks/useInboxNote.js — pure async fns + query/mutation config shapes.
  *
- * API oddity: /api/inbox/note uses POST as a "get-or-create" for the singleton
- * inbox note (one per user). PATCH updates fields (content, extractedTasks,
- * confirmedTasks). The hook mirrors that contract as-is.
+ * REST contract:
+ *   GET /api/inbox/note     — read (404 if missing)
+ *   POST /api/inbox/note    — ensure (idempotent create)
+ *   PATCH /api/inbox/note   — update (strict 404 if missing)
+ *
+ * Fetcher uses GET first; on 404 it POSTs (to ensure) then GETs again. The
+ * POST response is intentionally not consumed — the second GET is the source
+ * of truth for the canonical note.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -36,7 +41,7 @@ describe("fetchInboxNoteRequest", () => {
     vi.restoreAllMocks();
   });
 
-  it("POSTs /api/inbox/note and returns data.data on success", async () => {
+  it("GETs /api/inbox/note and returns data.data on first-call success", async () => {
     const inbox = { id: "inbox-1", title: "Inbox", content: [] };
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ success: true, data: inbox }),
@@ -45,20 +50,63 @@ describe("fetchInboxNoteRequest", () => {
     const result = await fetchInboxNoteRequest();
 
     expect(result).toEqual(inbox);
-    expect(fetchMock).toHaveBeenCalledWith("/api/inbox/note", {
-      method: "POST",
-    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/inbox/note");
   });
 
-  it("throws on non-ok response", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({}, { ok: false, status: 500 }));
+  it("on 404 GET, POSTs to ensure then GETs again and returns the second GET's data", async () => {
+    const inbox = { id: "inbox-1", title: "Inbox", content: [] };
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ success: false }, { ok: false, status: 404 }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: inbox }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: inbox }));
+
+    const result = await fetchInboxNoteRequest();
+
+    expect(result).toEqual(inbox);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/inbox/note");
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/inbox/note", {
+      method: "POST",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/inbox/note");
+  });
+
+  it("throws (no POST fallback) when GET fails with non-404 status", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({}, { ok: false, status: 500 }),
+    );
 
     await expect(fetchInboxNoteRequest()).rejects.toThrow(
       "Failed to load inbox note",
     );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("throws envelope error message on success:false", async () => {
+  it("throws when first GET is 404 and POST ensure fails", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ success: false }, { ok: false, status: 404 }))
+      .mockResolvedValueOnce(jsonResponse({}, { ok: false, status: 500 }));
+
+    await expect(fetchInboxNoteRequest()).rejects.toThrow(
+      "Failed to create inbox note",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws when first GET is 404, POST ensures, but second GET fails", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ success: false }, { ok: false, status: 404 }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { id: "x" } }))
+      .mockResolvedValueOnce(jsonResponse({}, { ok: false, status: 500 }));
+
+    await expect(fetchInboxNoteRequest()).rejects.toThrow(
+      "Failed to load inbox note",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("throws envelope error message on success:false from first GET (200 status)", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ success: false, error: "Inbox not available" }),
     );
@@ -83,7 +131,7 @@ describe("inboxNoteQueryOptions", () => {
     expect(typeof opts.queryFn).toBe("function");
   });
 
-  it("queryFn invokes fetchInboxNoteRequest", async () => {
+  it("queryFn invokes fetchInboxNoteRequest (single GET on success path)", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       jsonResponse({ success: true, data: { id: "inbox-1" } }),
     );
@@ -93,9 +141,8 @@ describe("inboxNoteQueryOptions", () => {
     const result = await opts.queryFn();
 
     expect(result).toEqual({ id: "inbox-1" });
-    expect(fetchMock).toHaveBeenCalledWith("/api/inbox/note", {
-      method: "POST",
-    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/inbox/note");
     vi.restoreAllMocks();
   });
 });
