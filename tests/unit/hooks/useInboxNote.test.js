@@ -106,6 +106,21 @@ describe("fetchInboxNoteRequest", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("throws when first GET is 404, POST ensures, but second GET is also 404", async () => {
+    // Defensive: if the backend POST somehow doesn't ensure (bug, race with
+    // a delete, missing partial unique index), the fallback fetcher must
+    // still surface a clear load error instead of returning undefined.
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ success: false }, { ok: false, status: 404 }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { id: "x" } }))
+      .mockResolvedValueOnce(jsonResponse({ success: false }, { ok: false, status: 404 }));
+
+    await expect(fetchInboxNoteRequest()).rejects.toThrow(
+      "Failed to load inbox note",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("throws envelope error message on success:false from first GET (200 status)", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ success: false, error: "Inbox not available" }),
