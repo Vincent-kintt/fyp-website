@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { blocksToText } from "@/lib/notes/blocksToText";
 import { buildInboxReminderPayload } from "@/lib/inbox/buildInboxReminderPayload.js";
 import { useCreateReminder } from "@/hooks/useCreateReminder.js";
+import { useSyncInboxState } from "@/hooks/useSyncInboxState.js";
 
 import NoteEditor from "@/components/notes/NoteEditor";
 import InboxTopBar from "@/components/inbox/InboxTopBar";
@@ -19,6 +20,7 @@ export default function InboxPage() {
   const t = useTranslations("inbox");
   const locale = useLocale();
   const createReminder = useCreateReminder();
+  const syncMutation = useSyncInboxState();
 
   const [inboxNote, setInboxNote] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -69,16 +71,13 @@ export default function InboxPage() {
     }
   }, []);
 
-  // Sync extraction state to MongoDB
+  // Sync extraction state to MongoDB. Fire-and-forget by design (callers
+  // optimistically update local state); failures surface through the
+  // hook's onError toast.
   const syncExtractionState = useCallback(
-    (tasks, confirmed) => {
-      fetch("/api/inbox/note", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ extractedTasks: tasks, confirmedTasks: confirmed }),
-      }).catch(() => {});
-    },
-    [],
+    (tasks, confirmed) =>
+      syncMutation.mutate({ extractedTasks: tasks, confirmedTasks: confirmed }),
+    [syncMutation],
   );
 
   // Extract tasks from editor content
