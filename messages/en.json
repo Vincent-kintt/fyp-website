@@ -135,7 +135,8 @@
     "reExtractWarning": "Unconfirmed tasks will be replaced.",
     "partialSuccess": "{success} created, {failed} failed",
     "clearTasks": "Clear extracted tasks",
-    "resetInbox": "Reset inbox"
+    "resetInbox": "Reset inbox",
+    "syncFailed": "Failed to sync inbox state"
   },
   "calendar": {
     "title": "Calendar",

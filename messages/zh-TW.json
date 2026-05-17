@@ -135,7 +135,8 @@
     "reExtractWarning": "未確認的任務將被替換。",
     "partialSuccess": "已建立 {success} 項，{failed} 項失敗",
     "clearTasks": "清除已提取的任務",
-    "resetInbox": "重置收件匣"
+    "resetInbox": "重置收件匣",
+    "syncFailed": "同步收件匣狀態失敗"
   },
   "calendar": {
     "title": "行事曆",
