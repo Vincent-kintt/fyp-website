@@ -13,19 +13,12 @@ const inboxNotePatchSchema = z.object({
 });
 
 // GET /api/inbox/note — Read the current user's inbox note (404 if missing).
-// Auth-scoped: send "private, no-store" so edge proxies / CDNs never cache
-// one user's inbox and serve it to another.
-const NO_STORE_HEADERS = { "Cache-Control": "private, no-store" };
-
 export const GET = withAuth(
   async ({ userId }) => {
     const notesCollection = await getNotesCollection();
     const doc = await notesCollection.findOne({ userId, type: "inbox" });
-    if (!doc)
-      return apiError("Inbox note not found", 404, null, {
-        headers: NO_STORE_HEADERS,
-      });
-    return apiSuccess(formatNote(doc), 200, null, { headers: NO_STORE_HEADERS });
+    if (!doc) return apiError("Inbox note not found", 404);
+    return apiSuccess(formatNote(doc));
   },
   { label: "GET /api/inbox/note" },
 );
@@ -61,19 +54,14 @@ export const POST = withAuth(
         { upsert: true, returnDocument: "after" },
       );
 
-      return apiSuccess(formatNote(doc), 200, null, {
-        headers: NO_STORE_HEADERS,
-      });
+      return apiSuccess(formatNote(doc));
     } catch (err) {
       if (err?.code === 11000) {
         const existing = await notesCollection.findOne({
           userId,
           type: "inbox",
         });
-        if (existing)
-          return apiSuccess(formatNote(existing), 200, null, {
-            headers: NO_STORE_HEADERS,
-          });
+        if (existing) return apiSuccess(formatNote(existing));
       }
       throw err;
     }
@@ -107,14 +95,10 @@ export const PATCH = withAuth(
     );
 
     if (!updated) {
-      return apiError("Inbox note not found", 404, null, {
-        headers: NO_STORE_HEADERS,
-      });
+      return apiError("Inbox note not found", 404);
     }
 
-    return apiSuccess(formatNote(updated), 200, null, {
-      headers: NO_STORE_HEADERS,
-    });
+    return apiSuccess(formatNote(updated));
   },
   { label: "PATCH /api/inbox/note" },
 );
