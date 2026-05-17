@@ -208,3 +208,45 @@ describe("POST /api/notes", () => {
     expect(body.error).toMatch(/200/);
   });
 });
+
+// Characterization tests locking the wrapper-level cache contract on a
+// representative route. /api/notes goes through withAuth, so every exit path
+// (401, 200, 201) must carry "Cache-Control: private, no-store". Spot-checking
+// notes + reminders covers the wrapper for all 21 auth-protected routes.
+describe("/api/notes — auth-scoped cache contract", () => {
+  it("GET sets Cache-Control: private, no-store on 200", async () => {
+    mockSession(TEST_USER);
+    const req = createRequest("GET", "/api/notes");
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("GET sets Cache-Control: private, no-store on 401", async () => {
+    mockSession(null);
+    const req = createRequest("GET", "/api/notes");
+    const res = await GET(req);
+    expect(res.status).toBe(401);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("POST sets Cache-Control: private, no-store on 201", async () => {
+    mockSession(TEST_USER);
+    const req = createRequest("POST", "/api/notes", {
+      body: { title: "Note with cache header" },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("POST sets Cache-Control: private, no-store on 401", async () => {
+    mockSession(null);
+    const req = createRequest("POST", "/api/notes", {
+      body: { title: "x" },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(401);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+});

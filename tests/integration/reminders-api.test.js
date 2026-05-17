@@ -314,3 +314,48 @@ describe("POST /api/reminders", () => {
     expect(body.error).toMatch(/200/);
   });
 });
+
+// Characterization tests locking the wrapper-level cache contract on a
+// representative route. Reminders are the most-listed resource in the app;
+// caching one user's list to another would be a privacy breach. The wrapper
+// must set "Cache-Control: private, no-store" on every exit path.
+describe("/api/reminders — auth-scoped cache contract", () => {
+  it("GET sets Cache-Control: private, no-store on 200", async () => {
+    mockSession(TEST_USER);
+    const req = createRequest("GET", "/api/reminders");
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("GET sets Cache-Control: private, no-store on 401", async () => {
+    mockSession(null);
+    const req = createRequest("GET", "/api/reminders");
+    const res = await GET(req);
+    expect(res.status).toBe(401);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("POST sets Cache-Control: private, no-store on 201", async () => {
+    mockSession(TEST_USER);
+    const req = createRequest("POST", "/api/reminders", {
+      body: {
+        title: "Reminder with cache header",
+        dateTime: new Date().toISOString(),
+      },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("POST sets Cache-Control: private, no-store on 401", async () => {
+    mockSession(null);
+    const req = createRequest("POST", "/api/reminders", {
+      body: { title: "x", dateTime: new Date().toISOString() },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(401);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+});
