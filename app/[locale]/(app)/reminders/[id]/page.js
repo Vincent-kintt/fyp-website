@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { FaClock, FaTag, FaEdit, FaArrowLeft, FaTrash, FaHourglass, FaFlag, FaStickyNote, FaSync, FaCheckCircle } from "react-icons/fa";
 import { useTranslations, useLocale } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -13,6 +14,9 @@ import { getStatusIconComponent } from "@/components/reminders/statusIcons";
 import { getStatusConfig, getTagClasses, formatDuration } from "@/lib/utils";
 import { getPriority } from "@/lib/taskConfig";
 import { formatDateFull } from "@/lib/format";
+import { reminderKeys } from "@/lib/queryKeys";
+import { useReminder } from "@/hooks/useReminder";
+import { useDeleteReminder } from "@/hooks/useDeleteReminder";
 
 export default function ReminderDetailPage() {
   const params = useParams();
@@ -22,32 +26,17 @@ export default function ReminderDetailPage() {
   const tPriority = useTranslations("priority");
   const tCommon = useTranslations("common");
   const locale = useLocale();
-  const [reminder, setReminder] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const queryClient = useQueryClient();
+
+  const {
+    data: reminder,
+    isLoading: loading,
+    error,
+  } = useReminder({ id: params.id });
+
+  const deleteMutation = useDeleteReminder();
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-
-  useEffect(() => {
-    const fetchReminder = async () => {
-      try {
-        const response = await fetch(`/api/reminders/${params.id}`);
-        const data = await response.json();
-
-        if (data.success) {
-          setReminder(data.data);
-        } else {
-          setError(t("notFound"));
-        }
-      } catch (err) {
-        console.error("Error fetching reminder:", err);
-        setError(t("failedToLoad"));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReminder();
-  }, [params.id, t]);
 
   const handleDelete = async () => {
     if (!confirm(t("confirmDelete"))) {
@@ -55,25 +44,20 @@ export default function ReminderDetailPage() {
     }
 
     try {
-      const response = await fetch(`/api/reminders/${params.id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        toast.success(t("deleted"));
-        router.push("/reminders");
-        router.refresh();
-      } else {
-        toast.error(t("deleteFailed"));
-      }
+      await deleteMutation.mutateAsync(params.id);
+      toast.success(t("deleted"));
+      router.push("/reminders");
     } catch (err) {
       console.error("Error deleting reminder:", err);
       toast.error(t("deleteFailed"));
     }
   };
 
-  const handleSave = (updatedReminder) => {
-    setReminder(updatedReminder);
+  const handleSave = () => {
+    // useReminder is cached under reminderKeys.detail(id); invalidate it so the
+    // page rerenders against the freshly persisted server state. The list is
+    // already invalidated inside useUpdateReminder, so this only refreshes detail.
+    queryClient.invalidateQueries({ queryKey: reminderKeys.detail(params.id) });
     toast.success(t("updated"));
   };
 
@@ -92,7 +76,7 @@ export default function ReminderDetailPage() {
     return (
       <div className="max-w-3xl mx-auto">
         <div className="bg-danger-light border border-danger/30 text-danger px-4 py-3 rounded-lg">
-          {error || t("notFound")}
+          {error ? t("failedToLoad") : t("notFound")}
         </div>
       </div>
     );
