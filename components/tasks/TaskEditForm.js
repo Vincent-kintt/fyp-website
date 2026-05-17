@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FaTimes, FaClock, FaSync, FaPlus, FaTrash, FaPlay, FaCheck, FaPause } from "react-icons/fa";
+import { FaTimes, FaClock, FaSync, FaPlus, FaTrash } from "react-icons/fa";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition, calculateEndTime } from "@/lib/utils";
+import { getStatusIconComponent } from "@/components/reminders/statusIcons";
 
 function toLocalDateTimeString(d) {
   const pad = (n) => String(n).padStart(2, "0");
@@ -203,9 +204,8 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
   };
 
   const StatusIcon = ({ status, className: cls }) => {
-    const icons = { pending: FaClock, in_progress: FaPlay, completed: FaCheck, snoozed: FaPause };
-    const Icon = icons[status];
-    return Icon ? <Icon className={cls} /> : null;
+    const Icon = getStatusIconComponent(status);
+    return <Icon className={cls} />;
   };
 
   return (

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { FaClock, FaTag, FaEdit, FaTrash, FaStickyNote, FaPlay, FaCheck, FaPause } from "react-icons/fa";
+import { FaClock, FaTag, FaEdit, FaTrash, FaStickyNote } from "react-icons/fa";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import Card from "../ui/Card";
 import EditReminderModal from "./EditReminderModal";
 import { getTagClasses, getStatusConfig, formatDuration } from "@/lib/utils";
+import { getStatusIconComponent } from "./statusIcons";
 import { getCategoryColor } from "@/lib/taskConfig";
 import { formatDateMedium } from "@/lib/format";
 
@@ -34,12 +35,7 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
   const statusConfig = getStatusConfig(status);
   
   // Status icon mapping
-  const StatusIcon = {
-    pending: FaClock,
-    in_progress: FaPlay,
-    completed: FaCheck,
-    snoozed: FaPause,
-  }[status] || FaClock;
+  const StatusIcon = getStatusIconComponent(status);
 
   return (
     <>
