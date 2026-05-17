@@ -30,7 +30,15 @@ async function createTask(page, title) {
   await page.click('[data-testid="quick-add-trigger"]');
   await page.fill('[data-testid="quick-add-input"]', title);
   await page.press('[data-testid="quick-add-input"]', "Enter");
-  await expect(page.locator(`text=${title}`)).toBeVisible({ timeout: 10000 });
+  // Use a strict task-list-item locator instead of loose `text=` which collides
+  // with NextTaskCard's <h2> and QuickAdd's inline confirmation chip — all three
+  // render the title simultaneously after creation, causing strict-mode rejection.
+  await expect(
+    page
+      .locator('[data-testid^="task-item-"]')
+      .filter({ hasText: title })
+      .first(),
+  ).toBeVisible({ timeout: 10000 });
 }
 
 test.describe("Task CRUD", () => {
