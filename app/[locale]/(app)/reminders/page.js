@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import ReminderList from "@/components/reminders/ReminderList";
 import ReminderFilter from "@/components/reminders/ReminderFilter";
 import ExportButton from "@/components/reminders/ExportButton";
+import ReminderRowSkeleton from "@/components/reminders/ReminderRowSkeleton.jsx";
 import { useTasks } from "@/hooks/useTasks";
 
 export default function RemindersPage() {
@@ -51,21 +52,7 @@ export default function RemindersPage() {
         {/* List skeleton */}
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className="flex items-start gap-3 p-4 rounded-xl"
-              style={{
-                backgroundColor: "var(--card-bg)",
-                border: "1px solid var(--card-border)",
-              }}
-            >
-              <div className="skeleton-line w-5 h-5 rounded-full flex-shrink-0" />
-              <div className="flex-1">
-                <div className="skeleton-line h-4 w-3/4 mb-2" />
-                <div className="skeleton-line h-3 w-1/2 mb-1" />
-                <div className="skeleton-line h-3 w-1/4" />
-              </div>
-            </div>
+            <ReminderRowSkeleton key={i} metaLines={2} />
           ))}
         </div>
       </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import ReminderRowSkeleton from "@/components/reminders/ReminderRowSkeleton.jsx";
+
 export default function DashboardSkeleton() {
   return (
     <div className="max-w-2xl mx-auto pb-24">
@@ -39,20 +41,7 @@ export default function DashboardSkeleton() {
       {/* Task list skeleton */}
       <div className="space-y-2">
         {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="flex items-start gap-3 p-4 rounded-xl"
-            style={{
-              backgroundColor: "var(--card-bg)",
-              border: "1px solid var(--card-border)",
-            }}
-          >
-            <div className="skeleton-line w-5 h-5 rounded-full flex-shrink-0" />
-            <div className="flex-1">
-              <div className="skeleton-line h-4 w-3/4 mb-2" />
-              <div className="skeleton-line h-3 w-1/3" />
-            </div>
-          </div>
+          <ReminderRowSkeleton key={i} metaLines={1} />
         ))}
       </div>
     </div>
