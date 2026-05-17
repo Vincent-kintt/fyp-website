@@ -12,7 +12,20 @@ const inboxNotePatchSchema = z.object({
   confirmedTasks: z.array(z.unknown()).optional(),
 });
 
-// POST /api/inbox/note — Get-or-create the inbox note for the current user
+// GET /api/inbox/note — Read the current user's inbox note (404 if missing)
+export const GET = withAuth(
+  async ({ userId }) => {
+    const notesCollection = await getNotesCollection();
+    const doc = await notesCollection.findOne({ userId, type: "inbox" });
+    if (!doc) return apiError("Inbox note not found", 404);
+    return apiSuccess(formatNote(doc));
+  },
+  { label: "GET /api/inbox/note" },
+);
+
+// POST /api/inbox/note — Ensure (create-if-missing) the inbox note for the current user.
+// Idempotent under the partial unique index { userId, type } where type === "inbox"
+// (see scripts/create-inbox-note-index.js) — safe against concurrent first-visit races.
 export const POST = withAuth(
   async ({ userId }) => {
     const notesCollection = await getNotesCollection();
