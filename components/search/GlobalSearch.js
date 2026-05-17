@@ -6,18 +6,11 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { File } from "lucide-react";
-import { getTagClasses, isReminderCompleted } from "@/lib/utils";
+import { getStatusConfig, getTagClasses, isReminderCompleted } from "@/lib/utils";
 import { formatDateShort } from "@/lib/format";
 import { useAIModal } from "@/components/ai/AIModalProvider";
 import { useReminderList } from "@/hooks/useReminderList.js";
 import { useNoteList } from "@/hooks/useNoteList.js";
-
-const STATUS_COLORS = {
-  pending: "#f59e0b",
-  in_progress: "#3b82f6",
-  completed: "#22c55e",
-  snoozed: "#a855f7",
-};
 
 function SearchIcon({ className, style }) {
   return (
@@ -76,7 +69,7 @@ function StatusDot({ status }) {
   return (
     <div
       className="cmdk-status-dot"
-      style={{ backgroundColor: STATUS_COLORS[status] || STATUS_COLORS.pending }}
+      style={{ backgroundColor: getStatusConfig(status).dotColorVar }}
     />
   );
 }
