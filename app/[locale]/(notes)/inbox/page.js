@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
@@ -9,6 +10,10 @@ import { blocksToText } from "@/lib/notes/blocksToText";
 import { buildInboxReminderPayload } from "@/lib/inbox/buildInboxReminderPayload.js";
 import { useCreateReminder } from "@/hooks/useCreateReminder.js";
 import { useSyncInboxState } from "@/hooks/useSyncInboxState.js";
+import {
+  useInboxNote,
+  useUpdateInboxNote,
+} from "@/hooks/useInboxNote.js";
 
 import NoteEditor from "@/components/notes/NoteEditor";
 import InboxTopBar from "@/components/inbox/InboxTopBar";
@@ -22,8 +27,12 @@ export default function InboxPage() {
   const createReminder = useCreateReminder();
   const syncMutation = useSyncInboxState();
 
-  const [inboxNote, setInboxNote] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: inboxNote, isLoading: inboxLoading } = useInboxNote({
+    enabled: !!session?.user,
+  });
+  const updateMutation = useUpdateInboxNote();
+
   const [saveStatus, setSaveStatus] = useState(null);
   const [extractedTasks, setExtractedTasks] = useState([]);
   const [confirmedTasks, setConfirmedTasks] = useState([]);
@@ -36,40 +45,25 @@ export default function InboxPage() {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
-  // Fetch or create inbox note
+  // Seed local extraction state from the server snapshot exactly once
+  // (on first successful inbox-note load). Subsequent refetches must not
+  // clobber in-progress user edits — extraction state is then driven
+  // client-side and pushed via syncMutation.
+  const seededRef = useRef(false);
   useEffect(() => {
-    if (!session?.user) return;
-    (async () => {
-      try {
-        const res = await fetch("/api/inbox/note", { method: "POST" });
-        const data = await res.json();
-        if (data.success) {
-          setInboxNote(data.data);
-          if (data.data.extractedTasks) setExtractedTasks(data.data.extractedTasks);
-          if (data.data.confirmedTasks) setConfirmedTasks(data.data.confirmedTasks);
-        }
-      } catch (err) {
-        console.error("Failed to load inbox note:", err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [session?.user]);
+    if (!inboxNote || seededRef.current) return;
+    if (inboxNote.extractedTasks) setExtractedTasks(inboxNote.extractedTasks);
+    if (inboxNote.confirmedTasks) setConfirmedTasks(inboxNote.confirmedTasks);
+    seededRef.current = true;
+  }, [inboxNote]);
 
   // Save handler for NoteEditor
-  const handleSave = useCallback(async (updates) => {
-    try {
-      const res = await fetch("/api/inbox/note", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error("Save failed");
-    } catch (err) {
-      throw err;
-    }
-  }, []);
+  const handleSave = useCallback(
+    async (updates) => {
+      await updateMutation.mutateAsync(updates);
+    },
+    [updateMutation],
+  );
 
   // Sync extraction state to MongoDB. Fire-and-forget by design (callers
   // optimistically update local state); failures surface through the
@@ -194,22 +188,31 @@ export default function InboxPage() {
     syncExtractionState([], []);
   }, [syncExtractionState]);
 
-  // Reset inbox — clear editor content + extracted tasks + confirmed history
+  // Reset inbox — clear editor content + extracted tasks + confirmed history.
+  // Optimistically write the cleared shape into the cache so the remounted
+  // editor (driven by editorKey) renders empty immediately, matching the
+  // previous setInboxNote({...prev, content: []}) UX. The PATCH then persists
+  // the change; onSuccess invalidation reconciles with server truth.
   const handleResetInbox = useCallback(async () => {
     setExtractedTasks([]);
     setConfirmedTasks([]);
-    setInboxNote((prev) => (prev ? { ...prev, content: [] } : prev));
+    queryClient.setQueryData(["inbox", "note"], (prev) =>
+      prev ? { ...prev, content: [] } : prev,
+    );
     setEditorKey((k) => k + 1);
     try {
-      await fetch("/api/inbox/note", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: [], extractedTasks: [], confirmedTasks: [] }),
+      await updateMutation.mutateAsync({
+        content: [],
+        extractedTasks: [],
+        confirmedTasks: [],
       });
-    } catch {}
-  }, []);
+    } catch {
+      // surfaces nowhere today (parity with previous swallowed error); rely on
+      // the editor remount + next refetch for UI consistency.
+    }
+  }, [queryClient, updateMutation]);
 
-  if (status === "loading" || loading) {
+  if (status === "loading" || inboxLoading) {
     return (
       <div className="flex h-full">
         <section
