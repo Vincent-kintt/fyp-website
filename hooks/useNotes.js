@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { noteKeys } from "@/lib/queryKeys";
+import { removeNoteCaches } from "@/lib/notes/cacheHelpers";
 import { useNoteList } from "@/hooks/useNoteList";
 
 async function fetchTrashedNotes() {
@@ -65,6 +66,7 @@ export default function useNotes() {
         const data = await res.json();
         if (data.success) {
           await invalidateAll();
+          removeNoteCaches({ queryClient, id });
           return true;
         }
         return false;
@@ -73,7 +75,7 @@ export default function useNotes() {
         return false;
       }
     },
-    [invalidateAll, t],
+    [invalidateAll, queryClient, t],
   );
 
   const renameNote = useCallback(
@@ -187,12 +189,15 @@ export default function useNotes() {
       try {
         const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
         const data = await res.json();
-        if (data.success) await invalidateAll();
+        if (data.success) {
+          await invalidateAll();
+          removeNoteCaches({ queryClient, id });
+        }
       } catch {
         toast.error(t("deleteFailed"));
       }
     },
-    [invalidateAll, t],
+    [invalidateAll, queryClient, t],
   );
 
   return {
