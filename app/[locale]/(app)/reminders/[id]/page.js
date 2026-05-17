@@ -24,7 +24,6 @@ export default function ReminderDetailPage() {
   const t = useTranslations("reminders");
   const tStatus = useTranslations("status");
   const tPriority = useTranslations("priority");
-  const tCommon = useTranslations("common");
   const locale = useLocale();
   const queryClient = useQueryClient();
 
