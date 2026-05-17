@@ -16,7 +16,7 @@
  *     the raw error message or endpoint URL.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import { processDueReminders } from "@/lib/notifications/processDueReminders.js";
 
@@ -96,6 +96,11 @@ describe("processDueReminders", () => {
   let consoleErrorSpy;
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    // Restore so spies don't stack across tests; without this, each beforeEach
+    // layers a new spy on console.error and call counts accumulate.
+    consoleErrorSpy.mockRestore();
   });
 
   it("happy path single sub: claim then send, notificationSent=true, no lease fields", async () => {
@@ -603,5 +608,205 @@ describe("processDueReminders", () => {
 
     expect(reminders._findCursor.limit).toHaveBeenCalledWith(2);
     expect(result.processed).toBe(2);
+  });
+
+  it("default limit=20: fits Vercel cron maxDuration:10s budget", async () => {
+    // Defensive default: the helper must call find().limit(20) when caller
+    // omits the limit option. This keeps worst-case retry budget within
+    // vercel.json's app/api/cron/**/*.js maxDuration:10s.
+    const reminders = makeRemindersCollection([
+      {
+        _id: "r1",
+        userId: "u1",
+        title: "Default",
+        dateTime: new Date("2026-05-17T23:00:00.000Z"),
+        status: "pending",
+        notificationSent: false,
+      },
+    ]);
+    const subs = makeSubsCollection({
+      u1: [{ _id: "s1", userId: "u1", endpoint: "ep", keys: {} }],
+    });
+    const sendPush = vi.fn().mockResolvedValue({ success: true, statusCode: 201 });
+
+    await processDueReminders({
+      remindersCollection: reminders,
+      subscriptionsCollection: subs,
+      sendPush,
+      now: NOW,
+    });
+
+    expect(reminders._findCursor.limit).toHaveBeenCalledWith(20);
+  });
+
+  it("legacy v4/v5 driver shape: findOneAndUpdate returns {value: doc} → proceeds to send", async () => {
+    // MongoDB driver v4/v5 wrap findOneAndUpdate results as {value: doc | null}.
+    // v6+ returns the doc directly. The helper must normalize both shapes so a
+    // future driver upgrade can't silently break the claim flow.
+    const reminders = makeRemindersCollection([
+      {
+        _id: "r1",
+        userId: "u1",
+        title: "Legacy",
+        dateTime: new Date("2026-05-17T23:00:00.000Z"),
+        status: "pending",
+        notificationSent: false,
+      },
+    ]);
+    // Override default mock to return the legacy {value: doc} shape.
+    reminders.findOneAndUpdate.mockImplementation(async (filter, update) => {
+      const doc = reminders._store.get(filter._id);
+      if (!doc) return { value: null };
+      if (
+        filter.notificationSent &&
+        filter.notificationSent.$ne === true &&
+        doc.notificationSent === true
+      ) {
+        return { value: null };
+      }
+      Object.assign(doc, update.$set);
+      return { value: doc };
+    });
+
+    const subs = makeSubsCollection({
+      u1: [{ _id: "s1", userId: "u1", endpoint: "ep", keys: {} }],
+    });
+    const sendPush = vi.fn().mockResolvedValue({ success: true, statusCode: 201 });
+
+    const result = await processDueReminders({
+      remindersCollection: reminders,
+      subscriptionsCollection: subs,
+      sendPush,
+      now: NOW,
+    });
+
+    expect(result.processed).toBe(1);
+    expect(result.sent).toBe(1);
+    expect(sendPush).toHaveBeenCalledTimes(1);
+    expect(reminders._store.get("r1").notificationSent).toBe(true);
+  });
+
+  it("legacy v4/v5 no-match shape: findOneAndUpdate returns {value: null} → reminder skipped, no send", async () => {
+    // The truthy check `if (!claimed)` would fail here because `{value: null}`
+    // is itself truthy. The robust unwrap must treat {value: null} as a lost
+    // claim and skip the reminder.
+    const reminders = makeRemindersCollection([
+      {
+        _id: "r1",
+        userId: "u1",
+        title: "RacedLegacy",
+        dateTime: new Date("2026-05-17T23:00:00.000Z"),
+        status: "pending",
+        notificationSent: false,
+      },
+    ]);
+    reminders._findCursor.toArray.mockResolvedValue([
+      { ...reminders._store.get("r1") },
+    ]);
+    // Sibling cron claimed the row in-flight; legacy driver wraps the null.
+    reminders.findOneAndUpdate.mockResolvedValue({ value: null });
+
+    const subs = makeSubsCollection({
+      u1: [{ _id: "s1", userId: "u1", endpoint: "ep", keys: {} }],
+    });
+    const sendPush = vi.fn();
+
+    const result = await processDueReminders({
+      remindersCollection: reminders,
+      subscriptionsCollection: subs,
+      sendPush,
+      now: NOW,
+    });
+
+    expect(result.processed).toBe(0);
+    expect(sendPush).not.toHaveBeenCalled();
+  });
+
+  it("429 exhausted: all 3 attempts return 429 → failed=1, console.error logged with 429", async () => {
+    // 429 is transient like 5xx — should retry through the full budget and
+    // then surface as a failure (not silent). One reminder, one sub, three
+    // attempts, sleep awaited twice between attempts.
+    const reminders = makeRemindersCollection([
+      {
+        _id: "r1",
+        userId: "u1",
+        title: "RateLimited",
+        dateTime: new Date("2026-05-17T23:00:00.000Z"),
+        status: "pending",
+        notificationSent: false,
+      },
+    ]);
+    const subs = makeSubsCollection({
+      u1: [{ _id: "s1", userId: "u1", endpoint: "ep", keys: {} }],
+    });
+    const sendPush = vi
+      .fn()
+      .mockResolvedValue({ success: false, statusCode: 429 });
+
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    const result = await processDueReminders({
+      remindersCollection: reminders,
+      subscriptionsCollection: subs,
+      sendPush,
+      now: NOW,
+      sendRetries: 3,
+      backoffMs: 0,
+      sleep,
+    });
+
+    expect(result.failed).toBe(1);
+    expect(result.sent).toBe(0);
+    expect(sendPush).toHaveBeenCalledTimes(3);
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    const joined = consoleErrorSpy.mock.calls
+      .map((c) => c.map(String).join(" "))
+      .join(" ");
+    expect(joined).toContain("429");
+    expect(joined).toMatch(/attempts=3/);
+  });
+
+  it("partial_success ok+410: 2 subs (success, 410) → sent=1, cleaned=1, partial_success=1, all_gone=0", async () => {
+    // Distinct from "all 410" (all_gone) and from "ok + transient" (handled
+    // separately). When one sub succeeds and another is 410 GONE without any
+    // transient failures, that still counts as partial_success because not
+    // every sub got the push.
+    const reminders = makeRemindersCollection([
+      {
+        _id: "r1",
+        userId: "u1",
+        title: "OkPlusGone",
+        dateTime: new Date("2026-05-17T23:00:00.000Z"),
+        status: "pending",
+        notificationSent: false,
+      },
+    ]);
+    const subs = makeSubsCollection({
+      u1: [
+        { _id: "s1", userId: "u1", endpoint: "ok", keys: {} },
+        { _id: "s2", userId: "u1", endpoint: "gone", keys: {} },
+      ],
+    });
+    const sendPush = vi
+      .fn()
+      .mockResolvedValueOnce({ success: true, statusCode: 201 })
+      .mockResolvedValueOnce({ success: false, statusCode: 410 });
+
+    const result = await processDueReminders({
+      remindersCollection: reminders,
+      subscriptionsCollection: subs,
+      sendPush,
+      now: NOW,
+      sendRetries: 3,
+      backoffMs: 0,
+      sleep: vi.fn(),
+    });
+
+    expect(result.sent).toBe(1);
+    expect(result.cleaned).toBe(1);
+    expect(result.all_gone).toBe(0); // only 1 of 2 subs cleaned, not all
+    expect(result.partial_success).toBe(1);
+    expect(reminders._store.get("r1").notificationSent).toBe(true);
+    expect(subs.deleteOne).toHaveBeenCalledTimes(1);
   });
 });
