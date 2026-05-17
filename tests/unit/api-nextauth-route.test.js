@@ -47,7 +47,10 @@ describe("NextAuth route wrap pattern", () => {
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
-  it("GET preserves explicit Cache-Control set by the NextAuth handler", async () => {
+  it("GET overwrites a public Cache-Control set by the NextAuth handler", async () => {
+    // NextAuth session/CSRF responses must never reach an edge proxy. Even
+    // if a handler returned `public, max-age=N`, the wrapper enforces the
+    // auth-scoped contract at the boundary.
     getHandlerMock.mockResolvedValue(
       new Response("ok", {
         status: 200,
@@ -56,7 +59,21 @@ describe("NextAuth route wrap pattern", () => {
     );
     const req = new Request("http://localhost/api/auth/csrf");
     const res = await route.GET(req);
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=60");
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("GET overwrites Cache-Control: no-cache with private, no-store", async () => {
+    // `no-cache` permits revalidated caching, which still leaks per-user
+    // session shape. Wrapper must overwrite.
+    getHandlerMock.mockResolvedValue(
+      new Response("ok", {
+        status: 200,
+        headers: { "Cache-Control": "no-cache" },
+      }),
+    );
+    const req = new Request("http://localhost/api/auth/session");
+    const res = await route.GET(req);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
   it("POST adds Cache-Control: private, no-store on the rate-limited 429 short-circuit", async () => {
@@ -85,7 +102,7 @@ describe("NextAuth route wrap pattern", () => {
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
-  it("POST preserves explicit Cache-Control set by the NextAuth handler", async () => {
+  it("POST overwrites a public Cache-Control set by the NextAuth handler", async () => {
     checkRateLimitMock.mockReturnValue({ success: true, resetMs: 0 });
     postHandlerMock.mockResolvedValue(
       new Response("ok", {
@@ -98,6 +115,6 @@ describe("NextAuth route wrap pattern", () => {
       headers: { "x-forwarded-for": "1.2.3.4" },
     });
     const res = await route.POST(req);
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=30");
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 });

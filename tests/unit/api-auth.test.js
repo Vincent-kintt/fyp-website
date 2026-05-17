@@ -165,8 +165,11 @@ describe("withAuth", () => {
 
   // Auth-scoped responses must never be cached by edge proxies / CDNs because
   // they contain per-user data. The wrapper is the single source of truth —
-  // every exit path (handler-return, 401, 500) gets "private, no-store" unless
-  // the handler set an explicit Cache-Control header (opt-in public caching).
+  // every exit path (handler-return, 401, 500) ends up with `private, no-store`
+  // unless the handler ALREADY set a Cache-Control directive that includes
+  // `no-store`. Anything else (missing header, `no-cache`, `public, ...`) is
+  // overwritten. `no-cache` is the AI SDK v6 streaming-response default and
+  // must not be allowed to leak through on auth-scoped routes.
   describe("auth-scoped cache contract", () => {
     it("adds Cache-Control: private, no-store on the success path", async () => {
       authMock.mockResolvedValue({ user: { id: "u1" } });
@@ -205,7 +208,10 @@ describe("withAuth", () => {
       });
     });
 
-    it("preserves explicit Cache-Control set by the handler", async () => {
+    it("overwrites handler's public Cache-Control with private, no-store", async () => {
+      // Auth-scoped responses are never publicly cacheable. A handler that
+      // returns `public, max-age=N` is wrong for an auth route; the wrapper
+      // corrects it at the boundary so the contract holds end-to-end.
       authMock.mockResolvedValue({ user: { id: "u1" } });
       const route = withAuth(
         async () =>
@@ -215,7 +221,43 @@ describe("withAuth", () => {
           }),
       );
       const res = await route(new Request("http://localhost/test"));
-      expect(res.headers.get("Cache-Control")).toBe("public, max-age=60");
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    });
+
+    it("overwrites handler's no-cache Cache-Control with private, no-store", async () => {
+      // AI SDK v6 toUIMessageStreamResponse() defaults to `Cache-Control:
+      // no-cache`. `no-cache` permits revalidated caching by intermediaries,
+      // which is unacceptable for per-user data. The wrapper must overwrite.
+      authMock.mockResolvedValue({ user: { id: "u1" } });
+      const route = withAuth(
+        async () =>
+          new Response("ok", {
+            status: 200,
+            headers: { "Cache-Control": "no-cache" },
+          }),
+      );
+      const res = await route(new Request("http://localhost/test"));
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    });
+
+    it("preserves an explicit no-store variant set by the handler", async () => {
+      // The opt-in only fires when the handler ALREADY includes `no-store`.
+      // A handler may want stricter semantics (e.g. add `must-revalidate`);
+      // the wrapper respects that intent.
+      authMock.mockResolvedValue({ user: { id: "u1" } });
+      const route = withAuth(
+        async () =>
+          new Response("ok", {
+            status: 200,
+            headers: {
+              "Cache-Control": "private, no-store, must-revalidate",
+            },
+          }),
+      );
+      const res = await route(new Request("http://localhost/test"));
+      expect(res.headers.get("Cache-Control")).toBe(
+        "private, no-store, must-revalidate",
+      );
     });
 
     it("adds Cache-Control on a streaming-shape response and preserves Content-Type", async () => {
@@ -231,6 +273,33 @@ describe("withAuth", () => {
           new Response(stream, {
             status: 200,
             headers: { "Content-Type": "text/event-stream" },
+          }),
+      );
+      const res = await route(new Request("http://localhost/test"));
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+      expect(res.headers.get("Content-Type")).toBe("text/event-stream");
+    });
+
+    it("overwrites Cache-Control on an AI-SDK-shape streaming response", async () => {
+      // Realistic scenario mirroring AI SDK v6 toUIMessageStreamResponse():
+      // `Content-Type: text/event-stream` + `Cache-Control: no-cache`.
+      // Wrapper must overwrite the cache header while leaving the
+      // event-stream content-type intact so the client still streams.
+      authMock.mockResolvedValue({ user: { id: "u1" } });
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("data: hi\n\n"));
+          controller.close();
+        },
+      });
+      const route = withAuth(
+        async () =>
+          new Response(stream, {
+            status: 200,
+            headers: {
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+            },
           }),
       );
       const res = await route(new Request("http://localhost/test"));
@@ -350,7 +419,8 @@ describe("withCronAuth", () => {
       expect(res.headers.get("Cache-Control")).toBe("private, no-store");
     });
 
-    it("preserves explicit Cache-Control set by the handler", async () => {
+    it("overwrites handler's public Cache-Control with private, no-store", async () => {
+      // Cron output is per-account work — never publicly cacheable.
       process.env.CRON_SECRET = "s3cr3t";
       const route = withCronAuth(
         async () =>
@@ -363,7 +433,43 @@ describe("withCronAuth", () => {
         headers: { authorization: "Bearer s3cr3t" },
       });
       const res = await route(request);
-      expect(res.headers.get("Cache-Control")).toBe("public, max-age=60");
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    });
+
+    it("overwrites handler's no-cache Cache-Control with private, no-store", async () => {
+      process.env.CRON_SECRET = "s3cr3t";
+      const route = withCronAuth(
+        async () =>
+          new Response("ok", {
+            status: 200,
+            headers: { "Cache-Control": "no-cache" },
+          }),
+      );
+      const request = new Request("http://localhost/cron", {
+        headers: { authorization: "Bearer s3cr3t" },
+      });
+      const res = await route(request);
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    });
+
+    it("preserves an explicit no-store variant set by the handler", async () => {
+      process.env.CRON_SECRET = "s3cr3t";
+      const route = withCronAuth(
+        async () =>
+          new Response("ok", {
+            status: 200,
+            headers: {
+              "Cache-Control": "private, no-store, must-revalidate",
+            },
+          }),
+      );
+      const request = new Request("http://localhost/cron", {
+        headers: { authorization: "Bearer s3cr3t" },
+      });
+      const res = await route(request);
+      expect(res.headers.get("Cache-Control")).toBe(
+        "private, no-store, must-revalidate",
+      );
     });
   });
 });
