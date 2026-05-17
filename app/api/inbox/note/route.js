@@ -26,29 +26,45 @@ export const GET = withAuth(
 // POST /api/inbox/note — Ensure (create-if-missing) the inbox note for the current user.
 // Idempotent under the partial unique index { userId, type } where type === "inbox"
 // (see scripts/create-inbox-note-index.js) — safe against concurrent first-visit races.
+//
+// The atomic findOneAndUpdate+upsert almost always swallows the race itself,
+// but under heavy write-conflict load MongoDB can still surface E11000 to the
+// caller. Catch it, re-read the winning doc, and return 200 — the race is the
+// success path, not a 500.
 export const POST = withAuth(
   async ({ userId }) => {
     const notesCollection = await getNotesCollection();
     const now = new Date();
 
-    const doc = await notesCollection.findOneAndUpdate(
-      { userId, type: "inbox" },
-      {
-        $setOnInsert: {
-          title: "Inbox",
-          content: [],
-          parentId: null,
-          icon: null,
-          sortOrder: 0,
-          createdAt: now,
-          updatedAt: now,
-          deletedAt: null,
+    try {
+      const doc = await notesCollection.findOneAndUpdate(
+        { userId, type: "inbox" },
+        {
+          $setOnInsert: {
+            title: "Inbox",
+            content: [],
+            parentId: null,
+            icon: null,
+            sortOrder: 0,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null,
+          },
         },
-      },
-      { upsert: true, returnDocument: "after" },
-    );
+        { upsert: true, returnDocument: "after" },
+      );
 
-    return apiSuccess(formatNote(doc));
+      return apiSuccess(formatNote(doc));
+    } catch (err) {
+      if (err?.code === 11000) {
+        const existing = await notesCollection.findOne({
+          userId,
+          type: "inbox",
+        });
+        if (existing) return apiSuccess(formatNote(existing));
+      }
+      throw err;
+    }
   },
   { label: "POST /api/inbox/note" },
 );
