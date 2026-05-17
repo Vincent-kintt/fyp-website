@@ -5,11 +5,8 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { ChevronRight, MoreHorizontal, Pencil, Copy, Trash2 } from "lucide-react";
 import NoteIcon from "./NoteIcon";
-import { formatDistanceToNow } from "date-fns";
-import { zhTW, enUS } from "date-fns/locale";
+import { formatRelativeTime } from "@/lib/format";
 import { useClickOutside } from "@/hooks/useClickOutside";
-
-const localeMap = { "zh-TW": zhTW, en: enUS };
 
 export default function NoteTopBar({
   note,
@@ -24,17 +21,12 @@ export default function NoteTopBar({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useClickOutside(() => setMenuOpen(false));
 
-  const dateFnsLocale = localeMap[locale] || enUS;
-
   const getStatusText = () => {
     if (saveStatus === "saving") return t("saving");
     if (saveStatus === "saved") return t("saved");
     if (note?.updatedAt) {
-      const time = formatDistanceToNow(new Date(note.updatedAt), {
-        addSuffix: false,
-        locale: dateFnsLocale,
-      });
-      return t("editedAgo", { time });
+      const time = formatRelativeTime(note.updatedAt, locale);
+      if (time) return t("editedAgo", { time });
     }
     return null;
   };

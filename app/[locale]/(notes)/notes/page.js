@@ -1,30 +1,22 @@
 "use client";
 
 import { useRouter } from "@/i18n/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { FiFileText, FiPlus, FiClock } from "react-icons/fi";
 import { extractPreview } from "@/lib/notes/preview";
-import { MS_PER_MINUTE } from "@/lib/utils";
+import { formatRelativeTime } from "@/lib/format";
 import useNotes from "@/hooks/useNotes";
 
 export default function NotesPage() {
   const t = useTranslations("notes");
+  const locale = useLocale();
   const router = useRouter();
   const { notes, loading, createNote } = useNotes();
 
   const formatTime = (dateStr) => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMin = Math.floor(diffMs / MS_PER_MINUTE);
-    if (diffMin < 1) return t("editedAgo", { time: "just now" });
-    if (diffMin < 60) return t("editedAgo", { time: `${diffMin}m` });
-    const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) return t("editedAgo", { time: `${diffHours}h` });
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return t("editedAgo", { time: `${diffDays}d` });
-    return t("editedAgo", { time: date.toLocaleDateString() });
+    const time = formatRelativeTime(dateStr, locale);
+    if (!time) return "";
+    return t("editedAgo", { time });
   };
 
   if (loading) {
