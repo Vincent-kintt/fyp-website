@@ -92,6 +92,19 @@ describe("GET /api/inbox/note", () => {
     expect(status).toBe(404);
     expect(body.success).toBe(false);
   });
+
+  it("sets Cache-Control: private, no-store on the response", async () => {
+    // Auth-scoped responses must never be cached by edge proxies / CDNs —
+    // otherwise one user's inbox could leak to another. Verified on the
+    // 200 path; the same header is set regardless of body.
+    mockSession(TEST_USER);
+    await seedInbox(TEST_USER.id);
+
+    const req = createRequest("GET", "/api/inbox/note");
+    const res = await GET(req);
+
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
 });
 
 describe("POST /api/inbox/note", () => {

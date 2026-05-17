@@ -12,13 +12,17 @@ const inboxNotePatchSchema = z.object({
   confirmedTasks: z.array(z.unknown()).optional(),
 });
 
-// GET /api/inbox/note — Read the current user's inbox note (404 if missing)
+// GET /api/inbox/note — Read the current user's inbox note (404 if missing).
+// Auth-scoped: send "private, no-store" so edge proxies / CDNs never cache
+// one user's inbox and serve it to another.
+const NO_STORE_HEADERS = { "Cache-Control": "private, no-store" };
+
 export const GET = withAuth(
   async ({ userId }) => {
     const notesCollection = await getNotesCollection();
     const doc = await notesCollection.findOne({ userId, type: "inbox" });
     if (!doc) return apiError("Inbox note not found", 404);
-    return apiSuccess(formatNote(doc));
+    return apiSuccess(formatNote(doc), 200, null, { headers: NO_STORE_HEADERS });
   },
   { label: "GET /api/inbox/note" },
 );
