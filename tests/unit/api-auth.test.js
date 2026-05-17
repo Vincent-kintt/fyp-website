@@ -309,4 +309,61 @@ describe("withCronAuth", () => {
       "GET /api/cron/notify",
     );
   });
+
+  // Cron endpoints sit behind a shared bearer secret, but they still return
+  // per-account work output (e.g. push notifications dispatched, reminders
+  // surfaced) and must never be cached by edge proxies / CDNs. The wrapper
+  // owns the cache contract for every exit path.
+  describe("auth-scoped cache contract", () => {
+    it("adds Cache-Control: private, no-store on the success path", async () => {
+      process.env.CRON_SECRET = "s3cr3t";
+      const route = withCronAuth(async () => new Response("ok"));
+      const request = new Request("http://localhost/cron", {
+        headers: { authorization: "Bearer s3cr3t" },
+      });
+      const res = await route(request);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    });
+
+    it("adds Cache-Control: private, no-store on the 401 path", async () => {
+      delete process.env.CRON_SECRET;
+      const route = withCronAuth(vi.fn());
+      const request = new Request("http://localhost/cron", {
+        headers: { authorization: "Bearer anything" },
+      });
+      const res = await route(request);
+      expect(res.status).toBe(401);
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    });
+
+    it("adds Cache-Control: private, no-store on the 500 path", async () => {
+      process.env.CRON_SECRET = "s3cr3t";
+      const route = withCronAuth(async () => {
+        throw new Error("boom");
+      });
+      const request = new Request("http://localhost/cron", {
+        headers: { authorization: "Bearer s3cr3t" },
+      });
+      const res = await route(request);
+      expect(res.status).toBe(500);
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    });
+
+    it("preserves explicit Cache-Control set by the handler", async () => {
+      process.env.CRON_SECRET = "s3cr3t";
+      const route = withCronAuth(
+        async () =>
+          new Response("ok", {
+            status: 200,
+            headers: { "Cache-Control": "public, max-age=60" },
+          }),
+      );
+      const request = new Request("http://localhost/cron", {
+        headers: { authorization: "Bearer s3cr3t" },
+      });
+      const res = await route(request);
+      expect(res.headers.get("Cache-Control")).toBe("public, max-age=60");
+    });
+  });
 });
