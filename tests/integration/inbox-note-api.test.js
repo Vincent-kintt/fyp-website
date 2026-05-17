@@ -108,6 +108,15 @@ describe("GET /api/inbox/note", () => {
 });
 
 describe("POST /api/inbox/note", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockSession(null);
+    const req = createRequest("POST", "/api/inbox/note");
+    const res = await POST(req);
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(401);
+    expect(body.success).toBe(false);
+  });
+
   it("creates the inbox note when missing", async () => {
     mockSession(TEST_USER);
 
@@ -174,6 +183,17 @@ describe("POST /api/inbox/note", () => {
 });
 
 describe("PATCH /api/inbox/note", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockSession(null);
+    const req = createRequest("PATCH", "/api/inbox/note", {
+      body: { content: [] },
+    });
+    const res = await PATCH(req);
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(401);
+    expect(body.success).toBe(false);
+  });
+
   it("returns 404 when no inbox note exists (does not auto-create)", async () => {
     mockSession(TEST_USER);
 
