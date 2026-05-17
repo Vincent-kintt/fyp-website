@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
+import { ensureNoStore } from "@/lib/api/cache.js";
 import {
   USERNAME_REGEX,
   EMAIL_REGEX,
@@ -27,7 +28,11 @@ const registerSchema = z.object({
     .min(8, "Password must be at least 8 characters."),
 });
 
-export async function POST(request) {
+// Register echoes per-account state (collision answers / success-with-id) —
+// every exit path must carry `Cache-Control: private, no-store`. Funnel all
+// returns through `ensureNoStore` rather than threading headers manually
+// through each response site.
+async function handleRegister(request) {
   const { data: body, error: parseError } = await parseJsonBodyWithSchema(
     request,
     registerSchema,
@@ -80,4 +85,8 @@ export async function POST(request) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(request) {
+  return ensureNoStore(await handleRegister(request));
 }
