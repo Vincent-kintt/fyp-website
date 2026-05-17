@@ -162,6 +162,82 @@ describe("withAuth", () => {
     });
     expect(consoleErrorSpy.mock.calls[0][0]).toContain("GET /api/foo");
   });
+
+  // Auth-scoped responses must never be cached by edge proxies / CDNs because
+  // they contain per-user data. The wrapper is the single source of truth —
+  // every exit path (handler-return, 401, 500) gets "private, no-store" unless
+  // the handler set an explicit Cache-Control header (opt-in public caching).
+  describe("auth-scoped cache contract", () => {
+    it("adds Cache-Control: private, no-store on the success path", async () => {
+      authMock.mockResolvedValue({ user: { id: "u1" } });
+      const route = withAuth(async () =>
+        new Response(JSON.stringify({ success: true, data: 1 }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+      const res = await route(new Request("http://localhost/test"));
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    });
+
+    it("adds Cache-Control: private, no-store on the 401 path", async () => {
+      authMock.mockResolvedValue(null);
+      const handler = vi.fn();
+      const route = withAuth(handler);
+      const res = await route(new Request("http://localhost/test"));
+      expect(handler).not.toHaveBeenCalled();
+      expect(res.status).toBe(401);
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    });
+
+    it("adds Cache-Control: private, no-store on the 500 path", async () => {
+      authMock.mockResolvedValue({ user: { id: "u1" } });
+      const route = withAuth(async () => {
+        throw new Error("boom");
+      });
+      const res = await route(new Request("http://localhost/test"));
+      expect(res.status).toBe(500);
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+      const body = await readJson(res);
+      expect(body).toEqual({
+        success: false,
+        error: "Internal server error",
+      });
+    });
+
+    it("preserves explicit Cache-Control set by the handler", async () => {
+      authMock.mockResolvedValue({ user: { id: "u1" } });
+      const route = withAuth(
+        async () =>
+          new Response("ok", {
+            status: 200,
+            headers: { "Cache-Control": "public, max-age=60" },
+          }),
+      );
+      const res = await route(new Request("http://localhost/test"));
+      expect(res.headers.get("Cache-Control")).toBe("public, max-age=60");
+    });
+
+    it("adds Cache-Control on a streaming-shape response and preserves Content-Type", async () => {
+      authMock.mockResolvedValue({ user: { id: "u1" } });
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("event: ping\n\n"));
+          controller.close();
+        },
+      });
+      const route = withAuth(
+        async () =>
+          new Response(stream, {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+          }),
+      );
+      const res = await route(new Request("http://localhost/test"));
+      expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+      expect(res.headers.get("Content-Type")).toBe("text/event-stream");
+    });
+  });
 });
 
 describe("withCronAuth", () => {
