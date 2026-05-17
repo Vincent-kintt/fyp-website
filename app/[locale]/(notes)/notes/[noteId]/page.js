@@ -13,6 +13,8 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PromptDialog from "@/components/ui/PromptDialog";
 import { findAncestors } from "@/lib/notes/tree";
 import useNotes from "@/hooks/useNotes";
+import { useNote } from "@/hooks/useNote";
+import { useUpdateNote } from "@/hooks/useUpdateNote";
 
 export default function NotePage() {
   const { noteId } = useParams();
@@ -33,73 +35,46 @@ export default function NotePage() {
     permanentDeleteNote,
   } = useNotes();
 
-  const [currentNote, setCurrentNote] = useState(null);
+  const {
+    data: currentNote,
+    isLoading: loading,
+    error: noteError,
+  } = useNote({ id: noteId });
+
+  const updateNoteMutation = useUpdateNote();
+
   const [editorSaveStatus, setEditorSaveStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
 
-  const fetchCurrentNote = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/notes/${noteId}`);
-      const data = await res.json();
-      if (data.success) {
-        setCurrentNote(data.data);
-      } else {
-        router.replace("/notes");
-      }
-    } catch {
-      router.replace("/notes");
-    } finally {
-      setLoading(false);
-    }
-  }, [noteId, router]);
-
+  // Preserve the prior UX: a missing or unreadable note bounces back to
+  // the notes index. useNote rejects on !res.ok and { success: false }.
   useEffect(() => {
-    fetchCurrentNote();
-  }, [fetchCurrentNote]);
+    if (noteError) router.replace("/notes");
+  }, [noteError, router]);
 
   const handleSave = useCallback(
     async (updates) => {
       try {
-        const res = await fetch(`/api/notes/${noteId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updates),
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error("Save failed");
-        if (updates.title) {
-          setCurrentNote((prev) =>
-            prev ? { ...prev, title: updates.title } : prev,
-          );
-        }
+        await updateNoteMutation.mutateAsync({ id: noteId, ...updates });
       } catch (err) {
         toast.error(t("saveFailed"));
         throw err;
       }
     },
-    [noteId, t],
+    [noteId, t, updateNoteMutation],
   );
 
   const handleIconChange = useCallback(
     async (icon) => {
       try {
-        const res = await fetch(`/api/notes/${noteId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ icon }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setCurrentNote((prev) => (prev ? { ...prev, icon } : prev));
-        }
+        await updateNoteMutation.mutateAsync({ id: noteId, icon });
       } catch {
         toast.error(t("saveFailed"));
       }
     },
-    [noteId, t],
+    [noteId, t, updateNoteMutation],
   );
 
   const handleDeleteNote = useCallback((id) => {
