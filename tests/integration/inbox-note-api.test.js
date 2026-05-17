@@ -105,6 +105,19 @@ describe("GET /api/inbox/note", () => {
 
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
+
+  it("sets Cache-Control: private, no-store on the 404 response", async () => {
+    // The auth-scoped cache contract is uniform — error responses must carry
+    // the same no-store header so an intermediate cache can't serve a stale
+    // 404 to a user whose inbox was created in the meantime.
+    mockSession(TEST_USER);
+
+    const req = createRequest("GET", "/api/inbox/note");
+    const res = await GET(req);
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
 });
 
 describe("POST /api/inbox/note", () => {
@@ -180,6 +193,29 @@ describe("POST /api/inbox/note", () => {
       .findOne({ userId: TEST_USER.id, type: "inbox" });
     expect(doc.updatedAt.toISOString()).toBe(seededUpdatedAt.toISOString());
   });
+
+  it("sets Cache-Control: private, no-store on the create path", async () => {
+    // Auth-scoped: every response from /api/inbox/note must carry the
+    // no-store header so the cache contract is uniform across methods.
+    mockSession(TEST_USER);
+
+    const req = createRequest("POST", "/api/inbox/note");
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("sets Cache-Control: private, no-store on the idempotent path", async () => {
+    mockSession(TEST_USER);
+    await seedInbox(TEST_USER.id);
+
+    const req = createRequest("POST", "/api/inbox/note");
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
 });
 
 describe("PATCH /api/inbox/note", () => {
@@ -211,5 +247,30 @@ describe("PATCH /api/inbox/note", () => {
       .collection("notes")
       .countDocuments({ userId: TEST_USER.id, type: "inbox" });
     expect(count).toBe(0);
+  });
+
+  it("sets Cache-Control: private, no-store on the 200 response", async () => {
+    mockSession(TEST_USER);
+    await seedInbox(TEST_USER.id);
+
+    const req = createRequest("PATCH", "/api/inbox/note", {
+      body: { content: [{ type: "paragraph", content: [] }] },
+    });
+    const res = await PATCH(req);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("sets Cache-Control: private, no-store on the 404 response", async () => {
+    mockSession(TEST_USER);
+
+    const req = createRequest("PATCH", "/api/inbox/note", {
+      body: { content: [{ type: "paragraph", content: [] }] },
+    });
+    const res = await PATCH(req);
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 });

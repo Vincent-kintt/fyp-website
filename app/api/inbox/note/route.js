@@ -21,7 +21,10 @@ export const GET = withAuth(
   async ({ userId }) => {
     const notesCollection = await getNotesCollection();
     const doc = await notesCollection.findOne({ userId, type: "inbox" });
-    if (!doc) return apiError("Inbox note not found", 404);
+    if (!doc)
+      return apiError("Inbox note not found", 404, null, {
+        headers: NO_STORE_HEADERS,
+      });
     return apiSuccess(formatNote(doc), 200, null, { headers: NO_STORE_HEADERS });
   },
   { label: "GET /api/inbox/note" },
@@ -58,14 +61,19 @@ export const POST = withAuth(
         { upsert: true, returnDocument: "after" },
       );
 
-      return apiSuccess(formatNote(doc));
+      return apiSuccess(formatNote(doc), 200, null, {
+        headers: NO_STORE_HEADERS,
+      });
     } catch (err) {
       if (err?.code === 11000) {
         const existing = await notesCollection.findOne({
           userId,
           type: "inbox",
         });
-        if (existing) return apiSuccess(formatNote(existing));
+        if (existing)
+          return apiSuccess(formatNote(existing), 200, null, {
+            headers: NO_STORE_HEADERS,
+          });
       }
       throw err;
     }
@@ -99,10 +107,14 @@ export const PATCH = withAuth(
     );
 
     if (!updated) {
-      return apiError("Inbox note not found", 404);
+      return apiError("Inbox note not found", 404, null, {
+        headers: NO_STORE_HEADERS,
+      });
     }
 
-    return apiSuccess(formatNote(updated));
+    return apiSuccess(formatNote(updated), 200, null, {
+      headers: NO_STORE_HEADERS,
+    });
   },
   { label: "PATCH /api/inbox/note" },
 );
