@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition, calculateEndTime } from "@/lib/utils";
 import { getStatusIconComponent } from "@/components/reminders/statusIcons";
+import { useUpdateReminder } from "@/hooks/useUpdateReminder";
 
 function toLocalDateTimeString(d) {
   const pad = (n) => String(n).padStart(2, "0");
@@ -14,6 +15,7 @@ function toLocalDateTimeString(d) {
 
 export default function TaskEditForm({ reminder, isActive, onSave, onCancel, variant = "modal", className = "" }) {
   const t = useTranslations("editForm");
+  const updateMutation = useUpdateReminder();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -88,22 +90,17 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
         submitData.dateTime = new Date(submitData.dateTime).toISOString();
       }
 
-      const response = await fetch(`/api/reminders/${reminder.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(submitData),
+      const updated = await updateMutation.mutateAsync({
+        id: reminder.id,
+        ...submitData,
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        onSave({ ...reminder, ...formData });
-      } else {
-        toast.error(data.error || t("updateFailed"));
-      }
+      // The server response is the canonical post-PUT reminder including any
+      // backend-derived fields (category/status/completed/inboxState); callers
+      // get the full record rather than a locally merged shape.
+      onSave(updated);
     } catch (err) {
       console.error("Error updating reminder:", err);
-      toast.error(t("updateFailed"));
+      toast.error(err?.message || t("updateFailed"));
     } finally {
       setIsSubmitting(false);
     }
