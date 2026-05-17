@@ -41,9 +41,9 @@ export const POST = withAuth(
           icon: null,
           sortOrder: 0,
           createdAt: now,
+          updatedAt: now,
           deletedAt: null,
         },
-        $set: { updatedAt: now },
       },
       { upsert: true, returnDocument: "after" },
     );

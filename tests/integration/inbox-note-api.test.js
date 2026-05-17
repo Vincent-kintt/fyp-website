@@ -135,6 +135,29 @@ describe("POST /api/inbox/note", () => {
       .countDocuments({ userId: TEST_USER.id, type: "inbox" });
     expect(count).toBe(1);
   });
+
+  it("POST on existing inbox does not mutate updatedAt", async () => {
+    mockSession(TEST_USER);
+    const seededUpdatedAt = new Date("2020-01-01T00:00:00.000Z");
+    await seedInbox(TEST_USER.id, { updatedAt: seededUpdatedAt });
+
+    const req = createRequest("POST", "/api/inbox/note");
+    const res = await POST(req);
+    const { status, body } = await parseResponse(res);
+
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(new Date(body.data.updatedAt).toISOString()).toBe(
+      seededUpdatedAt.toISOString(),
+    );
+
+    // Confirm the DB doc itself was not mutated.
+    const db = getDb();
+    const doc = await db
+      .collection("notes")
+      .findOne({ userId: TEST_USER.id, type: "inbox" });
+    expect(doc.updatedAt.toISOString()).toBe(seededUpdatedAt.toISOString());
+  });
 });
 
 describe("PATCH /api/inbox/note", () => {
