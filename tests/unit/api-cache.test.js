@@ -92,4 +92,48 @@ describe("ensureNoStore", () => {
     expect(out.headers.get("Cache-Control")).toBe("private, no-store");
     expect(out.headers.get("Content-Type")).toBe("text/event-stream");
   });
+
+  // Redirect responses (Response.redirect()) and other framework-constructed
+  // responses have immutable header guards per WHATWG fetch spec. NextAuth
+  // signin/signout/callback flows return redirects — wrapper must NOT throw
+  // when trying to write Cache-Control. Helper clones such responses with
+  // a fresh, mutable Headers carrying the no-store directive.
+  describe("immutable header fallback", () => {
+    it("clones Response.redirect(302) with private, no-store and preserves Location", () => {
+      const res = Response.redirect("https://example.com", 302);
+      const out = ensureNoStore(res);
+      expect(out).not.toBe(res); // a clone, not the same instance
+      expect(out.status).toBe(302);
+      expect(out.headers.get("Cache-Control")).toBe("private, no-store");
+      expect(out.headers.get("Location")).toBe("https://example.com/");
+    });
+
+    it("clones Response.redirect(307) with private, no-store and preserves status", () => {
+      const res = Response.redirect("https://example.com/dashboard", 307);
+      const out = ensureNoStore(res);
+      expect(out).not.toBe(res);
+      expect(out.status).toBe(307);
+      expect(out.headers.get("Cache-Control")).toBe("private, no-store");
+      expect(out.headers.get("Location")).toBe("https://example.com/dashboard");
+    });
+
+    it("clones a response whose headers.set throws (synthetic immutable guard)", () => {
+      // Simulate any framework-constructed response with a guarded Headers
+      // (mirrors what Response.redirect produces). The helper must catch and
+      // fall back to a clone.
+      const headers = new Headers({ "Content-Type": "text/html" });
+      headers.set = () => {
+        throw new TypeError("Headers.set: Headers are immutable");
+      };
+      const res = new Response("body", { status: 302, headers });
+      // Override `headers` getter so the cache helper sees our guarded instance.
+      Object.defineProperty(res, "headers", { value: headers });
+
+      const out = ensureNoStore(res);
+      expect(out).not.toBe(res);
+      expect(out.headers.get("Cache-Control")).toBe("private, no-store");
+      expect(out.headers.get("Content-Type")).toBe("text/html");
+      expect(out.status).toBe(302);
+    });
+  });
 });
