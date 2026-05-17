@@ -128,16 +128,16 @@ describe("GET /api/cron/notify", () => {
     expect(body.success).toBe(true);
     expect(body.sent).toBe(1);
 
-    // Verify notificationSent flipped and notifiedAt set, lease released
+    // Verify notificationSent flipped, notifiedAt set, no lease residue.
     const doc = await db
       .collection("reminders")
       .findOne({ _id: reminderId });
     expect(doc.notificationSent).toBe(true);
     expect(doc.notifiedAt).toBeInstanceOf(Date);
-    expect(doc.notificationLeaseUntil).toBeNull();
+    expect(doc.notificationLeaseUntil).toBeUndefined();
   });
 
-  it("no subs: indefinite-retry — does NOT claim reminder; subsequent run with sub delivers", async () => {
+  it("no subs: claim still flips notificationSent (fire-and-forget); second cron skips reminder", async () => {
     const db = getDb();
     const reminderId = new ObjectId();
     await db.collection("reminders").insertOne({
@@ -148,7 +148,7 @@ describe("GET /api/cron/notify", () => {
       status: "pending",
       notificationSent: false,
     });
-    // No push_subscriptions for this user yet.
+    // No push_subscriptions for this user.
 
     let req = createCronRequest("/api/cron/notify", CRON_SECRET);
     let res = await notifyGET(req);
@@ -158,36 +158,32 @@ describe("GET /api/cron/notify", () => {
     expect(parsed.body.no_subs).toBe(1);
     expect(parsed.body.sent).toBe(0);
 
-    // Reminder NOT claimed, lease released — eligible to retry.
+    // Reminder IS claimed — no retro-delivery across crons.
     let doc = await db
       .collection("reminders")
       .findOne({ _id: reminderId });
-    expect(doc.notificationSent).not.toBe(true);
-    expect(doc.notifiedAt).toBeUndefined();
-    expect(doc.notificationLeaseUntil).toBeNull();
+    expect(doc.notificationSent).toBe(true);
+    expect(doc.notifiedAt).toBeInstanceOf(Date);
+    expect(doc.notificationLeaseUntil).toBeUndefined();
 
-    // User enables push later; next cron tick must retro-deliver.
+    // Second cron tick: even if user later enabled push, the reminder is
+    // already claimed and won't be re-picked.
     await db.collection("push_subscriptions").insertOne({
       userId: "user-no-sub",
       endpoint: "https://push.example.com/late",
       keys: { p256dh: "k1", auth: "k2" },
       updatedAt: new Date(),
     });
-    sendPushNotification.mockResolvedValue({
-      success: true,
-      statusCode: 201,
-    });
 
     req = createCronRequest("/api/cron/notify", CRON_SECRET);
     res = await notifyGET(req);
     parsed = await parseResponse(res);
-    expect(parsed.body.sent).toBe(1);
-
-    doc = await db.collection("reminders").findOne({ _id: reminderId });
-    expect(doc.notificationSent).toBe(true);
+    expect(parsed.body.processed).toBe(0);
+    expect(parsed.body.sent).toBe(0);
+    expect(sendPushNotification).not.toHaveBeenCalled();
   });
 
-  it("all 410: cleans subs but does NOT claim reminder", async () => {
+  it("all 410: cleans subs AND claims reminder (no retro-delivery)", async () => {
     const db = getDb();
     const reminderId = new ObjectId();
     await db.collection("reminders").insertOne({
@@ -212,28 +208,35 @@ describe("GET /api/cron/notify", () => {
       statusCode: 410,
     });
 
-    const req = createCronRequest("/api/cron/notify", CRON_SECRET);
-    const res = await notifyGET(req);
-    const { status, body } = await parseResponse(res);
-    expect(status).toBe(200);
-    expect(body.cleaned).toBe(1);
-    expect(body.all_gone).toBe(1);
-    expect(body.sent).toBe(0);
+    let req = createCronRequest("/api/cron/notify", CRON_SECRET);
+    let res = await notifyGET(req);
+    let parsed = await parseResponse(res);
+    expect(parsed.status).toBe(200);
+    expect(parsed.body.cleaned).toBe(1);
+    expect(parsed.body.all_gone).toBe(1);
+    expect(parsed.body.sent).toBe(0);
 
     const sub = await db
       .collection("push_subscriptions")
       .findOne({ _id: subId });
     expect(sub).toBeNull();
 
-    // Nothing delivered → reminder NOT claimed.
+    // Reminder IS claimed despite nothing being delivered — per RFC 8030,
+    // we don't retro-deliver after a transport-level cleanup.
     const doc = await db
       .collection("reminders")
       .findOne({ _id: reminderId });
-    expect(doc.notificationSent).not.toBe(true);
-    expect(doc.notificationLeaseUntil).toBeNull();
+    expect(doc.notificationSent).toBe(true);
+    expect(doc.notificationLeaseUntil).toBeUndefined();
+
+    // Second cron: reminder no longer eligible.
+    req = createCronRequest("/api/cron/notify", CRON_SECRET);
+    res = await notifyGET(req);
+    parsed = await parseResponse(res);
+    expect(parsed.body.processed).toBe(0);
   });
 
-  it("transient failure: does NOT claim reminder; subsequent success delivers", async () => {
+  it("transient 500 exhausted: claims reminder, failed=1, no cross-cron retry", async () => {
     const db = getDb();
     const reminderId = new ObjectId();
     await db.collection("reminders").insertOne({
@@ -263,14 +266,17 @@ describe("GET /api/cron/notify", () => {
     expect(parsed.status).toBe(200);
     expect(parsed.body.failed).toBe(1);
     expect(parsed.body.sent).toBe(0);
+    // Default retry policy: 3 in-tick attempts before giving up.
+    expect(sendPushNotification).toHaveBeenCalledTimes(3);
 
     let doc = await db
       .collection("reminders")
       .findOne({ _id: reminderId });
-    expect(doc.notificationSent).not.toBe(true);
-    expect(doc.notificationLeaseUntil).toBeNull();
+    expect(doc.notificationSent).toBe(true);
+    expect(doc.notificationLeaseUntil).toBeUndefined();
 
-    // Push provider recovers; next cron must deliver.
+    // Push provider recovers; second cron does NOT retry — fire-and-forget.
+    sendPushNotification.mockClear();
     sendPushNotification.mockResolvedValue({
       success: true,
       statusCode: 201,
@@ -278,10 +284,8 @@ describe("GET /api/cron/notify", () => {
     req = createCronRequest("/api/cron/notify", CRON_SECRET);
     res = await notifyGET(req);
     parsed = await parseResponse(res);
-    expect(parsed.body.sent).toBe(1);
-
-    doc = await db.collection("reminders").findOne({ _id: reminderId });
-    expect(doc.notificationSent).toBe(true);
+    expect(parsed.body.processed).toBe(0);
+    expect(sendPushNotification).not.toHaveBeenCalled();
   });
 
   it("partial success: one ok, one 410, one 500 — claims reminder, cleans stale sub, counts failure", async () => {
@@ -318,10 +322,11 @@ describe("GET /api/cron/notify", () => {
       },
     ]);
 
+    // ok succeeds first try; 410 terminal first try; 500 fails 3x (exhaust).
     sendPushNotification
       .mockResolvedValueOnce({ success: true, statusCode: 201 })
       .mockResolvedValueOnce({ success: false, statusCode: 410 })
-      .mockResolvedValueOnce({ success: false, statusCode: 500, error: "x" });
+      .mockResolvedValue({ success: false, statusCode: 500, error: "x" });
 
     const req = createCronRequest("/api/cron/notify", CRON_SECRET);
     const res = await notifyGET(req);
@@ -332,7 +337,7 @@ describe("GET /api/cron/notify", () => {
     expect(body.failed).toBe(1);
     expect(body.partial_success).toBe(1);
 
-    // 410 sub deleted; reminder marked sent (at least one delivery succeeded).
+    // 410 sub deleted; reminder marked sent.
     const gone = await db
       .collection("push_subscriptions")
       .findOne({ _id: goneId });
@@ -344,22 +349,20 @@ describe("GET /api/cron/notify", () => {
     expect(doc.notifiedAt).toBeInstanceOf(Date);
   });
 
-  it("active lease blocks concurrent processing (processed=0)", async () => {
+  it("concurrent crons: only one claim wins, no double-send", async () => {
     const db = getDb();
     const reminderId = new ObjectId();
-    const futureLease = new Date(Date.now() + 60_000);
     await db.collection("reminders").insertOne({
       _id: reminderId,
-      title: "Leased",
+      title: "Race",
       dateTime: new Date(Date.now() - 60_000),
-      userId: "user-lease",
+      userId: "user-race",
       status: "pending",
       notificationSent: false,
-      notificationLeaseUntil: futureLease,
     });
     await db.collection("push_subscriptions").insertOne({
-      userId: "user-lease",
-      endpoint: "https://push.example.com/lease",
+      userId: "user-race",
+      endpoint: "https://push.example.com/race",
       keys: { p256dh: "k1", auth: "k2" },
       updatedAt: new Date(),
     });
@@ -369,57 +372,25 @@ describe("GET /api/cron/notify", () => {
       statusCode: 201,
     });
 
-    const req = createCronRequest("/api/cron/notify", CRON_SECRET);
-    const res = await notifyGET(req);
-    const { status, body } = await parseResponse(res);
-    expect(status).toBe(200);
-    expect(body.processed).toBe(0);
-    expect(body.sent).toBe(0);
-    expect(sendPushNotification).not.toHaveBeenCalled();
+    const req1 = createCronRequest("/api/cron/notify", CRON_SECRET);
+    const req2 = createCronRequest("/api/cron/notify", CRON_SECRET);
+    const [res1, res2] = await Promise.all([notifyGET(req1), notifyGET(req2)]);
+    const p1 = await parseResponse(res1);
+    const p2 = await parseResponse(res2);
 
-    // Lease left intact.
-    const doc = await db
-      .collection("reminders")
-      .findOne({ _id: reminderId });
-    expect(doc.notificationLeaseUntil).toEqual(futureLease);
-  });
-
-  it("expired lease is re-acquired and reminder is delivered", async () => {
-    const db = getDb();
-    const reminderId = new ObjectId();
-    const pastLease = new Date(Date.now() - 60_000);
-    await db.collection("reminders").insertOne({
-      _id: reminderId,
-      title: "Stuck",
-      dateTime: new Date(Date.now() - 120_000),
-      userId: "user-stuck",
-      status: "pending",
-      notificationSent: false,
-      notificationLeaseUntil: pastLease,
-    });
-    await db.collection("push_subscriptions").insertOne({
-      userId: "user-stuck",
-      endpoint: "https://push.example.com/stuck",
-      keys: { p256dh: "k1", auth: "k2" },
-      updatedAt: new Date(),
-    });
-
-    sendPushNotification.mockResolvedValue({
-      success: true,
-      statusCode: 201,
-    });
-
-    const req = createCronRequest("/api/cron/notify", CRON_SECRET);
-    const res = await notifyGET(req);
-    const { status, body } = await parseResponse(res);
-    expect(status).toBe(200);
-    expect(body.sent).toBe(1);
+    // Exactly one cron processes the reminder; the other sees it already
+    // claimed and counts processed=0.
+    const sentTotal = (p1.body.sent ?? 0) + (p2.body.sent ?? 0);
+    const processedTotal =
+      (p1.body.processed ?? 0) + (p2.body.processed ?? 0);
+    expect(sentTotal).toBe(1);
+    expect(processedTotal).toBe(1);
+    expect(sendPushNotification).toHaveBeenCalledTimes(1);
 
     const doc = await db
       .collection("reminders")
       .findOne({ _id: reminderId });
     expect(doc.notificationSent).toBe(true);
-    expect(doc.notificationLeaseUntil).toBeNull();
   });
 });
 
