@@ -1,21 +1,104 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { FaTimes, FaClock, FaSync, FaPlus, FaTrash } from "react-icons/fa";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition, calculateEndTime } from "@/lib/utils";
 import { getStatusIconComponent } from "@/components/reminders/statusIcons";
 import { useUpdateReminder } from "@/hooks/useUpdateReminder";
+import { naiveToUTC } from "@/lib/ai/dateUtils";
 
 function toLocalDateTimeString(d) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/**
+ * Build the PUT /api/reminders/:id payload from the form state.
+ *
+ * `<input type="datetime-local">` yields a NAIVE wall-clock string like
+ * `"2026-05-20T09:00"`. `new Date(naiveString).toISOString()` (the previous
+ * implementation) would interpret that string in the BROWSER's system
+ * timezone — wrong when the user's account TZ differs from the machine
+ * they're physically using (HK account on a Mac set to LA: up to 16 hours
+ * off the intended wall time). Route the conversion through `naiveToUTC`
+ * with the explicit user IANA timezone — the same helper the AI write
+ * paths use — so the result depends ONLY on `userTimezone`.
+ *
+ * Pure / module-level / dependency-injected so the cross-tz behaviour can
+ * be unit-tested without rendering React. Mirrors the `executeDragEnd` /
+ * `executeDeleteTask` pattern in `hooks/useTasks.js` and `useTaskDnD.js`.
+ *
+ * @param {{
+ *   formData: { dateTime?: string|null, [k: string]: unknown },
+ *   userTimezone: string,
+ * }} args
+ * @returns {object} payload with `dateTime` as an ISO-8601 UTC string,
+ *                   `null` when the form had no datetime, and every other
+ *                   `formData` field passed through untouched.
+ * @throws when `formData.dateTime` is non-empty but `userTimezone` is
+ *         falsy — silently falling back to browser TZ IS the bug this
+ *         helper exists to prevent.
+ */
+export function buildSubmitPayload({ formData, userTimezone }) {
+  const submitData = { ...formData };
+  if (!submitData.dateTime) {
+    submitData.dateTime = null;
+    return submitData;
+  }
+  if (!userTimezone) {
+    // Refusing to silently use browser TZ — that's the H7 bug. Call sites
+    // are responsible for resolving a timezone (account setting → browser
+    // default with console.warn) BEFORE calling this helper.
+    throw new Error(
+      "buildSubmitPayload: userTimezone is required when formData.dateTime is set",
+    );
+  }
+  const utc = naiveToUTC(submitData.dateTime, userTimezone);
+  // naiveToUTC returns null for unparseable input; surface as null so the
+  // server validation can reject it explicitly rather than us silently
+  // sending Invalid Date.toISOString() (which throws).
+  submitData.dateTime = utc ? utc.toISOString() : null;
+  return submitData;
+}
+
+/**
+ * Resolve the user's IANA timezone for use with `buildSubmitPayload`.
+ *
+ * The app does not yet persist a per-account IANA timezone (see audit
+ * H7 — the AI paths already derive it from
+ * `Intl.DateTimeFormat().resolvedOptions().timeZone` on the client, which
+ * has the same machine-vs-account gap). When a per-account timezone DOES
+ * land in user settings, swap the body of this hook to read it from the
+ * settings context and drop the warn. Until then, we fall back to the
+ * browser-resolved TZ — this is NOT correct for traveling users but it's
+ * what every other client path already does, and a `console.warn` makes
+ * the fallback auditable.
+ */
+function useResolvedUserTimezone() {
+  return useMemo(() => {
+    if (typeof Intl === "undefined" || !Intl.DateTimeFormat) return null;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!tz) {
+      console.warn(
+        "TaskEditForm: could not resolve user IANA timezone — submit will reject",
+      );
+      return null;
+    }
+    // WHY warn: this is the browser's machine TZ, not the user's account TZ.
+    // For now they're treated as the same; flagged so we don't lose track.
+    console.warn(
+      `TaskEditForm: using browser-resolved timezone ${tz} (no per-account TZ persisted yet)`,
+    );
+    return tz;
+  }, []);
+}
+
 export default function TaskEditForm({ reminder, isActive, onSave, onCancel, variant = "modal", className = "" }) {
   const t = useTranslations("editForm");
   const updateMutation = useUpdateReminder();
+  const userTimezone = useResolvedUserTimezone();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -85,10 +168,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
       setIsSubmitting(true);
       setError("");
 
-      const submitData = { ...formData };
-      if (submitData.dateTime) {
-        submitData.dateTime = new Date(submitData.dateTime).toISOString();
-      }
+      const submitData = buildSubmitPayload({ formData, userTimezone });
 
       const updated = await updateMutation.mutateAsync({
         id: reminder.id,
