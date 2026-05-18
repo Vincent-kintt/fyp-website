@@ -365,6 +365,8 @@
     "rename": "重新命名",
     "addSubPage": "新增子頁面",
     "duplicate": "複製",
+    "noteDuplicated": "已複製筆記",
+    "notesDuplicatedCount": "已複製 {count} 則筆記",
     "emptyState": "還沒有筆記，建立你的第一個頁面！",
     "emptyStateAction": "新增頁面",
     "aiCommand": "AI 指令",

@@ -365,6 +365,8 @@
     "rename": "Rename",
     "addSubPage": "Add sub-page",
     "duplicate": "Duplicate",
+    "noteDuplicated": "Duplicated note",
+    "notesDuplicatedCount": "Duplicated {count} notes",
     "emptyState": "No notes yet. Create your first page!",
     "emptyStateAction": "New Page",
     "aiCommand": "AI Command",
