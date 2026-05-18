@@ -334,4 +334,31 @@ describe("POST /api/notes/[noteId]/duplicate", () => {
       [childAId.toString(), childBId.toString()].sort(),
     );
   });
+
+  it("excludes soft-deleted descendants from the copy", async () => {
+    mockSession(TEST_USER);
+    const folderId = await insertNote({ title: "F", parentId: null });
+    await insertNote({ title: "Alive", parentId: folderId, sortOrder: "b0" });
+    await insertNote({
+      title: "Trashed",
+      parentId: folderId,
+      sortOrder: "b1",
+      deletedAt: new Date(),
+    });
+
+    const req = createRequest("POST", `/api/notes/${folderId.toString()}/duplicate`);
+    const res = await duplicateNote(req, params({ noteId: folderId.toString() }));
+    const { status, body } = await parseResponse(res);
+
+    expect(status).toBe(201);
+    expect(body.data.copiedCount).toBe(2);
+
+    const db = getDb();
+    const childCopies = await db
+      .collection("notes")
+      .find({ userId: TEST_USER.id, parentId: new ObjectId(body.data.id) })
+      .toArray();
+    expect(childCopies).toHaveLength(1);
+    expect(childCopies[0].title).toBe("Alive");
+  });
 });
