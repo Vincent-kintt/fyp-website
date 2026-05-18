@@ -450,4 +450,37 @@ describe("POST /api/notes/[noteId]/duplicate", () => {
       expect(body.error).toMatch(/1000 items/i);
     },
   );
+
+  it(
+    "rejects when aggregate BSON size exceeds 12 MB even with few docs",
+    { timeout: 30000 },
+    async () => {
+      mockSession(TEST_USER);
+      const folderId = await insertNote({ title: "Heavy", parentId: null });
+      const db = getDb();
+
+      // 20 notes × 1 MB content each = 20 MB > 12 MB cap.
+      // Use a 1 MB string per content paragraph.
+      const oneMb = "x".repeat(1024 * 1024);
+      const heavyDocs = Array.from({ length: 20 }, (_, i) => ({
+        userId: TEST_USER.id,
+        title: `heavy-${i}`,
+        parentId: folderId,
+        content: [{ type: "paragraph", content: oneMb }],
+        icon: null,
+        sortOrder: `b${i.toString(36)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      }));
+      await db.collection("notes").insertMany(heavyDocs);
+
+      const req = createRequest("POST", `/api/notes/${folderId.toString()}/duplicate`);
+      const res = await duplicateNote(req, params({ noteId: folderId.toString() }));
+      const { status, body } = await parseResponse(res);
+
+      expect(status).toBe(413);
+      expect(body.error).toMatch(/too large/i);
+    },
+  );
 });
