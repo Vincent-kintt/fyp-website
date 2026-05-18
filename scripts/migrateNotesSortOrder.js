@@ -68,18 +68,30 @@ export async function migrateNotesSortOrder(db, { dryRun = false } = {}) {
 
   for await (const group of groupsCursor) {
     const userId = String(group._id.userId);
-    const toMigrate = [];
-    let invalidInGroup = 0;
 
-    for (const item of group.items) {
-      if (isValidFractionalKey(item.sortOrder)) {
-        skipped++;
-      } else {
-        if (typeof item.sortOrder === "string" && item.sortOrder.length > 0) {
-          invalidInGroup++;
-          invalidStringsTotal++;
-        }
-        toMigrate.push(item);
+    // If a group contains ANY invalid item we must re-migrate the ENTIRE
+    // group — otherwise freshly-generated keys for invalid items land at an
+    // undefined lex position relative to the retained valid keys, producing
+    // non-deterministic ordering between siblings.
+    const hasInvalidInGroup = group.items.some(
+      (i) => !isValidFractionalKey(i.sortOrder),
+    );
+
+    if (!hasInvalidInGroup) {
+      skipped += group.items.length;
+      continue;
+    }
+
+    const toMigrate = group.items.slice();
+    let invalidInGroup = 0;
+    for (const item of toMigrate) {
+      if (
+        typeof item.sortOrder === "string" &&
+        item.sortOrder.length > 0 &&
+        !isValidFractionalKey(item.sortOrder)
+      ) {
+        invalidInGroup++;
+        invalidStringsTotal++;
       }
     }
 
@@ -90,17 +102,25 @@ export async function migrateNotesSortOrder(db, { dryRun = false } = {}) {
       );
     }
 
-    if (toMigrate.length === 0) continue;
-
-    // Preserve current relative order by sorting by existing numeric sortOrder.
-    // Falsy (undefined / null) and invalid strings sort to the front
-    // consistently — they're already broken, so any deterministic placement
-    // is acceptable; the post-migration relative order remains stable
-    // because lex order on the regenerated keys matches insertion order.
+    // Preserve current relative order using a deterministic hybrid
+    // comparator: strings sort lex against strings, numerics sort numerically
+    // against numerics, strings come before numerics on cross-type compare
+    // (arbitrary but deterministic). Missing / null sortOrder is treated as
+    // numeric 0.
+    function sortKey(item) {
+      if (typeof item.sortOrder === "string") {
+        return [0, item.sortOrder];
+      }
+      return [1, typeof item.sortOrder === "number" ? item.sortOrder : 0];
+    }
     toMigrate.sort((a, b) => {
-      const av = typeof a.sortOrder === "number" ? a.sortOrder : 0;
-      const bv = typeof b.sortOrder === "number" ? b.sortOrder : 0;
-      return av - bv;
+      const [aType, aVal] = sortKey(a);
+      const [bType, bVal] = sortKey(b);
+      if (aType !== bType) return aType - bType;
+      if (typeof aVal === "string") {
+        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+      }
+      return aVal - bVal;
     });
 
     const keys = generateNKeysBetween(null, null, toMigrate.length);
