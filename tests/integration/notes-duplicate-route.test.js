@@ -299,4 +299,39 @@ describe("POST /api/notes/[noteId]/duplicate", () => {
     expect(createdAt).toBeLessThanOrEqual(after);
     expect(body.data.deletedAt).toBeNull();
   });
+
+  it("copies a 2-level subtree: root + children with rewritten parentId", async () => {
+    mockSession(TEST_USER);
+    const folderId = await insertNote({ title: "Folder", parentId: null, sortOrder: "a0" });
+    const childAId = await insertNote({ title: "A", parentId: folderId, sortOrder: "b0" });
+    const childBId = await insertNote({ title: "B", parentId: folderId, sortOrder: "b1" });
+
+    const req = createRequest("POST", `/api/notes/${folderId.toString()}/duplicate`);
+    const res = await duplicateNote(req, params({ noteId: folderId.toString() }));
+    const { status, body } = await parseResponse(res);
+
+    expect(status).toBe(201);
+    expect(body.success).toBe(true);
+    expect(body.data.title).toBe("Folder (copy)");
+    expect(body.data.copiedCount).toBe(3);
+
+    const newRootId = body.data.id;
+    const db = getDb();
+    const childCopies = await db
+      .collection("notes")
+      .find({ userId: TEST_USER.id, parentId: new ObjectId(newRootId) })
+      .toArray();
+    expect(childCopies).toHaveLength(2);
+    const titles = childCopies.map((c) => c.title).sort();
+    expect(titles).toEqual(["A", "B"]);
+
+    // Source children are untouched.
+    const origChildren = await db
+      .collection("notes")
+      .find({ userId: TEST_USER.id, parentId: folderId })
+      .toArray();
+    expect(origChildren.map((c) => c._id.toString()).sort()).toEqual(
+      [childAId.toString(), childBId.toString()].sort(),
+    );
+  });
 });
