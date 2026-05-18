@@ -456,6 +456,7 @@
     "undo": "Undo",
     "deleteFailed": "Delete failed",
     "deleted": "Deleted",
+    "undoFailed": "Undo failed",
     "snoozeFailed": "Snooze failed",
     "cancelSnoozeFailed": "Cancel snooze failed",
     "snoozed": "Snoozed",

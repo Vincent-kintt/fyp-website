@@ -456,6 +456,7 @@
     "undo": "撤銷",
     "deleteFailed": "刪除失敗",
     "deleted": "已刪除",
+    "undoFailed": "撤銷失敗",
     "snoozeFailed": "延後失敗",
     "cancelSnoozeFailed": "取消延後失敗",
     "snoozed": "已延後提醒",
