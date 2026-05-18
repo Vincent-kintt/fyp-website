@@ -21,6 +21,7 @@ import {
   endOfDayNaiveInTz,
 } from "@/lib/forms/reminderSubmitPayload";
 import { formatDateTime as formatRelativeDateTime } from "@/lib/quickAdd/formatDateTime.js";
+import { isComplexRequest } from "@/lib/quickAdd/isComplexRequest.js";
 
 const DEBOUNCE_MS = 600;
 
@@ -172,14 +173,6 @@ export default function QuickAdd({
     },
     [language],
   );
-
-  const COMPLEX_PATTERNS =
-    /\b(plan|reschedule|move all|help me|check conflicts|reorganize|analyze|summarize|review|suggest)\b/i;
-
-  const isComplexRequest = (text) => {
-    if (text.length > 80) return true;
-    return COMPLEX_PATTERNS.test(text);
-  };
 
   // Handle input change with debounce
   const handleInputChange = (e) => {
