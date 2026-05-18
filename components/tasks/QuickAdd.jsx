@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   FaPlus,
   FaCalendarAlt,
@@ -16,14 +16,12 @@ import { getTagClasses, formatDuration, DURATION_PRESETS } from "@/lib/utils";
 import { addTagToList } from "@/lib/tasks/addTagToList";
 import { PRIORITY } from "@/lib/taskConfig";
 import { useResolvedUserTimezone } from "@/hooks/useResolvedUserTimezone";
+import { useQuickAddParser } from "@/hooks/useQuickAddParser.js";
 import {
   buildSubmitPayload,
   endOfDayNaiveInTz,
 } from "@/lib/forms/reminderSubmitPayload";
 import { formatDateTime as formatRelativeDateTime } from "@/lib/quickAdd/formatDateTime.js";
-import { isComplexRequest } from "@/lib/quickAdd/isComplexRequest.js";
-
-const DEBOUNCE_MS = 600;
 
 /**
  * Pure, module-level helper that derives the POST /api/reminders payload
@@ -112,100 +110,40 @@ export default function QuickAdd({
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputText, setInputText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isParsing, setIsParsing] = useState(false);
-  const [parsedData, setParsedData] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTagInput, setShowTagInput] = useState(false);
   const [manualDate, setManualDate] = useState("");
   const [manualTime, setManualTime] = useState("");
   const [newTag, setNewTag] = useState("");
   const [inlineResult, setInlineResult] = useState(null);
-  const [showEscalation, setShowEscalation] = useState(false);
 
-  const debounceRef = useRef(null);
   const dismissTimerRef = useRef(null);
   const inputRef = useRef(null);
-  const parseAbortRef = useRef(null);
 
-  // Debounced NLP parsing
-  const parseInput = useCallback(
-    async (text) => {
-      if (!text.trim() || text.length < 3) {
-        setParsedData(null);
-        return;
-      }
+  // NLP parsing state + handlers extracted into a dedicated hook so the
+  // debounce / AbortController / escalation logic can be unit-tested
+  // directly (executeParse) without rendering React.
+  const {
+    parsedData,
+    setParsedData,
+    isParsing,
+    showEscalation,
+    handleInputChange: handleParseInput,
+    resetParse,
+  } = useQuickAddParser({ language });
 
-      // Cancel any earlier in-flight parse so a stale response can't overwrite a newer one
-      parseAbortRef.current?.abort();
-      const controller = new AbortController();
-      parseAbortRef.current = controller;
-
-      setIsParsing(true);
-      try {
-        const response = await fetch("/api/ai/parse-task", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text,
-            language,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          }),
-          signal: controller.signal,
-        });
-
-        if (controller.signal.aborted) return;
-        if (response.ok) {
-          const result = await response.json();
-          if (controller.signal.aborted) return;
-          if (result.success) {
-            setParsedData(result.data);
-          }
-        }
-      } catch (error) {
-        if (error.name === "AbortError") return;
-        console.error("Parse error:", error);
-      } finally {
-        // Only newer (un-aborted) requests own the spinner state
-        if (!controller.signal.aborted) {
-          setIsParsing(false);
-        }
-      }
-    },
-    [language],
-  );
-
-  // Handle input change with debounce
   const handleInputChange = (e) => {
     const value = e.target.value;
     setInputText(value);
     setInlineResult(null);
-
-    if (isComplexRequest(value)) {
-      setShowEscalation(true);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      parseAbortRef.current?.abort();
-      setParsedData(null);
-      setIsParsing(false);
-      return;
-    }
-
-    setShowEscalation(false);
-
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-
-    debounceRef.current = setTimeout(() => {
-      parseInput(value);
-    }, DEBOUNCE_MS);
+    handleParseInput(value);
   };
 
-  // Cleanup timers on unmount
+  // Cleanup the inline-result dismiss timer on unmount — the parser hook
+  // owns its own cleanup for the parse debounce + in-flight fetch.
   useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
-      parseAbortRef.current?.abort();
     };
   }, []);
 
@@ -224,8 +162,8 @@ export default function QuickAdd({
       });
       await onAdd(taskData);
 
-      // A late parse response could rehydrate parsedData after the reset below; cancel it.
-      parseAbortRef.current?.abort();
+      // A late parse response could rehydrate parsedData after the reset below; cancel + clear.
+      resetParse();
 
       setInlineResult({
         title: taskData.title,
@@ -233,12 +171,10 @@ export default function QuickAdd({
       });
 
       setInputText("");
-      setParsedData(null);
       setManualDate("");
       setManualTime("");
       setShowDatePicker(false);
       setShowTagInput(false);
-      setShowEscalation(false);
 
       dismissTimerRef.current = setTimeout(() => {
         setInlineResult(null);
@@ -262,20 +198,18 @@ export default function QuickAdd({
   };
 
   const handleCancel = () => {
-    parseAbortRef.current?.abort();
+    resetParse();
     if (dismissTimerRef.current) {
       clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = null;
     }
     setIsExpanded(false);
     setInputText("");
-    setParsedData(null);
     setManualDate("");
     setManualTime("");
     setShowDatePicker(false);
     setShowTagInput(false);
     setInlineResult(null);
-    setShowEscalation(false);
   };
 
   const handleForwardToAI = () => {
