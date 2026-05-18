@@ -12,9 +12,10 @@
  * Ordering matches lib/notes/tree.js `compareNotes`: numeric / null /
  * undefined sortOrder is coerced to "" by `formatNote` on the wire, so the
  * app sorts them BEFORE any non-empty string key (lex "" < "a..."), with
- * `_id` as tiebreaker. The migration mirrors this exactly — non-string keys
- * sort before string keys; within each bucket, lex / id tiebreak — so the
- * post-migration visual order matches what users were seeing pre-migration.
+ * `_id` as tiebreaker. The migration mirrors this exactly — empty / non-string
+ * sortOrder sorts before non-empty string keys; within each bucket, lex / id
+ * tiebreak — so the post-migration visual order matches what users were
+ * seeing pre-migration.
  *
  * Flags:
  *   --dry-run    Log planned updates without writing to the database.
@@ -45,23 +46,36 @@ function isValidFractionalKey(value) {
 }
 
 // Comparator that matches lib/notes/tree.js `compareNotes` semantics after
-// `formatNote` coerces non-string sortOrder to null:
-//   1. Non-string sortOrder (number/null/undefined) → "" → sorts BEFORE any
-//      non-empty string sortOrder.
-//   2. Within the non-string bucket, no sortOrder distinguishes items; fall
-//      through to the _id tiebreak.
-//   3. Within the string bucket, lex compare on the raw string, then _id
-//      tiebreak. Invalid strings (e.g. "a91000", "!", "~") are still strings
-//      and lex-compare normally.
+// `formatNote` coerces non-string sortOrder to null. The app uses
+// `a.sortOrder ?? ""` for the lex key, which means:
+//   - null / undefined → ""
+//   - empty string "" → "" (?? does NOT collapse empty string)
+//   - numeric values (formatNote leaves them on the doc but compareNotes is
+//     applied to formatted notes where non-string sortOrder is treated as
+//     null) → ""
+// All three collapse to the same "" effective bucket and tie on the lex key;
+// only the _id tiebreak differentiates them. Buckets:
+//   1. Effectively-empty (non-string OR empty string) → "" → sorts BEFORE
+//      any non-empty string sortOrder.
+//   2. Within the effectively-empty bucket, fall through to _id tiebreak.
+//   3. Within the non-empty string bucket, lex compare on the raw string,
+//      then _id tiebreak. Invalid strings (e.g. "a91000", "!", "~") are
+//      still strings and lex-compare normally.
 //   4. _id tiebreak via String(...) for both branches — ObjectId.toString()
 //      returns the hex form, which lex-sorts identically to its byte order.
 function migrationSortCompare(a, b) {
-  const aIsString = typeof a.sortOrder === "string";
-  const bIsString = typeof b.sortOrder === "string";
+  // App-side effective key per lib/notes/db.js formatNote +
+  // lib/notes/tree.js compareNotes: numeric / null / undefined / empty string
+  // ALL collapse to "" — they tie in the "" bucket and only id tiebreak
+  // differentiates them. Match that exactly.
+  const aEmpty =
+    typeof a.sortOrder !== "string" || a.sortOrder === "";
+  const bEmpty =
+    typeof b.sortOrder !== "string" || b.sortOrder === "";
 
-  if (aIsString !== bIsString) return aIsString ? 1 : -1;
+  if (aEmpty !== bEmpty) return aEmpty ? -1 : 1;
 
-  if (aIsString) {
+  if (!aEmpty) {
     if (a.sortOrder < b.sortOrder) return -1;
     if (a.sortOrder > b.sortOrder) return 1;
   }

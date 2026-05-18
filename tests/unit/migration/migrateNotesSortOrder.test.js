@@ -182,4 +182,25 @@ describe("migrateNotesSortOrder mixed-group ordering", () => {
       .map((n) => n.id);
     expect(actualOrder).toEqual(expectedOrder);
   });
+
+  it("treats empty string sortOrder the same as null/numeric (matches compareNotes ?? \"\")", async () => {
+    // doc1 numeric, doc2 empty string, doc3 valid string.
+    // _ids chosen so the id tiebreak puts doc2 before doc1 in the "" bucket.
+    await db.collection("notes").insertMany([
+      { _id: "2", userId: "u", parentId: null, title: "doc1", sortOrder: 100 },
+      { _id: "1", userId: "u", parentId: null, title: "doc2", sortOrder: "" },
+      { _id: "3", userId: "u", parentId: null, title: "doc3", sortOrder: "a5" },
+    ]);
+
+    await migrateNotesSortOrder(db);
+
+    const docs = await db
+      .collection("notes")
+      .find({ userId: "u" })
+      .sort({ sortOrder: 1, _id: 1 })
+      .toArray();
+    // Same id-tiebreak ordering compareNotes uses for "" effective keys:
+    // doc2 (_id "1") before doc1 (_id "2"), then doc3 (string bucket).
+    expect(docs.map((d) => d.title)).toEqual(["doc2", "doc1", "doc3"]);
+  });
 });
