@@ -9,6 +9,23 @@ import {
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { MongoClient } from "mongodb";
 import { migrateNotesSortOrder } from "../../../scripts/migrateNotesSortOrder.js";
+import { formatNote } from "@/lib/notes/db.js";
+
+// `compareNotes` is not exported from lib/notes/tree.js — inline the
+// equivalent semantics so this test stays a single source of truth for the
+// app's wire-side ordering. Must match lib/notes/tree.js exactly:
+//   ao = a.sortOrder ?? ""
+//   bo = b.sortOrder ?? ""
+//   lex compare on (ao, bo), then id tiebreak
+function compareNotesLikeApp(a, b) {
+  const ao = a.sortOrder ?? "";
+  const bo = b.sortOrder ?? "";
+  if (ao < bo) return -1;
+  if (ao > bo) return 1;
+  if (a.id < b.id) return -1;
+  if (a.id > b.id) return 1;
+  return 0;
+}
 
 let mongod;
 let client;
@@ -101,5 +118,68 @@ describe("migrateNotesSortOrder mixed-group ordering", () => {
     expect(docs.find((d) => d.title === "X").sortOrder).toBe("a0");
     expect(docs.find((d) => d.title === "Y").sortOrder).toBe("a5");
     expect(docs.find((d) => d.title === "Z").sortOrder).toBe("aV");
+  });
+
+  it("preserves app-visible order across numeric, valid, and invalid keys", async () => {
+    // Mixed group under (userId="u2", parentId=null):
+    //   doc1: _id="1",      sortOrder=100         (legacy numeric)
+    //   doc2: _id="2",      sortOrder=200         (legacy numeric)
+    //   doc3: _id="3",      sortOrder="a5"        (valid fractional string)
+    //   doc4: _id="4",      sortOrder="a91000"    (invalid string — trailing zeros)
+    //
+    // formatNote coerces non-string sortOrder to null. compareNotes then
+    // treats null as "", and "" < any non-empty string. So pre-migration
+    // app-visible order is:
+    //   doc1 ("" vs "" → id "1" first)
+    //   doc2 ("" vs "" → id "2" second)
+    //   doc3 ("a5" — lex before "a91000")
+    //   doc4 ("a91000")
+    // i.e. numerics first by id, then string keys lex.
+    //
+    // Migration must preserve that order: after re-keying, all four docs are
+    // valid fractional strings, but compareNotes on the new keys MUST give
+    // the same total order as compareNotes on the old (formatted) docs.
+    await db.collection("notes").insertMany([
+      { _id: "1", userId: "u2", parentId: null, title: "doc1", sortOrder: 100 },
+      { _id: "2", userId: "u2", parentId: null, title: "doc2", sortOrder: 200 },
+      { _id: "3", userId: "u2", parentId: null, title: "doc3", sortOrder: "a5" },
+      {
+        _id: "4",
+        userId: "u2",
+        parentId: null,
+        title: "doc4",
+        sortOrder: "a91000",
+      },
+    ]);
+
+    // Compute pre-migration app-visible order.
+    const preDocs = await db
+      .collection("notes")
+      .find({ userId: "u2" })
+      .toArray();
+    const preFormatted = preDocs.map(formatNote);
+    const expectedOrder = [...preFormatted]
+      .sort(compareNotesLikeApp)
+      .map((n) => n.id);
+    expect(expectedOrder).toEqual(["1", "2", "3", "4"]);
+
+    const summary = await migrateNotesSortOrder(db);
+    expect(summary.invalidStrings).toBe(1);
+    expect(summary.converted).toBe(4);
+
+    // Compute post-migration app-visible order.
+    const postDocs = await db
+      .collection("notes")
+      .find({ userId: "u2" })
+      .toArray();
+    const postFormatted = postDocs.map(formatNote);
+    // All four must now be string sortOrder (formatNote keeps them as-is).
+    for (const n of postFormatted) {
+      expect(typeof n.sortOrder).toBe("string");
+    }
+    const actualOrder = [...postFormatted]
+      .sort(compareNotesLikeApp)
+      .map((n) => n.id);
+    expect(actualOrder).toEqual(expectedOrder);
   });
 });

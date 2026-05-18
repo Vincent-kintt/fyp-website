@@ -9,6 +9,12 @@
  *
  * Stop-the-world: groups notes by (userId, parentId) and assigns N evenly-spaced
  * keys via generateNKeysBetween — the current relative order is preserved.
+ * Ordering matches lib/notes/tree.js `compareNotes`: numeric / null /
+ * undefined sortOrder is coerced to "" by `formatNote` on the wire, so the
+ * app sorts them BEFORE any non-empty string key (lex "" < "a..."), with
+ * `_id` as tiebreaker. The migration mirrors this exactly — non-string keys
+ * sort before string keys; within each bucket, lex / id tiebreak — so the
+ * post-migration visual order matches what users were seeing pre-migration.
  *
  * Flags:
  *   --dry-run    Log planned updates without writing to the database.
@@ -36,6 +42,35 @@ function isValidFractionalKey(value) {
   } catch {
     return false;
   }
+}
+
+// Comparator that matches lib/notes/tree.js `compareNotes` semantics after
+// `formatNote` coerces non-string sortOrder to null:
+//   1. Non-string sortOrder (number/null/undefined) → "" → sorts BEFORE any
+//      non-empty string sortOrder.
+//   2. Within the non-string bucket, no sortOrder distinguishes items; fall
+//      through to the _id tiebreak.
+//   3. Within the string bucket, lex compare on the raw string, then _id
+//      tiebreak. Invalid strings (e.g. "a91000", "!", "~") are still strings
+//      and lex-compare normally.
+//   4. _id tiebreak via String(...) for both branches — ObjectId.toString()
+//      returns the hex form, which lex-sorts identically to its byte order.
+function migrationSortCompare(a, b) {
+  const aIsString = typeof a.sortOrder === "string";
+  const bIsString = typeof b.sortOrder === "string";
+
+  if (aIsString !== bIsString) return aIsString ? 1 : -1;
+
+  if (aIsString) {
+    if (a.sortOrder < b.sortOrder) return -1;
+    if (a.sortOrder > b.sortOrder) return 1;
+  }
+
+  const aId = String(a._id);
+  const bId = String(b._id);
+  if (aId < bId) return -1;
+  if (aId > bId) return 1;
+  return 0;
 }
 
 export async function migrateNotesSortOrder(db, { dryRun = false } = {}) {
@@ -102,26 +137,13 @@ export async function migrateNotesSortOrder(db, { dryRun = false } = {}) {
       );
     }
 
-    // Preserve current relative order using a deterministic hybrid
-    // comparator: strings sort lex against strings, numerics sort numerically
-    // against numerics, strings come before numerics on cross-type compare
-    // (arbitrary but deterministic). Missing / null sortOrder is treated as
-    // numeric 0.
-    function sortKey(item) {
-      if (typeof item.sortOrder === "string") {
-        return [0, item.sortOrder];
-      }
-      return [1, typeof item.sortOrder === "number" ? item.sortOrder : 0];
-    }
-    toMigrate.sort((a, b) => {
-      const [aType, aVal] = sortKey(a);
-      const [bType, bVal] = sortKey(b);
-      if (aType !== bType) return aType - bType;
-      if (typeof aVal === "string") {
-        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-      }
-      return aVal - bVal;
-    });
+    // Preserve current app-visible order. Mirrors lib/notes/tree.js
+    // `compareNotes` exactly: formatNote coerces non-string sortOrder to null,
+    // compareNotes then treats null as "", and "" < any non-empty string
+    // lexicographically — so non-string keys (numeric, null, undefined)
+    // sort BEFORE string keys. Within each bucket, lex compare then `_id`
+    // tiebreak (stringified ObjectId sort matches compareNotes's id tiebreak).
+    toMigrate.sort(migrationSortCompare);
 
     const keys = generateNKeysBetween(null, null, toMigrate.length);
 

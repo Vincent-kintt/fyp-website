@@ -259,11 +259,19 @@ describe("notes sortOrder — fractional indexing", () => {
 });
 
 describe("scripts/migrateNotesSortOrder", () => {
-  it("converts integer sortOrder to fractional keys preserving relative order per parent group", async () => {
+  it("converts integer sortOrder to fractional keys preserving app-visible order per parent group", async () => {
     const db = getDb();
     const now = new Date();
 
-    // Setup: three root notes with old integer sortOrder
+    // Setup: three root notes with old integer sortOrder.
+    //
+    // NOTE: the raw numeric values (3000, 1000, 2000) are IRRELEVANT to the
+    // app's visual order. `lib/notes/db.js` `formatNote` coerces non-string
+    // sortOrder to null, and `lib/notes/tree.js` `compareNotes` treats null
+    // as "" — so all three are tied on sortOrder and the `_id` tiebreak is
+    // what decides. Inserts are sequential here, so `_id`s are monotonically
+    // increasing and the app-visible order is A, B, C (insertion order).
+    // The migration must preserve THAT, not a non-existent numeric ordering.
     const a = await db.collection("notes").insertOne({
       userId: TEST_USER.id,
       title: "A",
@@ -274,7 +282,7 @@ describe("scripts/migrateNotesSortOrder", () => {
       createdAt: now,
       updatedAt: now,
     });
-    const b = await db.collection("notes").insertOne({
+    await db.collection("notes").insertOne({
       userId: TEST_USER.id,
       title: "B",
       parentId: null,
@@ -284,7 +292,7 @@ describe("scripts/migrateNotesSortOrder", () => {
       createdAt: now,
       updatedAt: now,
     });
-    const c = await db.collection("notes").insertOne({
+    await db.collection("notes").insertOne({
       userId: TEST_USER.id,
       title: "C",
       parentId: null,
@@ -324,13 +332,14 @@ describe("scripts/migrateNotesSortOrder", () => {
 
     expect(summary.converted).toBeGreaterThanOrEqual(5);
 
-    // Reload and verify relative order preserved (sorted: B, C, A from 1000, 2000, 3000)
+    // Reload and verify app-visible order preserved (A, B, C — id tiebreak,
+    // since all numerics coerce to "" in compareNotes).
     const roots = await db
       .collection("notes")
       .find({ userId: TEST_USER.id, parentId: null })
       .sort({ sortOrder: 1 })
       .toArray();
-    expect(roots.map((d) => d.title)).toEqual(["B", "C", "A"]);
+    expect(roots.map((d) => d.title)).toEqual(["A", "B", "C"]);
     for (const note of roots) {
       expect(typeof note.sortOrder).toBe("string");
     }
