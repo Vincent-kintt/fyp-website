@@ -1,115 +1,174 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+// M10: integration test for createNoteTools.
+//
+// Previously this suite used a hand-built mocked MongoDB collection,
+// which masked real Mongo behavior (BSON serialization, ObjectId
+// equality, findOne semantics). It now runs against
+// mongodb-memory-server like every other integration suite in this repo.
+
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { ObjectId } from "mongodb";
+import { startDb, stopDb, clearDb, getDb } from "../helpers/db.js";
 
 vi.mock("@/lib/db.js", () => ({
-  getCollection: vi.fn(),
+  getCollection: async (name) => getDb().collection(name),
 }));
 
-vi.mock("@/lib/notes/blocksToText.js", () => ({
-  blocksToText: vi.fn((blocks) => {
-    if (!blocks || !Array.isArray(blocks)) return "";
-    return blocks
-      .map((b) => b.content?.map((c) => c.text || "").join("") || "")
-      .join("\n");
-  }),
-}));
+const { createNoteTools } = await import("@/lib/ai/noteTools.js");
 
-import { getCollection } from "@/lib/db.js";
-import { createNoteTools } from "@/lib/ai/noteTools.js";
+const USER_ID = "user-123";
+const OTHER_USER_ID = "user-other";
+
+let tools;
+
+beforeAll(async () => {
+  await startDb("test_note_tools");
+  tools = createNoteTools(USER_ID);
+});
+
+afterAll(async () => {
+  await stopDb();
+});
+
+beforeEach(async () => {
+  await clearDb();
+});
+
+function paragraph(text) {
+  return {
+    type: "paragraph",
+    content: [{ type: "text", text }],
+  };
+}
+
+async function insertNote(overrides = {}) {
+  const now = new Date();
+  const doc = {
+    userId: USER_ID,
+    title: "Untitled",
+    parentId: null,
+    content: [],
+    icon: null,
+    sortOrder: 1000,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+  const { insertedId } = await getDb().collection("notes").insertOne(doc);
+  return { ...doc, _id: insertedId };
+}
 
 describe("createNoteTools", () => {
-  const userId = "user-123";
-  let tools;
-  let mockNotesCollection;
-
-  beforeEach(() => {
-    mockNotesCollection = {
-      find: vi.fn().mockReturnThis(),
-      findOne: vi.fn(),
-      sort: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      project: vi.fn().mockReturnThis(),
-      toArray: vi.fn(),
-    };
-    getCollection.mockResolvedValue(mockNotesCollection);
-    tools = createNoteTools(userId);
-  });
-
   describe("searchNotes", () => {
     it("returns matching notes with snippets", async () => {
-      const mockNotes = [
-        {
-          _id: { toString: () => "note-1" },
-          userId: "user-123",
-          title: "Meeting Notes",
-          content: [
-            {
-              type: "paragraph",
-              content: [
-                { type: "text", text: "Discussion about project timeline" },
-              ],
-            },
-          ],
-          updatedAt: new Date("2026-04-01"),
-        },
-      ];
-      mockNotesCollection.toArray.mockResolvedValue(mockNotes);
+      await insertNote({
+        title: "Meeting Notes",
+        content: [paragraph("Discussion about project timeline")],
+        updatedAt: new Date("2026-04-01"),
+      });
 
       const result = await tools.searchNotes.execute({ query: "meeting" });
 
       expect(result.success).toBe(true);
       expect(result.notes).toHaveLength(1);
-      expect(result.notes[0].noteId).toBe("note-1");
+      expect(result.notes[0].noteId).toMatch(/^[a-f0-9]{24}$/);
       expect(result.notes[0].title).toBe("Meeting Notes");
-      expect(result.notes[0].snippet).toBeDefined();
+      expect(result.notes[0].snippet).toContain("Discussion about project timeline");
       expect(result.notes[0].snippet.length).toBeLessThanOrEqual(200);
     });
 
     it("scopes search to the authenticated user", async () => {
-      mockNotesCollection.toArray.mockResolvedValue([]);
-      await tools.searchNotes.execute({ query: "test" });
-      const findCall = mockNotesCollection.find.mock.calls[0][0];
-      expect(findCall.userId).toBe("user-123");
+      await insertNote({ title: "Mine", content: [paragraph("mine")] });
+      await insertNote({
+        userId: OTHER_USER_ID,
+        title: "Mine",
+        content: [paragraph("theirs")],
+      });
+
+      const result = await tools.searchNotes.execute({ query: "mine" });
+
+      expect(result.success).toBe(true);
+      expect(result.notes).toHaveLength(1);
+      const fetched = await getDb()
+        .collection("notes")
+        .findOne({ _id: new ObjectId(result.notes[0].noteId) });
+      expect(fetched.userId).toBe(USER_ID);
     });
 
     it("respects limit parameter", async () => {
-      mockNotesCollection.toArray.mockResolvedValue([]);
-      await tools.searchNotes.execute({ query: "test", limit: 3 });
-      expect(mockNotesCollection.limit).toHaveBeenCalledWith(3);
+      for (let i = 0; i < 5; i++) {
+        await insertNote({ title: `Test note ${i}` });
+      }
+
+      const result = await tools.searchNotes.execute({ query: "test", limit: 3 });
+
+      expect(result.success).toBe(true);
+      expect(result.notes).toHaveLength(3);
     });
 
     it("defaults limit to 5", async () => {
-      mockNotesCollection.toArray.mockResolvedValue([]);
-      await tools.searchNotes.execute({ query: "test" });
-      expect(mockNotesCollection.limit).toHaveBeenCalledWith(5);
+      for (let i = 0; i < 7; i++) {
+        await insertNote({ title: `Test note ${i}` });
+      }
+
+      const result = await tools.searchNotes.execute({ query: "test" });
+
+      expect(result.success).toBe(true);
+      expect(result.notes).toHaveLength(5);
     });
 
     it("excludes deleted notes", async () => {
-      mockNotesCollection.toArray.mockResolvedValue([]);
-      await tools.searchNotes.execute({ query: "test" });
-      const findCall = mockNotesCollection.find.mock.calls[0][0];
-      expect(findCall.deletedAt).toEqual(null);
+      await insertNote({ title: "Active note" });
+      await insertNote({ title: "Active note", deletedAt: new Date() });
+
+      const result = await tools.searchNotes.execute({ query: "active" });
+
+      expect(result.success).toBe(true);
+      expect(result.notes).toHaveLength(1);
+    });
+
+    it("sorts results by updatedAt descending", async () => {
+      await insertNote({
+        title: "Older note",
+        updatedAt: new Date("2026-01-01"),
+      });
+      await insertNote({
+        title: "Newer note",
+        updatedAt: new Date("2026-05-01"),
+      });
+
+      const result = await tools.searchNotes.execute({ query: "note" });
+
+      expect(result.notes.map((n) => n.title)).toEqual([
+        "Newer note",
+        "Older note",
+      ]);
+    });
+
+    it("escapes regex metacharacters in the query", async () => {
+      await insertNote({ title: "Plain title" });
+      // Query containing regex metacharacters must not match "Plain title".
+      const result = await tools.searchNotes.execute({ query: ".*" });
+
+      expect(result.success).toBe(true);
+      expect(result.notes).toHaveLength(0);
     });
   });
 
   describe("readNote", () => {
-    const validNoteId = "aaaaaaaaaaaaaaaaaaaaaaaa";
-
     it("returns note content as plaintext", async () => {
-      mockNotesCollection.findOne.mockResolvedValue({
-        _id: { toString: () => validNoteId },
-        userId: "user-123",
+      const note = await insertNote({
         title: "My Note",
-        content: [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: "Hello world" }],
-          },
-        ],
+        content: [paragraph("Hello world")],
         updatedAt: new Date("2026-04-01"),
       });
-      const result = await tools.readNote.execute({ noteId: validNoteId });
+
+      const result = await tools.readNote.execute({
+        noteId: note._id.toString(),
+      });
+
       expect(result.success).toBe(true);
-      expect(result.noteId).toBe(validNoteId);
+      expect(result.noteId).toBe(note._id.toString());
       expect(result.title).toBe("My Note");
       expect(result.content).toContain("Hello world");
     });
@@ -121,17 +180,41 @@ describe("createNoteTools", () => {
     });
 
     it("returns error for non-existent note", async () => {
-      mockNotesCollection.findOne.mockResolvedValue(null);
-      const result = await tools.readNote.execute({ noteId: validNoteId });
+      const result = await tools.readNote.execute({
+        noteId: new ObjectId().toString(),
+      });
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
     });
 
     it("scopes read to the authenticated user", async () => {
-      mockNotesCollection.findOne.mockResolvedValue(null);
-      await tools.readNote.execute({ noteId: validNoteId });
-      const findCall = mockNotesCollection.findOne.mock.calls[0][0];
-      expect(findCall.userId).toBe("user-123");
+      const otherNote = await insertNote({
+        userId: OTHER_USER_ID,
+        title: "Other user note",
+        content: [paragraph("secret")],
+      });
+
+      const result = await tools.readNote.execute({
+        noteId: otherNote._id.toString(),
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    it("excludes deleted notes", async () => {
+      const deleted = await insertNote({
+        title: "Trashed note",
+        content: [paragraph("gone")],
+        deletedAt: new Date(),
+      });
+
+      const result = await tools.readNote.execute({
+        noteId: deleted._id.toString(),
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
     });
   });
 });
