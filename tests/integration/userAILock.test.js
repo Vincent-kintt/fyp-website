@@ -64,6 +64,19 @@ describe("acquireUserAILock / releaseUserAILock", () => {
     expect(third).toBeTruthy();
   });
 
+  it("driver v6 regression: returns the lock doc directly, never a { value } wrapper", async () => {
+    // L4 — package.json pins mongodb v6 exact. Earlier drivers wrapped
+    // findOneAndUpdate's result in `{ value: doc | null }`. The helper used to
+    // defensively unwrap; we dropped that. If a future driver bump changes the
+    // contract, this assertion fails loud rather than silently returning a
+    // wrapper object that callers would treat as a successful lock.
+    const lock = await acquireUserAILock("vivian", "notes-ai");
+    expect(lock).toBeTruthy();
+    expect(lock._id).toBe("notes-ai:vivian");
+    expect(lock).not.toHaveProperty("value");
+    expect(lock.expiresAt).toBeInstanceOf(Date);
+  });
+
   it("two different users do not block each other", async () => {
     const aliceLock = await acquireUserAILock("alice", "notes-ai");
     const bobLock = await acquireUserAILock("bob", "notes-ai");

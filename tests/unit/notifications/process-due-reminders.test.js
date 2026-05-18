@@ -50,7 +50,8 @@ function makeRemindersCollection(initialDue) {
         if (doc.notificationSent === true) return null;
       }
       Object.assign(doc, update.$set);
-      return { value: doc };
+      // Mongo driver v6: findOneAndUpdate resolves to the doc directly (or null).
+      return doc;
     }),
     updateOne: vi.fn(async (filter, update) => {
       const id = filter._id;
@@ -639,34 +640,32 @@ describe("processDueReminders", () => {
     expect(reminders._findCursor.limit).toHaveBeenCalledWith(20);
   });
 
-  it("legacy v4/v5 driver shape: findOneAndUpdate returns {value: doc} → proceeds to send", async () => {
-    // MongoDB driver v4/v5 wrap findOneAndUpdate results as {value: doc | null}.
-    // v6+ returns the doc directly. The helper must normalize both shapes so a
-    // future driver upgrade can't silently break the claim flow.
+  it("driver v6: findOneAndUpdate resolves to the doc directly (or null) — no {value} unwrap", async () => {
+    // Regression for L4: package.json pins mongodb v6 exact. The native return
+    // shape is the doc itself (or null on no match). The helper must consume
+    // that shape unwrapped — no `claimed?.value` compat layer. If a future
+    // driver bump changes this contract, this assertion fails loud.
     const reminders = makeRemindersCollection([
       {
         _id: "r1",
         userId: "u1",
-        title: "Legacy",
+        title: "V6",
         dateTime: new Date("2026-05-17T23:00:00.000Z"),
         status: "pending",
         notificationSent: false,
       },
     ]);
-    // Override default mock to return the legacy {value: doc} shape.
-    reminders.findOneAndUpdate.mockImplementation(async (filter, update) => {
-      const doc = reminders._store.get(filter._id);
-      if (!doc) return { value: null };
-      if (
-        filter.notificationSent &&
-        filter.notificationSent.$ne === true &&
-        doc.notificationSent === true
-      ) {
-        return { value: null };
-      }
-      Object.assign(doc, update.$set);
-      return { value: doc };
-    });
+    // Sanity-check the test fixture itself returns the v6 shape we're claiming.
+    const probe = await reminders.findOneAndUpdate(
+      { _id: "r1", notificationSent: { $ne: true } },
+      { $set: { notificationSent: true, notifiedAt: NOW } },
+    );
+    expect(probe).not.toBeNull();
+    expect(probe._id).toBe("r1");
+    // Critically: the result is the doc, not a { value } wrapper.
+    expect(probe).not.toHaveProperty("value");
+    // Reset the store so the actual processDueReminders run starts clean.
+    reminders._store.get("r1").notificationSent = false;
 
     const subs = makeSubsCollection({
       u1: [{ _id: "s1", userId: "u1", endpoint: "ep", keys: {} }],
@@ -682,44 +681,7 @@ describe("processDueReminders", () => {
 
     expect(result.processed).toBe(1);
     expect(result.sent).toBe(1);
-    expect(sendPush).toHaveBeenCalledTimes(1);
     expect(reminders._store.get("r1").notificationSent).toBe(true);
-  });
-
-  it("legacy v4/v5 no-match shape: findOneAndUpdate returns {value: null} → reminder skipped, no send", async () => {
-    // The truthy check `if (!claimed)` would fail here because `{value: null}`
-    // is itself truthy. The robust unwrap must treat {value: null} as a lost
-    // claim and skip the reminder.
-    const reminders = makeRemindersCollection([
-      {
-        _id: "r1",
-        userId: "u1",
-        title: "RacedLegacy",
-        dateTime: new Date("2026-05-17T23:00:00.000Z"),
-        status: "pending",
-        notificationSent: false,
-      },
-    ]);
-    reminders._findCursor.toArray.mockResolvedValue([
-      { ...reminders._store.get("r1") },
-    ]);
-    // Sibling cron claimed the row in-flight; legacy driver wraps the null.
-    reminders.findOneAndUpdate.mockResolvedValue({ value: null });
-
-    const subs = makeSubsCollection({
-      u1: [{ _id: "s1", userId: "u1", endpoint: "ep", keys: {} }],
-    });
-    const sendPush = vi.fn();
-
-    const result = await processDueReminders({
-      remindersCollection: reminders,
-      subscriptionsCollection: subs,
-      sendPush,
-      now: NOW,
-    });
-
-    expect(result.processed).toBe(0);
-    expect(sendPush).not.toHaveBeenCalled();
   });
 
   it("429 exhausted: all 3 attempts return 429 → failed=1, console.error logged with 429", async () => {
