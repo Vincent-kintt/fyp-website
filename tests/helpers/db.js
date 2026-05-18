@@ -29,3 +29,7 @@ export async function clearDb() {
 export function getDb() {
   return db;
 }
+
+export function getClient() {
+  return client;
+}

@@ -3,11 +3,12 @@ import { getModel, getParseModelId } from "@/lib/ai/provider.js";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import * as chrono from "chrono-node";
-import { apiSuccess } from "@/lib/api/response.js";
+import { apiError, apiSuccess } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { nowAsWallClockIn } from "@/lib/ai/dateUtils.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
+import { consumeAILimit } from "@/lib/rateLimit/aiRateLimiter.js";
 import { computeOverallConfidence } from "./confidence.js";
 
 const parseTaskRequestSchema = z
@@ -112,7 +113,17 @@ function salvageFromText(rawText) {
 }
 
 export const POST = withAuth(
-  async ({ request }) => {
+  async ({ request, userId }) => {
+    const limit = await consumeAILimit(userId);
+    if (!limit.ok) {
+      return apiError(
+        `Rate limit exceeded. Try again in ${limit.retryAfterSeconds} seconds.`,
+        429,
+        null,
+        { headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+      );
+    }
+
     const { data, error } = await parseJsonBodyWithSchema(
       request,
       parseTaskRequestSchema,

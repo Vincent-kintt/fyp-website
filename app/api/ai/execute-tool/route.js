@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { createTools } from "@/lib/ai/tools.js";
+import { consumeAILimit } from "@/lib/rateLimit/aiRateLimiter.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,16 @@ const executeToolSchema = z.object({
 
 export const POST = withAuth(
   async ({ request, userId }) => {
+    const limit = await consumeAILimit(userId);
+    if (!limit.ok) {
+      return apiError(
+        `Rate limit exceeded. Try again in ${limit.retryAfterSeconds} seconds.`,
+        429,
+        null,
+        { headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+      );
+    }
+
     const { data, error } = await parseJsonBodyWithSchema(
       request,
       executeToolSchema,

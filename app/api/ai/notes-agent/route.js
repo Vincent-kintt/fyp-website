@@ -6,6 +6,7 @@ import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { ALLOWED_AGENT_MODELS } from "@/lib/ai/allowedModels.js";
+import { consumeAILimit } from "@/lib/rateLimit/aiRateLimiter.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +42,17 @@ Format your response in Markdown. Be concise and useful.`;
 }
 
 export const POST = withAuth(
-  async ({ request }) => {
+  async ({ request, userId }) => {
+    const limit = await consumeAILimit(userId);
+    if (!limit.ok) {
+      return apiError(
+        `Rate limit exceeded. Try again in ${limit.retryAfterSeconds} seconds.`,
+        429,
+        null,
+        { headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+      );
+    }
+
     const { data, error } = await parseJsonBodyWithSchema(
       request,
       notesAgentSchema,

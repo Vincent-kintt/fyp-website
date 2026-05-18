@@ -2,6 +2,7 @@ import { vi } from "vitest";
 
 let authMockFn = vi.fn();
 let _getDbFn;
+let _getClientFn;
 
 // vi.mock calls are hoisted to top-level by Vitest — keep them at module scope
 vi.mock("@/auth", () => ({
@@ -13,10 +14,22 @@ vi.mock("@/lib/db.js", () => ({
     const db = _getDbFn();
     return db.collection(name);
   },
+  // Mongo-backed primitives (locks, rate limiter) need the raw connected
+  // MongoClient. The test harness wires this to the mongodb-memory-server
+  // client; routes that don't need it just ignore the export.
+  getMongoClient: async () => {
+    if (!_getClientFn) {
+      throw new Error(
+        "getMongoClient mock requires setupApiMocks(getDbFn, getClientFn)",
+      );
+    }
+    return _getClientFn();
+  },
 }));
 
-export function setupApiMocks(getDbFn) {
+export function setupApiMocks(getDbFn, getClientFn) {
   _getDbFn = getDbFn;
+  _getClientFn = getClientFn;
 }
 
 export function mockSession(user) {

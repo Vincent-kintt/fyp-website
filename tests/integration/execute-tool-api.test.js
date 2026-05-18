@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { startDb, stopDb, clearDb, getDb } from "../helpers/db.js";
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import { startDb, stopDb, clearDb, getDb, getClient } from "../helpers/db.js";
 import {
   setupApiMocks,
   mockSession,
@@ -7,7 +7,14 @@ import {
   parseResponse,
 } from "../helpers/api.js";
 
-setupApiMocks(getDb);
+setupApiMocks(getDb, getClient);
+
+// H10 — rate limit gate. The dedicated tests/integration/aiRateLimit.test.js
+// exercises the real limiter; here we mock it to a pass so this suite
+// can test the execute-tool allowlist + tool dispatch in isolation.
+vi.mock("@/lib/rateLimit/aiRateLimiter.js", () => ({
+  consumeAILimit: vi.fn(async () => ({ ok: true })),
+}));
 
 const { POST } = await import("@/app/api/ai/execute-tool/route.js");
 

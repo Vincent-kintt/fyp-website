@@ -1,11 +1,12 @@
 import { getModel, getParseModelId } from "@/lib/ai/provider.js";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
-import { apiSuccess } from "@/lib/api/response.js";
+import { apiError, apiSuccess } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { sanitizeExtractedTasks } from "@/lib/ai/extract-tasks-helpers.js";
+import { consumeAILimit } from "@/lib/rateLimit/aiRateLimiter.js";
 
 const MAX_INPUT_LENGTH = 8000;
 
@@ -44,7 +45,17 @@ function salvageTasksFromText(rawText) {
 }
 
 export const POST = withAuth(
-  async ({ request }) => {
+  async ({ request, userId }) => {
+    const limit = await consumeAILimit(userId);
+    if (!limit.ok) {
+      return apiError(
+        `Rate limit exceeded. Try again in ${limit.retryAfterSeconds} seconds.`,
+        429,
+        null,
+        { headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+      );
+    }
+
     const { data, error } = await parseJsonBodyWithSchema(
       request,
       extractTasksRequestSchema,

@@ -70,6 +70,13 @@ vi.mock("@/lib/ai/logAIEvent.js", () => ({
   logAIEvent: vi.fn(),
 }));
 
+// H10 — rate limit gate. The dedicated tests/integration/aiRateLimit.test.js
+// exercises the real limiter; here we mock it to a pass so this suite
+// can keep testing the lock release contract in isolation.
+vi.mock("@/lib/rateLimit/aiRateLimiter.js", () => ({
+  consumeAILimit: vi.fn(async () => ({ ok: true })),
+}));
+
 const { POST: agenticPOST } = await import(
   "@/app/api/ai/notes-agentic/route.js"
 );

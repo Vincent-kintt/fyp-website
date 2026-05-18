@@ -10,6 +10,7 @@ import {
   acquireUserAILock,
   releaseUserAILock,
 } from "@/lib/locks/acquireUserAILock.js";
+import { consumeAILimit } from "@/lib/rateLimit/aiRateLimiter.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,6 +53,16 @@ function computeDateBounds(timezone) {
 
 export const POST = withAuth(
   async ({ request, userId }) => {
+    const limit = await consumeAILimit(userId);
+    if (!limit.ok) {
+      return apiError(
+        `Rate limit exceeded. Try again in ${limit.retryAfterSeconds} seconds.`,
+        429,
+        null,
+        { headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+      );
+    }
+
     const lockDoc = await acquireUserAILock(userId, "notes-ai");
     if (!lockDoc) {
       return apiError("An AI request is already in progress", 429);

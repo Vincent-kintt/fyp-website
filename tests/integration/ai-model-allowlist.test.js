@@ -86,6 +86,14 @@ vi.mock("@/lib/ai/logAIEvent.js", () => ({
   logAIEvent: vi.fn(),
 }));
 
+// H10 — every AI route now consults the per-user MongoDB rate limiter.
+// Tests that exercise non-rate-limit concerns mock the gate to a pass.
+// The dedicated tests/integration/aiRateLimit.test.js exercises the
+// real limiter end-to-end against mongodb-memory-server.
+vi.mock("@/lib/rateLimit/aiRateLimiter.js", () => ({
+  consumeAILimit: vi.fn(async () => ({ ok: true })),
+}));
+
 const { POST: agenticReminderPOST } = await import(
   "@/app/api/ai/agentic-reminder/route.js"
 );

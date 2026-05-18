@@ -21,6 +21,13 @@ vi.mock("@/lib/ai/provider.js", () => ({
   getParseModelId: vi.fn(() => "mock-parse-model"),
 }));
 
+// H10 — rate limit gate. The dedicated tests/integration/aiRateLimit.test.js
+// exercises the real limiter; here we mock it to a pass so this suite
+// can test the extract-tasks pipeline in isolation.
+vi.mock("@/lib/rateLimit/aiRateLimiter.js", () => ({
+  consumeAILimit: vi.fn(async () => ({ ok: true })),
+}));
+
 const { POST } = await import("@/app/api/ai/extract-tasks/route.js");
 
 function makeRequest(body) {
