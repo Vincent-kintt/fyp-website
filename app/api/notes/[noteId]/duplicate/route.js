@@ -1,21 +1,19 @@
 // POST /api/notes/[noteId]/duplicate
 //
-// Server-side atomic note duplication. The previous client did three serial
-// fetches — GET source, POST empty note, PATCH content — which left a
-// stranded "(copy)" doc in the database whenever the PATCH leg failed. This
-// endpoint folds the entire operation into one insertOne so the client makes
-// a single round-trip and either gets the duplicate or doesn't.
-//
-// Scope: copies this single note only. Folder duplication (recursive
-// descendant copy) is intentionally out of scope — that's a separate
-// enhancement with its own UX questions around partial-failure semantics.
-// Inbox notes are rejected to match the PATCH /api/notes/[noteId] guard.
+// Server-side note duplication. Copies the source note and (if any) all of
+// its non-trashed, non-inbox descendants. Best-effort `insertMany` with
+// BFS ordering — partial-failure leaves a connected subtree from the new
+// root, never orphan grandchildren. Industry pattern (Notion / Linear /
+// ClickUp); see docs/superpowers/specs/2026-05-19-notes-subtree-duplicate-design.md.
 
-import { ObjectId } from "mongodb";
+import { ObjectId, BSON } from "mongodb";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { getNotesCollection, formatNote } from "@/lib/notes/db";
-import { generateKeyBetween } from "@/lib/notes/sortOrder.js";
+import { buildSubtreeCopyDocs } from "@/lib/notes/duplicateSubtreeBuilder.js";
+
+const DOC_COUNT_CAP = 1000;
+const BSON_SIZE_CAP_BYTES = 12 * 1024 * 1024;
 
 export const POST = withAuth(
   async ({ params, userId }) => {
@@ -42,15 +40,55 @@ export const POST = withAuth(
       return apiError("Cannot duplicate inbox note", 403);
     }
 
-    // Slot the duplicate immediately after the source in the same parent so
-    // it appears next to the original in the tree. Sibling query is scoped
-    // by (userId, parentId) and looks for the next note whose sortOrder key
-    // sorts after the source — generateKeyBetween(source, nextSibling ?? null)
-    // produces a fractional key that lands between them, or after source if
-    // none exists (identical to generateKeyAfter).
+    // Pull all descendants in one round-trip. restrictSearchWithMatch
+    // prunes trashed / inbox / other-user nodes at every level of the
+    // traversal — they never enter the frontier. No `maxDepth`: the doc
+    // count cap below is the real bound.
+    const aggResult = await notesCollection
+      .aggregate(
+        [
+          { $match: { _id: sourceObjectId, userId } },
+          {
+            $graphLookup: {
+              from: "notes",
+              startWith: "$_id",
+              connectFromField: "_id",
+              connectToField: "parentId",
+              as: "descendants",
+              depthField: "depth",
+              restrictSearchWithMatch: {
+                userId,
+                deletedAt: null,
+                type: { $ne: "inbox" },
+              },
+            },
+          },
+          { $project: { descendants: 1 } },
+        ],
+        { maxTimeMS: 5000 },
+      )
+      .toArray();
+
+    const descendants = aggResult[0]?.descendants ?? [];
+
+    // Caps. Doc count first (cheap), then BSON size estimate.
+    if (descendants.length + 1 > DOC_COUNT_CAP) {
+      return apiError(
+        `Cannot duplicate more than ${DOC_COUNT_CAP} items at once`,
+        413,
+      );
+    }
+    const estimatedSize = BSON.calculateObjectSize({
+      docs: [source, ...descendants],
+    });
+    if (estimatedSize > BSON_SIZE_CAP_BYTES) {
+      return apiError("Folder contents too large to duplicate", 413);
+    }
+
+    // Slot the root copy between source and its next sibling, scoped to
+    // (userId, parentId). Identical to the previous M2 logic.
     const sourceKey =
       typeof source.sortOrder === "string" ? source.sortOrder : null;
-
     const nextSibling = await notesCollection
       .find({
         userId,
@@ -60,34 +98,31 @@ export const POST = withAuth(
       .sort({ sortOrder: 1, _id: 1 })
       .limit(1)
       .toArray();
-
-    const nextKey =
+    const nextSiblingSortOrder =
       typeof nextSibling[0]?.sortOrder === "string"
         ? nextSibling[0].sortOrder
         : null;
 
-    const newSortOrder = generateKeyBetween(sourceKey, nextKey);
+    const { rootCopyDoc, newDocs } = buildSubtreeCopyDocs({
+      source,
+      descendants,
+      nextSiblingSortOrder,
+    });
 
-    const now = new Date();
-    const newNote = {
-      userId,
-      title: `${source.title} (copy)`,
-      parentId: source.parentId ?? null,
-      // BlockNote content is plain BSON-safe array of objects; the driver
-      // serializes it on insert and re-reads as a fresh document, so the
-      // pass-through reference does not leak into the new doc.
-      content: source.content || [],
-      icon: source.icon ?? null,
-      sortOrder: newSortOrder,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-    };
+    try {
+      await notesCollection.insertMany(newDocs, { ordered: true });
+    } catch (err) {
+      console.error("subtree duplicate insertMany failed:", err);
+      return apiError("Failed to duplicate, please retry", 500);
+    }
 
-    const result = await notesCollection.insertOne(newNote);
-    const insertedDoc = { ...newNote, _id: result.insertedId };
-
-    return apiSuccess(formatNote(insertedDoc), 201);
+    return apiSuccess(
+      { ...formatNote(rootCopyDoc), copiedCount: newDocs.length },
+      201,
+    );
   },
-  { label: "POST /api/notes/[noteId]/duplicate" },
+  {
+    label: "POST /api/notes/[noteId]/duplicate",
+    errorMessage: "Failed to duplicate, please retry",
+  },
 );
