@@ -2,7 +2,11 @@
 
 import { useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
@@ -47,6 +51,174 @@ export async function executeDuplicateNote({
   }
 }
 
+/**
+ * POST /api/notes — create a new note under an optional parent.
+ *
+ * Optimistic insert is intentionally skipped: the new note's `id` is server-
+ * derived and the caller immediately navigates to `/notes/[id]`, so a fake
+ * placeholder id would need to be swapped post-response. Surfacing
+ * `isCreating` from the wrapping useMutation is enough UX for the button
+ * state.
+ */
+export async function executeCreateNote({
+  parentId,
+  fetch,
+  queryClient,
+  noteKeys,
+  router,
+  toast,
+  t,
+}) {
+  try {
+    const res = await fetch("/api/notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: t("untitled"),
+        parentId: parentId || null,
+      }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      await queryClient.invalidateQueries({ queryKey: noteKeys.all });
+      router.push(`/notes/${data.data.id}`);
+      return data.data;
+    }
+    toast.error(t("saveFailed"));
+  } catch {
+    toast.error(t("saveFailed"));
+  }
+}
+
+/**
+ * PATCH /api/notes/[id] with a new title. Optimistically rewrites the cached
+ * list so the sidebar title updates immediately. Rolls back on failure.
+ */
+export async function executeRenameNote({
+  id,
+  newTitle,
+  fetch,
+  queryClient,
+  noteKeys,
+  toast,
+  t,
+}) {
+  await queryClient.cancelQueries({ queryKey: noteKeys.all });
+  const previous = queryClient.getQueryData(noteKeys.lists());
+
+  queryClient.setQueryData(noteKeys.lists(), (old) =>
+    Array.isArray(old)
+      ? old.map((n) => (n.id === id ? { ...n, title: newTitle } : n))
+      : old,
+  );
+
+  try {
+    const res = await fetch(`/api/notes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newTitle }),
+    });
+    if (!res?.ok) throw new Error("Failed");
+  } catch {
+    if (previous !== undefined) {
+      queryClient.setQueryData(noteKeys.lists(), previous);
+    }
+    toast.error(t("saveFailed"));
+  } finally {
+    await queryClient.invalidateQueries({ queryKey: noteKeys.all });
+  }
+}
+
+/**
+ * DELETE /api/notes/[id] (soft delete to trash). Optimistically removes the
+ * note from the active list. On success additionally drops the detail cache
+ * so a stale detail doesn't survive the soft-delete (the note moves to the
+ * trash query, not the list query).
+ *
+ * Returns true on success so the caller can decide to navigate away from the
+ * deleted note's page.
+ */
+export async function executeDeleteNote({
+  id,
+  fetch,
+  queryClient,
+  noteKeys,
+  toast,
+  t,
+}) {
+  await queryClient.cancelQueries({ queryKey: noteKeys.all });
+  const previous = queryClient.getQueryData(noteKeys.lists());
+
+  queryClient.setQueryData(noteKeys.lists(), (old) =>
+    Array.isArray(old) ? old.filter((n) => n.id !== id) : old,
+  );
+
+  try {
+    const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
+    if (!res?.ok) throw new Error("Failed");
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Failed");
+    removeNoteCaches({ queryClient, id });
+    return true;
+  } catch {
+    if (previous !== undefined) {
+      queryClient.setQueryData(noteKeys.lists(), previous);
+    }
+    toast.error(t("deleteFailed"));
+    return false;
+  } finally {
+    await queryClient.invalidateQueries({ queryKey: noteKeys.all });
+  }
+}
+
+/**
+ * POST /api/notes/[id]/restore — move a trashed note back to the active list.
+ * No optimistic update: the note is currently in the trash query and the
+ * server response settles both queries via invalidation.
+ */
+export async function executeRestoreNote({
+  id,
+  fetch,
+  queryClient,
+  noteKeys,
+  toast,
+  t,
+}) {
+  try {
+    const res = await fetch(`/api/notes/${id}/restore`, { method: "POST" });
+    if (!res?.ok) throw new Error("Failed");
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Failed");
+    await queryClient.invalidateQueries({ queryKey: noteKeys.all });
+  } catch {
+    toast.error(t("saveFailed"));
+  }
+}
+
+/**
+ * DELETE /api/notes/[id] from the trash (hard delete). Caller has already
+ * confirmed; this path is irreversible. Drops the detail cache on success.
+ */
+export async function executePermanentDeleteNote({
+  id,
+  fetch,
+  queryClient,
+  noteKeys,
+  toast,
+  t,
+}) {
+  try {
+    const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
+    if (!res?.ok) throw new Error("Failed");
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Failed");
+    await queryClient.invalidateQueries({ queryKey: noteKeys.all });
+    removeNoteCaches({ queryClient, id });
+  } catch {
+    toast.error(t("deleteFailed"));
+  }
+}
+
 export default function useNotes() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
@@ -68,65 +240,50 @@ export default function useNotes() {
     [queryClient],
   );
 
-  const createNote = useCallback(
-    async (parentId) => {
-      try {
-        const res = await fetch("/api/notes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: t("untitled"), parentId: parentId || null }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          await invalidateAll();
-          router.push(`/notes/${data.data.id}`);
-          return data.data;
-        }
-      } catch {
-        toast.error(t("saveFailed"));
-      }
-    },
-    [invalidateAll, router, t],
-  );
+  // ---- Create (no optimistic — server-derived id, then navigate) ----
+  const createMutation = useMutation({
+    mutationFn: (parentId) =>
+      executeCreateNote({
+        parentId,
+        fetch,
+        queryClient,
+        noteKeys,
+        router,
+        toast,
+        t,
+      }),
+  });
 
-  const deleteNote = useCallback(
-    async (id) => {
-      try {
-        const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
-        const data = await res.json();
-        if (data.success) {
-          await invalidateAll();
-          removeNoteCaches({ queryClient, id });
-          return true;
-        }
-        return false;
-      } catch {
-        toast.error(t("deleteFailed"));
-        return false;
-      }
-    },
-    [invalidateAll, queryClient, t],
-  );
+  // ---- Delete (optimistic removal + rollback + detail-cache drop) ----
+  const deleteMutation = useMutation({
+    mutationFn: (id) =>
+      executeDeleteNote({
+        id,
+        fetch,
+        queryClient,
+        noteKeys,
+        toast,
+        t,
+      }),
+  });
 
-  const renameNote = useCallback(
-    async (id, newTitle) => {
-      try {
-        const res = await fetch(`/api/notes/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: newTitle }),
-        });
-        const data = await res.json();
-        if (data.success) await invalidateAll();
-      } catch {
-        toast.error(t("saveFailed"));
-      }
-    },
-    [invalidateAll, t],
-  );
+  // ---- Rename (optimistic title update + rollback) ----
+  const renameMutation = useMutation({
+    mutationFn: ({ id, newTitle }) =>
+      executeRenameNote({
+        id,
+        newTitle,
+        fetch,
+        queryClient,
+        noteKeys,
+        toast,
+        t,
+      }),
+  });
 
-  const duplicateNote = useCallback(
-    (id) =>
+  // ---- Duplicate (single-POST atomic copy; M2) ----
+  const duplicateMutation = useMutation({
+    mutationFn: (id) =>
       executeDuplicateNote({
         id,
         fetch,
@@ -135,17 +292,59 @@ export default function useNotes() {
         toast,
         t,
       }),
-    [invalidateAll, router, t],
-  );
+  });
 
-  const reorderNotes = useCallback(
-    async (updates) => {
-      // Optimistic update: apply changes to cache immediately
-      const previousNotes = queryClient.getQueryData(noteKeys.lists());
+  // ---- Restore from trash (no optimistic — cross-query move) ----
+  const restoreMutation = useMutation({
+    mutationFn: (id) =>
+      executeRestoreNote({
+        id,
+        fetch,
+        queryClient,
+        noteKeys,
+        toast,
+        t,
+      }),
+  });
 
-      if (previousNotes) {
+  // ---- Permanent delete from trash ----
+  const permanentDeleteMutation = useMutation({
+    mutationFn: (id) =>
+      executePermanentDeleteNote({
+        id,
+        fetch,
+        queryClient,
+        noteKeys,
+        toast,
+        t,
+      }),
+  });
+
+  // ---- Reorder (optimistic batch + rollback) ----
+  //
+  // Kept inline as useMutation because the optimistic update is keyed off the
+  // updates batch shape — not a single id — and the rollback path benefits
+  // from React Query's onError context. The previous hand-rolled
+  // implementation had the same semantics; this is a cleaner expression.
+  const reorderMutation = useMutation({
+    mutationFn: async (updates) => {
+      const res = await fetch("/api/notes/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to reorder");
+      }
+      return res.json();
+    },
+    onMutate: async (updates) => {
+      await queryClient.cancelQueries({ queryKey: noteKeys.all });
+      const previous = queryClient.getQueryData(noteKeys.lists());
+      if (Array.isArray(previous)) {
         const updateMap = new Map(updates.map((u) => [u.id, u]));
-        const optimisticNotes = previousNotes.map((note) => {
+        const optimistic = previous.map((note) => {
           const update = updateMap.get(note.id);
           if (update) {
             return {
@@ -156,71 +355,41 @@ export default function useNotes() {
           }
           return note;
         });
-        queryClient.setQueryData(noteKeys.lists(), optimisticNotes);
+        queryClient.setQueryData(noteKeys.lists(), optimistic);
       }
-
-      try {
-        const res = await fetch("/api/notes/reorder", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ updates }),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "Failed to reorder");
-        }
-      } catch (err) {
-        // Rollback on failure
-        if (previousNotes) {
-          queryClient.setQueryData(noteKeys.lists(), previousNotes);
-        }
-        toast.error(t("saveFailed"));
-      } finally {
-        await invalidateAll();
-      }
+      return { previous };
     },
-    [queryClient, invalidateAll, t],
-  );
-
-  const restoreNote = useCallback(
-    async (id) => {
-      try {
-        const res = await fetch(`/api/notes/${id}/restore`, { method: "POST" });
-        const data = await res.json();
-        if (data.success) await invalidateAll();
-      } catch {
-        toast.error(t("saveFailed"));
+    onError: (_, __, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(noteKeys.lists(), context.previous);
       }
+      toast.error(t("saveFailed"));
     },
-    [invalidateAll, t],
-  );
-
-  const permanentDeleteNote = useCallback(
-    async (id) => {
-      try {
-        const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
-        const data = await res.json();
-        if (data.success) {
-          await invalidateAll();
-          removeNoteCaches({ queryClient, id });
-        }
-      } catch {
-        toast.error(t("deleteFailed"));
-      }
-    },
-    [invalidateAll, queryClient, t],
-  );
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: noteKeys.all }),
+  });
 
   return {
     notes,
     trashedNotes,
     loading,
-    createNote,
-    deleteNote,
-    renameNote,
-    duplicateNote,
-    reorderNotes,
-    restoreNote,
-    permanentDeleteNote,
+    // Action callers — keep the same signatures consumers already pass to
+    // sidebar / PageTree / NoteTopBar so this refactor is additive.
+    createNote: (parentId) => createMutation.mutateAsync(parentId),
+    deleteNote: (id) => deleteMutation.mutateAsync(id),
+    renameNote: (id, newTitle) =>
+      renameMutation.mutateAsync({ id, newTitle }),
+    duplicateNote: (id) => duplicateMutation.mutateAsync(id),
+    restoreNote: (id) => restoreMutation.mutateAsync(id),
+    permanentDeleteNote: (id) => permanentDeleteMutation.mutateAsync(id),
+    reorderNotes: (updates) => reorderMutation.mutateAsync(updates),
+    // Pending flags — UI can disable buttons during in-flight requests.
+    isCreating: createMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    isRenaming: renameMutation.isPending,
+    isDuplicating: duplicateMutation.isPending,
+    isRestoring: restoreMutation.isPending,
+    isPermanentDeleting: permanentDeleteMutation.isPending,
+    isReordering: reorderMutation.isPending,
   };
 }
