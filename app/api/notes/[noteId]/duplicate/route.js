@@ -44,30 +44,45 @@ export const POST = withAuth(
     // prunes trashed / inbox / other-user nodes at every level of the
     // traversal — they never enter the frontier. No `maxDepth`: the doc
     // count cap below is the real bound.
-    const aggResult = await notesCollection
-      .aggregate(
-        [
-          { $match: { _id: sourceObjectId, userId } },
-          {
-            $graphLookup: {
-              from: "notes",
-              startWith: "$_id",
-              connectFromField: "_id",
-              connectToField: "parentId",
-              as: "descendants",
-              depthField: "depth",
-              restrictSearchWithMatch: {
-                userId,
-                deletedAt: null,
-                type: { $ne: "inbox" },
+    //
+    // $graphLookup accumulates descendants into a single output document,
+    // which is itself bounded by MongoDB's 16 MB BSON-doc limit. When the
+    // accumulated descendants exceed that, the aggregation throws
+    // BSONObjectTooLarge (code 10334) BEFORE we can read the result back to
+    // JS and run the explicit BSON size cap below. Treat that error as the
+    // same "too large to duplicate" condition the JS-side cap protects.
+    let aggResult;
+    try {
+      aggResult = await notesCollection
+        .aggregate(
+          [
+            { $match: { _id: sourceObjectId, userId } },
+            {
+              $graphLookup: {
+                from: "notes",
+                startWith: "$_id",
+                connectFromField: "_id",
+                connectToField: "parentId",
+                as: "descendants",
+                depthField: "depth",
+                restrictSearchWithMatch: {
+                  userId,
+                  deletedAt: null,
+                  type: { $ne: "inbox" },
+                },
               },
             },
-          },
-          { $project: { descendants: 1 } },
-        ],
-        { maxTimeMS: 5000 },
-      )
-      .toArray();
+            { $project: { descendants: 1 } },
+          ],
+          { maxTimeMS: 5000 },
+        )
+        .toArray();
+    } catch (err) {
+      if (err?.code === 10334) {
+        return apiError("Folder contents too large to duplicate", 413);
+      }
+      throw err;
+    }
 
     const descendants = aggResult[0]?.descendants ?? [];
 
