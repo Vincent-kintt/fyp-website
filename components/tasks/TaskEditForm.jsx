@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { FaTimes, FaClock, FaSync, FaPlus, FaTrash } from "react-icons/fa";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition } from "@/lib/utils";
+import { getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition } from "@/lib/utils";
 import { useUpdateReminder } from "@/hooks/useUpdateReminder";
 import { useResolvedUserTimezone } from "@/hooks/useResolvedUserTimezone";
+import { useTaskEditFormState } from "@/hooks/useTaskEditFormState";
 import { buildSubmitPayload } from "@/lib/forms/reminderSubmitPayload";
-import { toLocalDateTimeString } from "@/lib/forms/dateTimeLocal";
 import {
   EndTimePreview,
   getPriorityColor,
@@ -21,59 +21,24 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
   const t = useTranslations("editForm");
   const updateMutation = useUpdateReminder();
   const userTimezone = useResolvedUserTimezone();
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    remark: "",
-    dateTime: "",
-    duration: null,
-    status: "pending",
-    category: "personal",
-    tags: [],
-    recurring: false,
-    recurringType: "daily",
-    priority: "medium",
-    subtasks: []
-  });
-  const [newSubtask, setNewSubtask] = useState("");
-  const [newTag, setNewTag] = useState("");
+  const {
+    formData,
+    setFormData,
+    newSubtask,
+    setNewSubtask,
+    newTag,
+    setNewTag,
+    showSubtasks,
+    setShowSubtasks,
+    error,
+    setError,
+    handleChange,
+    addTag,
+    removeTag,
+    addSubtask,
+    removeSubtask,
+  } = useTaskEditFormState({ reminder, isActive });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [showSubtasks, setShowSubtasks] = useState(false);
-
-  // Initialize form data when reminder changes or form becomes active
-  useEffect(() => {
-    if (reminder && isActive) {
-      setFormData({
-        title: reminder.title || "",
-        description: reminder.description || "",
-        remark: reminder.remark || "",
-        dateTime: reminder.dateTime
-          ? toLocalDateTimeString(new Date(reminder.dateTime))
-          : "",
-        duration: reminder.duration || null,
-        status: reminder.status || "pending",
-        category: reminder.category || "personal",
-        tags: reminder.tags || [],
-        recurring: reminder.recurring || false,
-        recurringType: reminder.recurringType || "daily",
-        priority: reminder.priority || "medium",
-        subtasks: reminder.subtasks || []
-      });
-      setShowSubtasks((reminder.subtasks || []).length > 0);
-      setNewTag("");
-      setNewSubtask("");
-      setError("");
-    }
-  }, [reminder, isActive]);
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value
-    }));
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -108,59 +73,17 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
     }
   };
 
-  const handleAddSubtask = () => {
-    if (!newSubtask.trim()) return;
-    const subtask = {
-      id: `st-${Date.now()}`,
-      title: newSubtask.trim(),
-      completed: false
-    };
-    setFormData(prev => ({
-      ...prev,
-      subtasks: [...prev.subtasks, subtask]
-    }));
-    setNewSubtask("");
-  };
-
-  const handleRemoveSubtask = (subtaskId) => {
-    setFormData(prev => ({
-      ...prev,
-      subtasks: prev.subtasks.filter(st => st.id !== subtaskId)
-    }));
-  };
-
   const handleSubtaskKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleAddSubtask();
+      addSubtask(newSubtask);
     }
-  };
-
-  const handleAddTag = () => {
-    const normalized = normalizeTag(newTag);
-    if (!normalized || normalized.length < 2) return;
-    if (formData.tags.includes(normalized)) {
-      setNewTag("");
-      return;
-    }
-    setFormData(prev => ({
-      ...prev,
-      tags: [...prev.tags, normalized]
-    }));
-    setNewTag("");
-  };
-
-  const handleRemoveTag = (tagToRemove) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.filter(t => t !== tagToRemove)
-    }));
   };
 
   const handleTagKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleAddTag();
+      addTag(newTag);
     }
   };
 
@@ -392,9 +315,9 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
                 type="button"
                 onClick={() => {
                   if (formData.tags.includes(tag)) {
-                    handleRemoveTag(tag);
+                    removeTag(tag);
                   } else {
-                    setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+                    addTag(tag);
                   }
                 }}
                 className={`px-3 py-1.5 rounded-full text-[13px] font-medium border transition-all ${
@@ -426,7 +349,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
             />
             <button
               type="button"
-              onClick={handleAddTag}
+              onClick={() => addTag(newTag)}
               disabled={!newTag.trim() || newTag.length < 2}
               className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -445,7 +368,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
                   {tag}
                   <button
                     type="button"
-                    onClick={() => handleRemoveTag(tag)}
+                    onClick={() => removeTag(tag)}
                     className="hover:bg-black/10 rounded-full p-0.5 transition-colors"
                   >
                     <FaTimes className="w-2.5 h-2.5" />
@@ -480,7 +403,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
               />
               <button
                 type="button"
-                onClick={handleAddSubtask}
+                onClick={() => addSubtask(newSubtask)}
                 disabled={!newSubtask.trim()}
                 className="px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -501,7 +424,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleRemoveSubtask(subtask.id)}
+                      onClick={() => removeSubtask(subtask.id)}
                       className="p-1 text-red-500 hover:bg-red-500/20 rounded transition-colors"
                     >
                       <FaTrash className="w-3 h-3" />
