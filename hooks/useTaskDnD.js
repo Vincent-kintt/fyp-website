@@ -15,7 +15,7 @@ import {
   getSectionLabelKey,
 } from "@/lib/dnd.js";
 import { arrayMove } from "@dnd-kit/sortable";
-import { reminderKeys } from "@/lib/queryKeys";
+import { executeTaskDragEnd } from "@/lib/dnd/executeTaskDragEnd.js";
 
 /**
  * Pure async drag-end executor with all side effects injected.
@@ -53,10 +53,8 @@ export async function executeDragEnd({
 
   if (!sourceSection || !targetSection) return;
 
-  const originalTasks = queryClient.getQueryData(reminderKeys.list({}));
-
   if (sourceSection === targetSection) {
-    // Within-section reorder (unchanged)
+    // Within-section reorder
     const sectionTasks = getSectionTasks(sourceSection);
     const oldIndex = sectionTasks.findIndex((t) => t.id === active.id);
     const newIndex = sectionTasks.findIndex((t) => t.id === over.id);
@@ -69,135 +67,123 @@ export async function executeDragEnd({
     }));
     const reorderedIds = new Set(reorderedWithOrder.map((t) => t.id));
     const otherTasks = tasks.filter((t) => !reorderedIds.has(t.id));
-    queryClient.setQueryData(
-      reminderKeys.list({}),
-      [...otherTasks, ...reorderedWithOrder],
-    );
 
-    try {
-      const sortUpdates = computeSortOrders(reordered);
-      await reorderReminders(sortUpdates);
-    } catch {
-      queryClient.setQueryData(reminderKeys.list({}), originalTasks);
-      toast.error(t("reorderFailed"));
-    }
-  } else {
-    // Cross-section move
-    const draggedTask = tasks.find((t) => t.id === active.id);
-    if (!draggedTask) return;
-
-    const STATUS_SECTIONS = new Set([
-      SECTION_IDS.COMPLETED,
-      SECTION_IDS.SNOOZED,
-    ]);
-    const isToStatus = STATUS_SECTIONS.has(targetSection);
-    const isFromStatus = STATUS_SECTIONS.has(sourceSection);
-
-    // Block drag TO Overdue — it's a computed state, not a drop target
-    if (targetSection === SECTION_IDS.OVERDUE) return;
-
-    // Block invalid transitions: COMPLETED ↔ SNOOZED
-    if (isFromStatus && isToStatus) {
-      toast.warning(t("restoreFirst"));
-      return;
-    }
-
-    if (isToStatus) {
-      // Move TO a status section (COMPLETED or SNOOZED)
-      const statusBody = { ...getSectionTargetStatus(targetSection) };
-      let optimisticUpdate;
-
-      if (targetSection === SECTION_IDS.COMPLETED) {
-        optimisticUpdate = {
-          ...draggedTask,
-          status: "completed",
-          completed: true,
-          completedAt: new Date().toISOString(),
-        };
-      } else {
-        // SNOOZED — snoozedUntil is required by API
-        const snoozedUntil = getDefaultSnoozeUntil();
-        statusBody.snoozedUntil = snoozedUntil;
-        optimisticUpdate = {
-          ...draggedTask,
-          status: "snoozed",
-          snoozedUntil,
-        };
-      }
-
-      queryClient.setQueryData(
-        reminderKeys.list({}),
-        tasks.map((t) => (t.id === active.id ? optimisticUpdate : t)),
-      );
-
-      try {
-        await patchReminderStatus(active.id, statusBody);
-        toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
-      } catch {
-        queryClient.setQueryData(reminderKeys.list({}), originalTasks);
-        toast.error(t("moveFailed"));
-      }
-    } else {
-      // Move TO a date section (from any source)
-      const targetDate = getSectionTargetDate(targetSection);
-      if (!targetDate) return;
-
-      const newDateTime = computeNewDateTime(
-        draggedTask.dateTime,
-        targetDate,
-      );
-
-      if (isFromStatus) {
-        // From COMPLETED/SNOOZED → date section: status reset + date change
-        const statusBody = {
-          ...getSectionTargetStatus(targetSection),
-          dateTime: newDateTime,
-        };
-        const optimisticUpdate = {
-          ...draggedTask,
-          status: "pending",
-          completed: false,
-          dateTime: newDateTime,
-          snoozedUntil: null,
-        };
-
-        queryClient.setQueryData(
-          reminderKeys.list({}),
-          tasks.map((t) => (t.id === active.id ? optimisticUpdate : t)),
-        );
-
-        try {
-          await patchReminderStatus(active.id, statusBody);
-          toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
-        } catch {
-          queryClient.setQueryData(reminderKeys.list({}), originalTasks);
-          toast.error(t("moveFailed"));
-        }
-      } else {
-        // Date → Date move (existing logic)
-        queryClient.setQueryData(
-          reminderKeys.list({}),
-          tasks.map((t) =>
-            t.id === active.id ? { ...t, dateTime: newDateTime } : t,
-          ),
-        );
-
-        try {
-          await reorderReminders([
-            {
-              id: active.id,
-              sortOrder: draggedTask.sortOrder || 0,
-              dateTime: newDateTime,
-            },
-          ]);
-          toast.success(t("movedTo", { section: t(getSectionLabelKey(targetSection)) }));
-        } catch {
-          queryClient.setQueryData(reminderKeys.list({}), originalTasks);
-          toast.error(t("moveFailed"));
-        }
-      }
-    }
+    await executeTaskDragEnd({
+      activeId: active.id,
+      tasks,
+      queryClient,
+      optimisticTasks: [...otherTasks, ...reorderedWithOrder],
+      apiCall: () => reorderReminders(computeSortOrders(reordered)),
+      toast,
+      t,
+      errorKey: "reorderFailed",
+    });
+    return;
   }
+
+  // Cross-section move
+  const draggedTask = tasks.find((t) => t.id === active.id);
+  if (!draggedTask) return;
+
+  const STATUS_SECTIONS = new Set([
+    SECTION_IDS.COMPLETED,
+    SECTION_IDS.SNOOZED,
+  ]);
+  const isToStatus = STATUS_SECTIONS.has(targetSection);
+  const isFromStatus = STATUS_SECTIONS.has(sourceSection);
+
+  // Block drag TO Overdue — it's a computed state, not a drop target
+  if (targetSection === SECTION_IDS.OVERDUE) return;
+
+  // Block invalid transitions: COMPLETED ↔ SNOOZED
+  if (isFromStatus && isToStatus) {
+    toast.warning(t("restoreFirst"));
+    return;
+  }
+
+  const successParams = { section: t(getSectionLabelKey(targetSection)) };
+
+  if (isToStatus) {
+    // Move TO a status section (COMPLETED or SNOOZED)
+    const statusBody = { ...getSectionTargetStatus(targetSection) };
+    let optimisticPatch;
+
+    if (targetSection === SECTION_IDS.COMPLETED) {
+      optimisticPatch = {
+        status: "completed",
+        completed: true,
+        completedAt: new Date().toISOString(),
+      };
+    } else {
+      // SNOOZED — snoozedUntil is required by API
+      const snoozedUntil = getDefaultSnoozeUntil();
+      statusBody.snoozedUntil = snoozedUntil;
+      optimisticPatch = { status: "snoozed", snoozedUntil };
+    }
+
+    await executeTaskDragEnd({
+      activeId: active.id,
+      tasks,
+      queryClient,
+      optimisticPatch,
+      apiCall: () => patchReminderStatus(active.id, statusBody),
+      toast,
+      t,
+      successKey: "movedTo",
+      successParams,
+    });
+    return;
+  }
+
+  // Move TO a date section
+  const targetDate = getSectionTargetDate(targetSection);
+  if (!targetDate) return;
+  const newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
+
+  if (isFromStatus) {
+    // From COMPLETED/SNOOZED → date section: status reset + date change
+    const statusBody = {
+      ...getSectionTargetStatus(targetSection),
+      dateTime: newDateTime,
+    };
+    await executeTaskDragEnd({
+      activeId: active.id,
+      tasks,
+      queryClient,
+      optimisticPatch: {
+        status: "pending",
+        completed: false,
+        dateTime: newDateTime,
+        snoozedUntil: null,
+      },
+      apiCall: () => patchReminderStatus(active.id, statusBody),
+      toast,
+      t,
+      successKey: "movedTo",
+      successParams,
+    });
+    return;
+  }
+
+  // Date → Date move
+  await executeTaskDragEnd({
+    activeId: active.id,
+    tasks,
+    queryClient,
+    optimisticPatch: { dateTime: newDateTime },
+    apiCall: () =>
+      reorderReminders([
+        {
+          id: active.id,
+          sortOrder: draggedTask.sortOrder || 0,
+          dateTime: newDateTime,
+        },
+      ]),
+    toast,
+    t,
+    successKey: "movedTo",
+    successParams,
+  });
 }
 
 export function useTaskDnD({ tasks, taskToSection, getSectionTasks, queryClient, t }) {

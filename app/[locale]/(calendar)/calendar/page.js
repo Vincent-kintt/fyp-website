@@ -18,7 +18,6 @@ import {
 } from "date-fns";
 import { DndContext, closestCenter, DragOverlay } from "@dnd-kit/core";
 import { useQueryClient } from "@tanstack/react-query";
-import { reminderKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
 import {
   useDndSensors,
@@ -29,6 +28,7 @@ import {
   computeNewDateTime,
   computeSlotDateTime,
 } from "@/lib/dnd";
+import { executeTaskDragEnd } from "@/lib/dnd/executeTaskDragEnd";
 import { buildTasksByDate } from "@/lib/calendar";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import CalendarSidebar from "@/components/calendar/CalendarSidebar";
@@ -153,52 +153,31 @@ export default function CalendarPage() {
       const draggedTask = tasks.find((task) => task.id === active.id);
       if (!draggedTask) return;
 
-      // Try slot drop first (updates both date + time)
+      // Resolve drop target into a new dateTime. Slot drops set both date
+      // and time; day drops preserve the original time-of-day.
       const slotData = parseSlotDropId(over.id);
+      let newDateTime;
+      let targetDate;
       if (slotData) {
-        const newDateTime = computeSlotDateTime(slotData);
-        const originalTasks = queryClient.getQueryData(reminderKeys.list({}));
-        queryClient.setQueryData(
-          reminderKeys.list({}),
-          tasks.map((task) =>
-            task.id === active.id ? { ...task, dateTime: newDateTime } : task
-          )
-        );
-        try {
-          await patchReminderStatus(active.id, { dateTime: newDateTime });
-          toast.success(
-            t("movedTo", {
-              date: format(slotData.date, "M/d"),
-            })
-          );
-        } catch {
-          queryClient.setQueryData(reminderKeys.list({}), originalTasks);
-          toast.error(t("moveFailed"));
-        }
-        return;
+        newDateTime = computeSlotDateTime(slotData);
+        targetDate = slotData.date;
+      } else {
+        targetDate = parseDayDropId(over.id);
+        if (!targetDate || !draggedTask.dateTime) return;
+        newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
       }
 
-      // Fall back to day drop (preserves time)
-      const targetDate = parseDayDropId(over.id);
-      if (!targetDate) return;
-
-      if (!draggedTask.dateTime) return;
-
-      const newDateTime = computeNewDateTime(draggedTask.dateTime, targetDate);
-      const originalTasks = queryClient.getQueryData(reminderKeys.list({}));
-      queryClient.setQueryData(
-        reminderKeys.list({}),
-        tasks.map((task) =>
-          task.id === active.id ? { ...task, dateTime: newDateTime } : task
-        )
-      );
-      try {
-        await patchReminderStatus(active.id, { dateTime: newDateTime });
-        toast.success(t("movedTo", { date: format(targetDate, "M/d") }));
-      } catch {
-        queryClient.setQueryData(reminderKeys.list({}), originalTasks);
-        toast.error(t("moveFailed"));
-      }
+      await executeTaskDragEnd({
+        activeId: active.id,
+        tasks,
+        queryClient,
+        optimisticPatch: { dateTime: newDateTime },
+        apiCall: () => patchReminderStatus(active.id, { dateTime: newDateTime }),
+        toast,
+        t,
+        successKey: "movedTo",
+        successParams: { date: format(targetDate, "M/d") },
+      });
     },
     [tasks, queryClient, t]
   );
