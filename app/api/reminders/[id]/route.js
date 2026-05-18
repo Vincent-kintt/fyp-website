@@ -1,10 +1,8 @@
 import { getCollection } from "@/lib/db";
 import { ObjectId } from "mongodb";
-import { z } from "zod";
 import {
   normalizeTags,
   getMainCategory,
-  isValidStatus,
   isValidStatusTransition,
   deriveCompletedFromStatus,
   validateDuration,
@@ -17,39 +15,10 @@ import {
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
-
-const updateReminderSchema = z.object({
-  title: z
-    .string({ error: "Missing required field (title)" })
-    .min(1, "Missing required field (title)"),
-  description: z.string().optional(),
-  remark: z.string().optional(),
-  dateTime: z.string().nullable().optional(),
-  duration: z.number().nullable().optional(),
-  status: z.string().optional(),
-  category: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  recurring: z.boolean().optional(),
-  recurringType: z.string().nullable().optional(),
-  priority: z.string().optional(),
-  subtasks: z.array(z.unknown()).optional(),
-});
-
-const patchReminderSchema = z.object({
-  title: z.string().optional(),
-  description: z.string().optional(),
-  remark: z.string().optional(),
-  dateTime: z.string().nullable().optional(),
-  duration: z.number().nullable().optional(),
-  status: z.string().optional(),
-  completed: z.boolean().optional(),
-  category: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  priority: z.string().optional(),
-  sortOrder: z.number().optional(),
-  subtasks: z.array(z.unknown()).optional(),
-  snoozedUntil: z.string().nullable().optional(),
-});
+import {
+  updateReminderSchema,
+  patchReminderSchema,
+} from "@/lib/schemas/reminder.js";
 
 // GET /api/reminders/[id] - Get a single reminder (must belong to user)
 export const GET = withAuth(
@@ -117,13 +86,6 @@ export const PUT = withAuth(
       if (!durationValidation.isValid) {
         return apiError(durationValidation.error, 400);
       }
-    }
-
-    if (status !== undefined && !isValidStatus(status)) {
-      return apiError(
-        `Invalid status: ${status}. Valid values: pending, in_progress, completed, snoozed`,
-        400,
-      );
     }
 
     const processedTags = normalizeTags(tags || []);
@@ -276,10 +238,6 @@ export const PATCH = withAuth(
     const updateData = { updatedAt: new Date() };
 
     if (body.status !== undefined) {
-      if (!isValidStatus(body.status)) {
-        return apiError(`Invalid status: ${body.status}`, 400);
-      }
-
       const currentStatus = existing.status || "pending";
       if (!isValidStatusTransition(currentStatus, body.status)) {
         return apiError(

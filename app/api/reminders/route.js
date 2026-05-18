@@ -1,5 +1,4 @@
 import { getCollection } from "@/lib/db";
-import { z } from "zod";
 import { normalizeTags, getMainCategory, validateDuration } from "@/lib/utils";
 import {
   formatReminder,
@@ -9,24 +8,7 @@ import {
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
-
-const createReminderSchema = z.object({
-  title: z
-    .string({ error: "Missing required field (title)" })
-    .min(1, "Missing required field (title)"),
-  description: z.string().optional(),
-  dateTime: z.string().nullable().optional(),
-  duration: z.number().nullable().optional(),
-  category: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  recurring: z.boolean().optional(),
-  recurringType: z.string().nullable().optional(),
-  priority: z.string().optional(),
-  subtasks: z.array(z.unknown()).optional(),
-  remark: z.string().optional(),
-  inboxState: z.string().optional(),
-  sortOrder: z.number().optional(),
-});
+import { createReminderSchema } from "@/lib/schemas/reminder.js";
 
 // GET /api/reminders - Get all reminders for logged-in user
 export const GET = withAuth(
