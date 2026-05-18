@@ -9,6 +9,7 @@ import ScheduleSection from "@/components/tasks/taskEditForm/ScheduleSection.jsx
 import DetailsSection from "@/components/tasks/taskEditForm/DetailsSection.jsx";
 import TagsSection from "@/components/tasks/taskEditForm/TagsSection.jsx";
 import SubtasksSection from "@/components/tasks/taskEditForm/SubtasksSection.jsx";
+import Footer from "@/components/tasks/taskEditForm/Footer.jsx";
 
 export default function TaskEditForm({ reminder, isActive, onSave, onCancel, variant = "modal", className = "" }) {
   const t = useTranslations("editForm");
@@ -140,30 +141,13 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
         <div className="h-2" />
       </form>
 
-      <div className="flex-shrink-0 flex gap-3 p-4 border-t border-[var(--card-border)] bg-[var(--card-bg)]">
-        {variant === "modal" && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 px-4 py-2.5 rounded-lg border transition-colors hover:bg-gray-500/10 text-[14px] font-medium"
-            style={{
-              borderColor: "var(--card-border)",
-              color: "var(--text-secondary)",
-            }}
-            disabled={isSubmitting}
-          >
-            {t("cancel")}
-          </button>
-        )}
-        <button
-          type="submit"
-          onClick={handleSubmit}
-          className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[14px] font-medium transition-colors disabled:opacity-50"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? t("saving") : t("save")}
-        </button>
-      </div>
+      <Footer
+        variant={variant}
+        isSubmitting={isSubmitting}
+        onCancel={onCancel}
+        onSubmit={handleSubmit}
+        t={t}
+      />
     </>
   );
 }
