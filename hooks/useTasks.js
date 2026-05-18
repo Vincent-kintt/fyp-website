@@ -25,6 +25,109 @@ export async function executeQuickAdd({ data, createReminder, t, toast }) {
   }
 }
 
+/**
+ * Map a reminder snapshot (as it appears in the cache after `formatReminder`)
+ * to the POST /api/reminders payload. Drops every server-derived field so a
+ * fresh row is created and the lifecycle restarts clean. The compensating
+ * mutation semantics are: "the user undid the delete" — not "restore the
+ * exact prior _id". A new id is acceptable and expected.
+ */
+function snapshotToCreatePayload(snapshot) {
+  return {
+    title: snapshot.title,
+    description: snapshot.description ?? "",
+    remark: snapshot.remark ?? "",
+    dateTime: snapshot.dateTime ?? null,
+    duration: snapshot.duration ?? null,
+    category: snapshot.category,
+    tags: Array.isArray(snapshot.tags) ? snapshot.tags : [],
+    recurring: snapshot.recurring ?? false,
+    recurringType: snapshot.recurringType ?? null,
+    priority: snapshot.priority ?? "medium",
+    subtasks: Array.isArray(snapshot.subtasks) ? snapshot.subtasks : [],
+    inboxState: snapshot.inboxState ?? "processed",
+    sortOrder: typeof snapshot.sortOrder === "number" ? snapshot.sortOrder : 0,
+  };
+}
+
+/**
+ * Module-level dependency-injected helper that runs the delete flow:
+ *
+ *   1. Snapshot the cache + the to-be-deleted task.
+ *   2. Optimistically remove the task from the cache.
+ *   3. Fire `fetch DELETE` IMMEDIATELY (no setTimeout — the old deferred
+ *      pattern lost server calls on unmount and the deleted task came back
+ *      on the next refetch).
+ *   4. On success show an undo toast (5s) whose `onClick` calls
+ *      `executeUndoTask` — undo is a compensating mutation (POST a new
+ *      reminder with the snapshot fields), not a cancelled-timer trick.
+ *   5. On failure restore the snapshot to the cache + error toast.
+ *   6. Always invalidate `reminderKeys.all` at the end.
+ *
+ * Exported for direct unit testing — see `useTaskDnD.executeDragEnd` for the
+ * pattern.
+ */
+export async function executeDeleteTask({
+  id,
+  queryClient,
+  fetch,
+  reminderKeys,
+  toast,
+  t,
+  createReminder,
+}) {
+  await queryClient.cancelQueries({ queryKey: reminderKeys.all });
+  const previous = queryClient.getQueryData(reminderKeys.list({}));
+  const deletedTask = Array.isArray(previous)
+    ? previous.find((task) => task.id === id)
+    : null;
+
+  queryClient.setQueryData(reminderKeys.list({}), (old) =>
+    old?.filter((task) => task.id !== id),
+  );
+
+  try {
+    const res = await fetch(`/api/reminders/${id}`, { method: "DELETE" });
+    if (!res?.ok) throw new Error("Failed");
+
+    if (deletedTask) {
+      toast(t("deleted"), {
+        action: {
+          label: t("undo"),
+          onClick: () =>
+            executeUndoTask({
+              snapshot: deletedTask,
+              createReminder,
+              toast,
+              t,
+            }),
+        },
+        duration: 5000,
+      });
+    }
+  } catch {
+    queryClient.setQueryData(reminderKeys.list({}), previous);
+    toast.error(t("deleteFailed"));
+  } finally {
+    queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+  }
+}
+
+/**
+ * Compensating mutation for `executeDeleteTask`: re-create the just-deleted
+ * task as a fresh row. A new `_id` is assigned by the server — undo restores
+ * the user's intent (the row content), not the database identity.
+ */
+export async function executeUndoTask({ snapshot, createReminder, toast, t }) {
+  if (!snapshot) return;
+  const payload = snapshotToCreatePayload(snapshot);
+  try {
+    await createReminder.mutateAsync(payload);
+  } catch {
+    toast.error(t("undoFailed"));
+  }
+}
+
 // Per-cutoff backoff window. The same earliest due cutoff will not retry the
 // bulk-wake mutation within this many ms — prevents tight retry loops on POST
 // failure and the post-invalidate refetch flap (cache update arrives, list
@@ -76,7 +179,6 @@ export function useTasks() {
   const queryClient = useQueryClient();
   const t = useTranslations("common");
   const lastAttemptRef = useRef(new Map());
-  const deleteTimersRef = useRef(new Map());
 
   // ---- Query ----
   const query = useQuery({
@@ -149,45 +251,6 @@ export function useTasks() {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all }),
   });
 
-  // ---- Deferred delete (5s undo window, NOT a TQ mutation) ----
-  const deleteTask = useCallback(
-    (id) => {
-      const previous = queryClient.getQueryData(reminderKeys.list({}));
-      queryClient.setQueryData(reminderKeys.list({}), (old) =>
-        old?.filter((t) => t.id !== id)
-      );
-
-      const timer = setTimeout(async () => {
-        deleteTimersRef.current.delete(id);
-        try {
-          const res = await fetch(`/api/reminders/${id}`, {
-            method: "DELETE",
-          });
-          if (!res.ok) throw new Error("Failed");
-          queryClient.invalidateQueries({ queryKey: reminderKeys.all });
-        } catch {
-          queryClient.setQueryData(reminderKeys.list({}), previous);
-          toast.error(t("deleteFailed"));
-        }
-      }, 5000);
-
-      deleteTimersRef.current.set(id, timer);
-
-      toast(t("deleted"), {
-        action: {
-          label: t("undo"),
-          onClick: () => {
-            clearTimeout(timer);
-            deleteTimersRef.current.delete(id);
-            queryClient.setQueryData(reminderKeys.list({}), previous);
-          },
-        },
-        duration: 5000,
-      });
-    },
-    [queryClient, t]
-  );
-
   // ---- Update (no optimistic, invalidate on success) ----
   const updateMutation = useMutation({
     mutationFn: ({ id, ...patch }) =>
@@ -247,20 +310,25 @@ export function useTasks() {
       queryClient.invalidateQueries({ queryKey: reminderKeys.all }),
   });
 
-  // ---- Quick add — compose useCreateReminder with toast policy ----
+  // ---- Quick add + delete — compose useCreateReminder with toast policy ----
   const createReminder = useCreateReminder();
   const quickAdd = useCallback(
     (data) => executeQuickAdd({ data, createReminder, t, toast }),
     [createReminder, t],
   );
-
-  // ---- Cleanup delete timers on unmount ----
-  useEffect(() => {
-    const timers = deleteTimersRef.current;
-    return () => {
-      timers.forEach((timer) => clearTimeout(timer));
-    };
-  }, []);
+  const deleteTask = useCallback(
+    (id) =>
+      executeDeleteTask({
+        id,
+        queryClient,
+        fetch,
+        reminderKeys,
+        toast,
+        t,
+        createReminder,
+      }),
+    [queryClient, t, createReminder],
+  );
 
   return {
     tasks: query.data ?? [],
