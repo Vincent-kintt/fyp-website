@@ -15,8 +15,85 @@ import { useTranslations, useLocale } from "next-intl";
 import { getTagClasses, formatDuration, DURATION_PRESETS } from "@/lib/utils";
 import { addTagToList } from "@/lib/tasks/addTagToList";
 import { PRIORITY } from "@/lib/taskConfig";
+import { useResolvedUserTimezone } from "@/hooks/useResolvedUserTimezone";
+import {
+  buildSubmitPayload,
+  endOfDayNaiveInTz,
+} from "@/lib/forms/reminderSubmitPayload";
 
 const DEBOUNCE_MS = 600;
+
+/**
+ * Pure, module-level helper that derives the POST /api/reminders payload
+ * from QuickAdd's parsed + manual + default inputs. Extracted for the H7
+ * follow-up so the cross-timezone behaviour can be unit-tested without
+ * rendering React (mirrors `executeDragEnd` / `buildSubmitPayload` pattern).
+ *
+ * H7 bug being prevented: the previous closure-based `buildTaskData` did
+ * `new Date(naive).toISOString()` for the manual override AND
+ * `new Date(); setHours(23,59); toISOString()` for the "end of today"
+ * default — both interpret time in the BROWSER's system timezone, not the
+ * user's account TZ. For a HK account on a Mac set to LA, this saved
+ * reminders up to 16h off the intended HK wall time AND could land the
+ * default on the wrong calendar day.
+ *
+ * Fix routes both paths through `buildSubmitPayload` (`naiveToUTC` under
+ * the hood) and computes "end of today" via `endOfDayNaiveInTz` — so the
+ * resulting UTC instant depends ONLY on `userTimezone`.
+ *
+ * @param {{
+ *   parsedData: { title?: string, tags?: string[], priority?: string,
+ *                 dateTime?: string|null, duration?: number|null } | null,
+ *   inputText: string,
+ *   manualDate: string,  // "YYYY-MM-DD" or ""
+ *   manualTime: string,  // "HH:mm" or ""
+ *   userTimezone: string,
+ *   now?: Date,          // injectable for tests
+ * }} args
+ * @returns {object} payload for POST /api/reminders, with dateTime as a
+ *                   UTC ISO string.
+ * @throws when `userTimezone` is falsy — we never silently fall back to
+ *         browser TZ (the H7 bug).
+ */
+export function buildTaskData({
+  parsedData,
+  inputText,
+  manualDate,
+  manualTime,
+  userTimezone,
+  now = new Date(),
+}) {
+  const data = {
+    title: parsedData?.title || inputText.trim(),
+    tags: parsedData?.tags || [],
+    priority: parsedData?.priority || "medium",
+    status: "pending",
+  };
+
+  // Resolve the naive datetime source: manual override > parsed > default.
+  let naiveDateTime;
+  if (manualDate) {
+    naiveDateTime = manualTime
+      ? `${manualDate}T${manualTime}`
+      : `${manualDate}T09:00`;
+  } else if (parsedData?.dateTime) {
+    naiveDateTime = parsedData.dateTime;
+  } else {
+    // "End of today in the USER's timezone" — not the browser's. Important
+    // for users whose account TZ differs from the machine they're on.
+    naiveDateTime = endOfDayNaiveInTz(userTimezone, now);
+  }
+  data.dateTime = naiveDateTime;
+
+  if (parsedData?.duration) {
+    data.duration = parsedData.duration;
+  }
+
+  // Single conversion path: naive → UTC ISO via user's IANA timezone.
+  // buildSubmitPayload throws if userTimezone is falsy AND dateTime is set
+  // — surfaces the bug at call time rather than producing wrong data.
+  return buildSubmitPayload({ formData: data, userTimezone });
+}
 
 export default function QuickAdd({
   onAdd,
@@ -26,6 +103,10 @@ export default function QuickAdd({
   const t = useTranslations("quickAdd");
   const locale = useLocale();
   const language = locale === "zh-TW" ? "zh" : "en";
+  // Resolved at the component level (browser TZ today, account TZ once we
+  // persist a per-user setting). Passed to `buildTaskData` so the naive
+  // datetime conversion never silently falls back to the runtime's TZ.
+  const userTimezone = useResolvedUserTimezone();
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputText, setInputText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,49 +215,19 @@ export default function QuickAdd({
     };
   }, []);
 
-  // Build final task data from parsed + manual overrides
-  const buildTaskData = () => {
-    const data = {
-      title: parsedData?.title || inputText.trim(),
-      tags: parsedData?.tags || [],
-      priority: parsedData?.priority || "medium",
-      status: "pending",
-    };
-
-    // Date/time - use manual override or parsed
-    if (manualDate) {
-      data.dateTime = manualTime
-        ? `${manualDate}T${manualTime}`
-        : `${manualDate}T09:00`;
-    } else if (parsedData?.dateTime) {
-      data.dateTime = parsedData.dateTime;
-    } else {
-      // Default to end of today so the task appears in Today without being immediately overdue
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 0, 0);
-      data.dateTime = endOfDay.toISOString();
-    }
-
-    // Convert naive datetime to full ISO for timezone-safe storage
-    if (data.dateTime && !data.dateTime.includes("Z") && !data.dateTime.includes("+")) {
-      data.dateTime = new Date(data.dateTime).toISOString();
-    }
-
-    // Duration
-    if (parsedData?.duration) {
-      data.duration = parsedData.duration;
-    }
-
-    return data;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!inputText.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
-      const taskData = buildTaskData();
+      const taskData = buildTaskData({
+        parsedData,
+        inputText,
+        manualDate,
+        manualTime,
+        userTimezone,
+      });
       await onAdd(taskData);
 
       // A late parse response could rehydrate parsedData after the reset below; cancel it.

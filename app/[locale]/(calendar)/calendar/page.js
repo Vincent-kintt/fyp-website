@@ -40,6 +40,8 @@ import AgendaView from "@/components/calendar/AgendaView";
 import WeekStrip from "@/components/calendar/WeekStrip";
 import QuickAddPopover from "@/components/calendar/QuickAddPopover";
 import TaskDetailPanel from "@/components/tasks/TaskDetailPanel";
+import { useResolvedUserTimezone } from "@/hooks/useResolvedUserTimezone";
+import { buildSubmitPayload } from "@/lib/forms/reminderSubmitPayload";
 
 function useBreakpoint() {
   const [bp, setBp] = useState("desktop");
@@ -73,6 +75,12 @@ export default function CalendarPage() {
   const bp = useBreakpoint();
   const sensors = useDndSensors();
   const queryClient = useQueryClient();
+  // QuickAddPopover composes naive "YYYY-MM-DDTHH:mm" strings from the
+  // clicked slot. Without conversion the server would parse them as UTC
+  // (or, worse, fall back to server local time). Route through
+  // buildSubmitPayload so the user's IANA TZ governs the final UTC instant
+  // — same path TaskEditForm / QuickAdd use.
+  const userTimezone = useResolvedUserTimezone();
 
   // Hydration init
   useEffect(() => {
@@ -122,8 +130,13 @@ export default function CalendarPage() {
 
   const handleQuickAddSubmit = useCallback(
     ({ title, dateTime }) =>
-      quickAdd({ title, dateTime, status: "pending" }),
-    [quickAdd]
+      quickAdd(
+        buildSubmitPayload({
+          formData: { title, dateTime, status: "pending" },
+          userTimezone,
+        }),
+      ),
+    [quickAdd, userTimezone],
   );
 
   // DnD handlers

@@ -1,24 +1,29 @@
 /**
- * Tests for TaskEditForm's buildSubmitPayload helper (H7).
+ * Tests for the shared `lib/forms/reminderSubmitPayload.js` module — extracted
+ * during the H7 follow-up so that BOTH TaskEditForm and QuickAdd (and any
+ * future form submitting a reminder) consume the same naive-datetime → UTC
+ * conversion path. The bug this prevents: previously TaskEditForm used
+ * `new Date(naiveString).toISOString()` (browser TZ), QuickAdd duplicated the
+ * same anti-pattern, and the calendar's QuickAddPopover passed naive strings
+ * straight to the server. With this module each call site routes through
+ * `naiveToUTC(value, userTimezone)` so the result depends ONLY on the user's
+ * IANA timezone.
  *
- * The previous TaskEditForm submit path did:
- *   submitData.dateTime = new Date(naiveString).toISOString();
- * which interprets the naive datetime-local form value in the BROWSER's
- * system timezone — wrong when the user's account TZ differs from the
- * machine they're physically using (e.g. HK account on a Mac set to LA).
- *
- * The fix routes the conversion through naiveToUTC(value, userTimezone),
- * the same helper the AI write paths use, so the result depends ONLY on
- * the user's IANA timezone — never on the test runner's / browser's TZ.
+ * These tests were moved verbatim from
+ * `tests/unit/timezone/taskEditForm-submit.test.js` (H7's original location)
+ * once the helper moved out of `components/tasks/TaskEditForm.jsx`. New cases
+ * cover `endOfDayNaiveInTz` (QuickAdd's "default to end-of-today" path,
+ * previously computed in browser TZ).
  */
-import { describe, it, expect, vi } from "vitest";
-import { buildSubmitPayload } from "@/components/tasks/TaskEditForm";
+import { describe, it, expect } from "vitest";
+import {
+  buildSubmitPayload,
+  endOfDayNaiveInTz,
+} from "@/lib/forms/reminderSubmitPayload";
 
 describe("buildSubmitPayload", () => {
   describe("cross-timezone correctness (the H7 bug)", () => {
     it("HK account: 09:00 local on a naive datetime-local input maps to 01:00 UTC", () => {
-      // 2026-05-20 09:00 in Asia/Hong_Kong (UTC+8) = 2026-05-20 01:00 UTC
-      // This MUST hold regardless of the test runner's TZ — that's the whole point.
       const result = buildSubmitPayload({
         formData: { title: "x", dateTime: "2026-05-20T09:00" },
         userTimezone: "Asia/Hong_Kong",
@@ -27,7 +32,6 @@ describe("buildSubmitPayload", () => {
     });
 
     it("LA account: 09:00 local maps to 16:00 UTC (PDT, May = DST)", () => {
-      // 2026-05-20 09:00 in America/Los_Angeles (PDT = UTC-7) = 2026-05-20 16:00 UTC
       const result = buildSubmitPayload({
         formData: { title: "x", dateTime: "2026-05-20T09:00" },
         userTimezone: "America/Los_Angeles",
@@ -36,7 +40,6 @@ describe("buildSubmitPayload", () => {
     });
 
     it("Tokyo account: midnight local maps to previous day 15:00 UTC", () => {
-      // 2026-05-20 00:00 in Asia/Tokyo (UTC+9) = 2026-05-19 15:00 UTC
       const result = buildSubmitPayload({
         formData: { title: "x", dateTime: "2026-05-20T00:00" },
         userTimezone: "Asia/Tokyo",
@@ -51,8 +54,6 @@ describe("buildSubmitPayload", () => {
         formData: { title: "x", dateTime: "" },
         userTimezone: "Asia/Hong_Kong",
       });
-      // Caller drops dateTime entirely for inbox-state reminders — null is
-      // the canonical "no scheduled time" marker on the wire.
       expect(result.dateTime).toBeNull();
     });
 
@@ -66,7 +67,7 @@ describe("buildSubmitPayload", () => {
 
     it("preserves undefined dateTime as null", () => {
       const result = buildSubmitPayload({
-        formData: { title: "x" }, // dateTime field omitted
+        formData: { title: "x" },
         userTimezone: "Asia/Hong_Kong",
       });
       expect(result.dateTime).toBeNull();
@@ -101,9 +102,7 @@ describe("buildSubmitPayload", () => {
       ).toThrow(/userTimezone/i);
     });
 
-    it("does NOT throw when userTimezone is missing but dateTime is empty (no conversion needed)", () => {
-      // Edge case: inbox reminders with no time. Helper has nothing to convert,
-      // so missing timezone is harmless.
+    it("does NOT throw when userTimezone is missing but dateTime is empty", () => {
       const result = buildSubmitPayload({
         formData: { title: "x", dateTime: "" },
         userTimezone: null,
@@ -119,15 +118,13 @@ describe("buildSubmitPayload", () => {
         formData: { title: "x", dateTime: iso },
         userTimezone: "Asia/Hong_Kong",
       });
-      // naiveToUTC detects the Z and parses as absolute; we just toISOString().
       expect(result.dateTime).toBe(iso);
     });
 
     it("offset-suffixed ISO string converts to UTC correctly", () => {
-      // "2026-05-20T09:00+08:00" === "2026-05-20T01:00:00.000Z"
       const result = buildSubmitPayload({
         formData: { title: "x", dateTime: "2026-05-20T09:00+08:00" },
-        userTimezone: "America/Los_Angeles", // userTimezone is irrelevant — input has explicit offset
+        userTimezone: "America/Los_Angeles",
       });
       expect(result.dateTime).toBe("2026-05-20T01:00:00.000Z");
     });
@@ -180,9 +177,7 @@ describe("buildSubmitPayload", () => {
         formData: frozen,
         userTimezone: "Asia/Hong_Kong",
       });
-      // input untouched
       expect(formData.dateTime).toBe("2026-05-20T09:00");
-      // result is a new object
       expect(result).not.toBe(formData);
       expect(result.dateTime).toBe("2026-05-20T01:00:00.000Z");
     });
@@ -190,22 +185,84 @@ describe("buildSubmitPayload", () => {
 
   describe("regression: does NOT depend on the test runner's TZ", () => {
     it("returns the same UTC instant whether process.env.TZ is set or not", () => {
-      // We can't actually swap process.env.TZ inside a single test (Node caches it),
-      // but we can verify the result matches an Intl.DateTimeFormat-based calculation
-      // rather than a Date-constructor-based one (which would vary).
       const out = buildSubmitPayload({
         formData: { title: "x", dateTime: "2026-05-20T09:00" },
         userTimezone: "Asia/Hong_Kong",
       }).dateTime;
-      // Independent computation: 09:00 HK = 01:00 UTC, period.
       expect(out).toBe("2026-05-20T01:00:00.000Z");
-      // Sanity: if we had used `new Date(naiveString).toISOString()` (the bug),
-      // the result would depend on the runner's TZ and would equal:
-      //   new Date("2026-05-20T09:00").toISOString()
-      // which is "2026-05-20T01:00:00.000Z" ONLY when the runner is UTC+8 — and
-      // differs by hours otherwise. We assert exact equality to the correct
-      // value, so any TZ-dependent regression in the helper trips this test
-      // on the CI runner (typically UTC) or on a developer's local machine.
+    });
+  });
+});
+
+describe("endOfDayNaiveInTz", () => {
+  describe("the QuickAdd default — 'end of today, but in user TZ'", () => {
+    it("HK account at 2026-05-18T03:00Z (= 11:00 HK same day) yields 2026-05-18T23:59", () => {
+      // 03:00 UTC on May 18 = 11:00 HK on May 18 = end of "today in HK" = 23:59 HK.
+      // Returned as a NAIVE string so it can flow through buildSubmitPayload like
+      // any other datetime-local form value.
+      const now = new Date("2026-05-18T03:00:00.000Z");
+      expect(endOfDayNaiveInTz("Asia/Hong_Kong", now)).toBe(
+        "2026-05-18T23:59",
+      );
+    });
+
+    it("HK account at 2026-05-18T20:00Z (= 04:00 HK May 19) yields 2026-05-19T23:59 — TODAY in HK is May 19", () => {
+      // This is the cross-tz case: the server clock says May 18, but the user
+      // is already on May 19 in their timezone. Defaulting to "end of today
+      // in browser TZ" would land on the wrong calendar day.
+      const now = new Date("2026-05-18T20:00:00.000Z");
+      expect(endOfDayNaiveInTz("Asia/Hong_Kong", now)).toBe(
+        "2026-05-19T23:59",
+      );
+    });
+
+    it("LA account at 2026-05-18T03:00Z (= 20:00 LA May 17) yields 2026-05-17T23:59 — still TODAY in LA", () => {
+      // Symmetric case: server says May 18 but the user is still on May 17
+      // in their timezone.
+      const now = new Date("2026-05-18T03:00:00.000Z");
+      expect(endOfDayNaiveInTz("America/Los_Angeles", now)).toBe(
+        "2026-05-17T23:59",
+      );
+    });
+
+    it("composes with buildSubmitPayload to produce a correct UTC instant", () => {
+      // The whole point: QuickAdd will compute endOfDay → naive, hand to
+      // buildSubmitPayload → UTC. The final ISO must reflect HK 23:59.
+      const now = new Date("2026-05-18T03:00:00.000Z");
+      const naive = endOfDayNaiveInTz("Asia/Hong_Kong", now);
+      const result = buildSubmitPayload({
+        formData: { title: "x", dateTime: naive },
+        userTimezone: "Asia/Hong_Kong",
+      });
+      // 23:59 HK on May 18 == 15:59 UTC on May 18
+      expect(result.dateTime).toBe("2026-05-18T15:59:00.000Z");
+    });
+  });
+
+  describe("falsy userTimezone", () => {
+    it("throws when userTimezone is null", () => {
+      expect(() => endOfDayNaiveInTz(null, new Date())).toThrow(
+        /userTimezone/i,
+      );
+    });
+
+    it("throws when userTimezone is undefined", () => {
+      expect(() => endOfDayNaiveInTz(undefined, new Date())).toThrow(
+        /userTimezone/i,
+      );
+    });
+
+    it("throws when userTimezone is empty string", () => {
+      expect(() => endOfDayNaiveInTz("", new Date())).toThrow(/userTimezone/i);
+    });
+  });
+
+  describe("default `now` argument", () => {
+    it("uses the actual `new Date()` when `now` is omitted (smoke test only)", () => {
+      // We can't assert an exact value, but we can assert the shape and that
+      // it doesn't throw — confirming the helper is callable without `now`.
+      const result = endOfDayNaiveInTz("UTC");
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T23:59$/);
     });
   });
 });
