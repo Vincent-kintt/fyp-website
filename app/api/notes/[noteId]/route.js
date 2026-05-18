@@ -88,6 +88,9 @@ export const PATCH = withAuth(
         if (!ObjectId.isValid(parentId)) {
           return apiError("Invalid parentId", 400);
         }
+        if (parentId === noteId) {
+          return apiError("Cannot set note as its own parent", 400);
+        }
         updateData.parentId = new ObjectId(parentId);
       }
     }
@@ -115,6 +118,30 @@ export const PATCH = withAuth(
         userId,
       });
       if (!parentExists) return apiError("Parent note not found", 404);
+
+      // Cycle prevention: reject if the proposed parent is a descendant of
+      // this note. Without this, findDescendantIds (recursive, no visited-set)
+      // would unbounded-recurse on subsequent DELETE.
+      const cycleCheck = await notesCollection
+        .aggregate([
+          { $match: { _id: new ObjectId(noteId), userId } },
+          {
+            $graphLookup: {
+              from: "notes",
+              startWith: "$_id",
+              connectFromField: "_id",
+              connectToField: "parentId",
+              as: "descendants",
+              restrictSearchWithMatch: { userId },
+            },
+          },
+          { $project: { descendantIds: "$descendants._id" } },
+        ])
+        .toArray();
+      const descendantIds = cycleCheck[0]?.descendantIds || [];
+      if (descendantIds.some((id) => id.equals(updateData.parentId))) {
+        return apiError("Cannot move note under one of its descendants", 400);
+      }
     }
 
     const updated = await notesCollection.findOneAndUpdate(

@@ -177,6 +177,56 @@ describe("PATCH /api/notes/[noteId]", () => {
   });
 });
 
+describe("PATCH /api/notes/[noteId] cycle protection", () => {
+  it("returns 400 when parentId equals noteId (self-parent)", async () => {
+    mockSession(TEST_USER);
+    const noteObjectId = await insertNote({ title: "Self" });
+    const noteId = noteObjectId.toString();
+
+    const req = createRequest("PATCH", `/api/notes/${noteId}`, {
+      body: { parentId: noteId },
+    });
+    const res = await PATCH(req, params({ noteId }));
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(400);
+    expect(body.success).toBe(false);
+    expect(body.error).toMatch(/own parent/i);
+  });
+
+  it("returns 400 when parentId is a descendant of noteId", async () => {
+    mockSession(TEST_USER);
+    const aId = await insertNote({ title: "A", parentId: null });
+    const bId = await insertNote({ title: "B", parentId: aId });
+    const cId = await insertNote({ title: "C", parentId: bId });
+
+    const noteId = aId.toString();
+    const req = createRequest("PATCH", `/api/notes/${noteId}`, {
+      body: { parentId: cId.toString() },
+    });
+    const res = await PATCH(req, params({ noteId }));
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(400);
+    expect(body.success).toBe(false);
+    expect(body.error).toMatch(/descendant/i);
+  });
+
+  it("still allows reparenting to a valid non-descendant note", async () => {
+    mockSession(TEST_USER);
+    const aId = await insertNote({ title: "A", parentId: null });
+    const xId = await insertNote({ title: "X", parentId: null });
+
+    const noteId = aId.toString();
+    const req = createRequest("PATCH", `/api/notes/${noteId}`, {
+      body: { parentId: xId.toString() },
+    });
+    const res = await PATCH(req, params({ noteId }));
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.parentId).toBe(xId.toString());
+  });
+});
+
 describe("DELETE /api/notes/[noteId]", () => {
   it("returns 401 when unauthenticated", async () => {
     mockSession(null);
