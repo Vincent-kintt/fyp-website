@@ -20,6 +20,7 @@ import {
   buildSubmitPayload,
   endOfDayNaiveInTz,
 } from "@/lib/forms/reminderSubmitPayload";
+import { formatDateTime as formatRelativeDateTime } from "@/lib/quickAdd/formatDateTime.js";
 
 const DEBOUNCE_MS = 600;
 
@@ -320,61 +321,8 @@ export default function QuickAdd({
     setShowTagInput(false);
   };
 
-  // Format datetime with relative labels (Today, Tomorrow, etc.)
-  const formatDateTime = (dateTimeStr) => {
-    if (!dateTimeStr) return null;
-    const date = new Date(dateTimeStr);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dayAfterTomorrow = new Date(today);
-    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
-    const nextWeek = new Date(today);
-    nextWeek.setDate(nextWeek.getDate() + 7);
-
-    const targetDate = new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-    );
-    const timeStr = date.toLocaleTimeString(
-      language === "en" ? "en-US" : "zh-TW",
-      {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: language !== "en",
-      },
-    );
-
-    // Relative date labels
-    if (targetDate.getTime() === today.getTime()) {
-      return `${t("today")} ${timeStr}`;
-    }
-    if (targetDate.getTime() === tomorrow.getTime()) {
-      return `${t("tomorrow")} ${timeStr}`;
-    }
-    if (targetDate.getTime() === dayAfterTomorrow.getTime()) {
-      return `${t("tomorrow")} +1 ${timeStr}`;
-    }
-
-    // Within a week - show day name
-    if (targetDate < nextWeek) {
-      const dayName = date.toLocaleDateString(
-        language === "en" ? "en-US" : "zh-TW",
-        { weekday: "long" },
-      );
-      return `${dayName} ${timeStr}`;
-    }
-
-    // Further out - show full date
-    return date.toLocaleString(language === "en" ? "en-US" : "zh-TW", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  const formatDateTime = (dateTimeStr) =>
+    formatRelativeDateTime(dateTimeStr, { t, language });
 
   return (
     <div className="relative">
