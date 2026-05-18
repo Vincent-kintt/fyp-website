@@ -1,14 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { FaTimes, FaClock, FaSync, FaPlus, FaTrash } from "react-icons/fa";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
 import { getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition } from "@/lib/utils";
-import { useUpdateReminder } from "@/hooks/useUpdateReminder";
-import { useResolvedUserTimezone } from "@/hooks/useResolvedUserTimezone";
 import { useTaskEditFormState } from "@/hooks/useTaskEditFormState";
-import { buildSubmitPayload } from "@/lib/forms/reminderSubmitPayload";
+import { useTaskEditFormSubmit } from "@/hooks/useTaskEditFormSubmit";
 import {
   EndTimePreview,
   getPriorityColor,
@@ -19,8 +15,6 @@ import {
 
 export default function TaskEditForm({ reminder, isActive, onSave, onCancel, variant = "modal", className = "" }) {
   const t = useTranslations("editForm");
-  const updateMutation = useUpdateReminder();
-  const userTimezone = useResolvedUserTimezone();
   const {
     formData,
     setFormData,
@@ -38,40 +32,12 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
     addSubtask,
     removeSubtask,
   } = useTaskEditFormState({ reminder, isActive });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.title.trim()) {
-      setError(t("titleRequired"));
-      return;
-    }
-    if (!formData.dateTime && reminder?.inboxState !== "inbox") {
-      setError(t("dateRequired"));
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      setError("");
-
-      const submitData = buildSubmitPayload({ formData, userTimezone });
-
-      const updated = await updateMutation.mutateAsync({
-        id: reminder.id,
-        ...submitData,
-      });
-      // The server response is the canonical post-PUT reminder including any
-      // backend-derived fields (category/status/completed/inboxState); callers
-      // get the full record rather than a locally merged shape.
-      onSave(updated);
-    } catch (err) {
-      console.error("Error updating reminder:", err);
-      toast.error(err?.message || t("updateFailed"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const { handleSubmit, isSubmitting } = useTaskEditFormSubmit({
+    reminder,
+    formData,
+    setError,
+    onSave,
+  });
 
   const handleSubtaskKeyDown = (e) => {
     if (e.key === "Enter") {
