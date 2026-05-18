@@ -70,16 +70,36 @@ async function cleanupDupSubNotes(page) {
 }
 
 /**
- * Open the sidebar Notes section so PageTree (and its items) mount.
- * Sidebar.js renders the section only when notesExpanded === true AND
- * notes.length > 0.
+ * Ensure the sidebar Notes tree (PageTree) is mounted. Sidebar.js renders
+ * the section only when notesExpanded === true AND notes.length > 0.
+ *
+ * On `/notes` routes Sidebar.js auto-sets notesExpanded=true via effect
+ * (`if (isNotesPage) setNotesExpanded(true)`), so the tree should already
+ * be present after navigation. Clicking the NOTES toggle in that state
+ * would COLLAPSE the section. We therefore wait for the tree container
+ * first, and only click the toggle if it's still collapsed after a short
+ * grace period.
  */
 async function openNotesSidebar(page) {
   const toggle = page.getByRole("button", { name: /^NOTES$/ });
   await toggle.waitFor({ state: "visible", timeout: 10000 });
-  // The toggle button is idempotent only when collapsed; we check expanded
-  // state by polling for at least one tree item afterwards.
-  await toggle.click();
+
+  // Probe for any tree item or the empty-state copy. If neither appears
+  // within 2s, the section is collapsed and we need to click the toggle.
+  const anyTreeItem = page.locator(".notes-tree-item").first();
+  const emptyState = page.getByText("No pages yet", { exact: true });
+  const alreadyOpen = await anyTreeItem
+    .waitFor({ state: "visible", timeout: 2000 })
+    .then(() => true)
+    .catch(() =>
+      emptyState
+        .waitFor({ state: "visible", timeout: 500 })
+        .then(() => true)
+        .catch(() => false),
+    );
+  if (!alreadyOpen) {
+    await toggle.click();
+  }
 }
 
 /**
