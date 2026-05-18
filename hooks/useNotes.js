@@ -17,6 +17,36 @@ async function fetchTrashedNotes() {
   return data.data || [];
 }
 
+/**
+ * Pure helper composing the single-round-trip duplicate flow. The server-side
+ * POST /api/notes/[id]/duplicate performs the entire copy atomically — no
+ * compensating mutation is needed because the operation either commits one
+ * document or no document.
+ *
+ * Exported for unit testing without rendering React.
+ */
+export async function executeDuplicateNote({
+  id,
+  fetch,
+  invalidateAll,
+  router,
+  toast,
+  t,
+}) {
+  try {
+    const res = await fetch(`/api/notes/${id}/duplicate`, { method: "POST" });
+    const data = await res.json();
+    if (data.success) {
+      await invalidateAll();
+      router.push(`/notes/${data.data.id}`);
+      return data.data;
+    }
+    toast.error(t("saveFailed"));
+  } catch {
+    toast.error(t("saveFailed"));
+  }
+}
+
 export default function useNotes() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
@@ -96,34 +126,15 @@ export default function useNotes() {
   );
 
   const duplicateNote = useCallback(
-    async (id) => {
-      try {
-        const getRes = await fetch(`/api/notes/${id}`);
-        const getData = await getRes.json();
-        if (!getData.success) return;
-        const res = await fetch("/api/notes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: `${getData.data.title} (copy)`,
-            parentId: getData.data.parentId,
-          }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          await fetch(`/api/notes/${data.data.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: getData.data.content }),
-          });
-          await invalidateAll();
-          router.push(`/notes/${data.data.id}`);
-          return data.data;
-        }
-      } catch {
-        toast.error(t("saveFailed"));
-      }
-    },
+    (id) =>
+      executeDuplicateNote({
+        id,
+        fetch,
+        invalidateAll,
+        router,
+        toast,
+        t,
+      }),
     [invalidateAll, router, t],
   );
 
