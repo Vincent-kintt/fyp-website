@@ -99,4 +99,59 @@ describe("buildSubtreeCopyDocs", () => {
     expect(childCopies.find((c) => c.title === "Child A").sortOrder).toBe("b0");
     expect(childCopies.find((c) => c.title === "Child B").sortOrder).toBe("b1");
   });
+
+  it("rewrites parent chains correctly across multiple levels", () => {
+    const rootId = new ObjectId();
+    const l1aId = new ObjectId();
+    const l1bId = new ObjectId();
+    const l2aId = new ObjectId();
+    const l2bId = new ObjectId();
+    const l3aId = new ObjectId();
+
+    const source = {
+      _id: rootId,
+      userId: "u",
+      title: "Root",
+      content: [],
+      icon: null,
+      parentId: null,
+      sortOrder: "a0",
+    };
+    const descendants = [
+      { _id: l1aId, userId: "u", title: "L1a", content: [], icon: null, parentId: rootId, sortOrder: "b0", depth: 0 },
+      { _id: l1bId, userId: "u", title: "L1b", content: [], icon: null, parentId: rootId, sortOrder: "b1", depth: 0 },
+      { _id: l2aId, userId: "u", title: "L2a", content: [], icon: null, parentId: l1aId, sortOrder: "c0", depth: 1 },
+      { _id: l2bId, userId: "u", title: "L2b", content: [], icon: null, parentId: l1aId, sortOrder: "c1", depth: 1 },
+      { _id: l3aId, userId: "u", title: "L3a", content: [], icon: null, parentId: l2aId, sortOrder: "d0", depth: 2 },
+    ];
+
+    const { rootCopyDoc, newDocs } = buildSubtreeCopyDocs({
+      source,
+      descendants,
+      nextSiblingSortOrder: null,
+    });
+
+    expect(newDocs).toHaveLength(6);
+
+    const byTitle = (t) => newDocs.find((d) => d.title === t || d.title === `${t} (copy)`);
+    const l1aCopy = byTitle("L1a");
+    const l1bCopy = byTitle("L1b");
+    const l2aCopy = byTitle("L2a");
+    const l2bCopy = byTitle("L2b");
+    const l3aCopy = byTitle("L3a");
+
+    expect(l1aCopy.parentId.equals(rootCopyDoc._id)).toBe(true);
+    expect(l1bCopy.parentId.equals(rootCopyDoc._id)).toBe(true);
+    expect(l2aCopy.parentId.equals(l1aCopy._id)).toBe(true);
+    expect(l2bCopy.parentId.equals(l1aCopy._id)).toBe(true);
+    expect(l3aCopy.parentId.equals(l2aCopy._id)).toBe(true);
+
+    // No copy has parentId pointing to a source _id.
+    const sourceIds = [rootId, l1aId, l1bId, l2aId, l2bId, l3aId].map((i) => i.toString());
+    for (const copy of newDocs) {
+      if (copy.parentId !== null) {
+        expect(sourceIds).not.toContain(copy.parentId.toString());
+      }
+    }
+  });
 });
