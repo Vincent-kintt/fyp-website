@@ -4,16 +4,18 @@ import { useState, useEffect } from "react";
 import { FaTimes, FaClock, FaSync, FaPlus, FaTrash } from "react-icons/fa";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition, calculateEndTime } from "@/lib/utils";
-import { getStatusIconComponent } from "@/components/reminders/statusIcons";
+import { normalizeTag, getTagClasses, DURATION_PRESETS, REMINDER_STATUSES, getStatusConfig, isValidStatusTransition } from "@/lib/utils";
 import { useUpdateReminder } from "@/hooks/useUpdateReminder";
 import { useResolvedUserTimezone } from "@/hooks/useResolvedUserTimezone";
 import { buildSubmitPayload } from "@/lib/forms/reminderSubmitPayload";
-
-function toLocalDateTimeString(d) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+import { toLocalDateTimeString } from "@/lib/forms/dateTimeLocal";
+import {
+  EndTimePreview,
+  getPriorityColor,
+  PriorityDot,
+  SectionLabel,
+  StatusIcon,
+} from "@/components/tasks/taskEditForm/parts.jsx";
 
 export default function TaskEditForm({ reminder, isActive, onSave, onCancel, variant = "modal", className = "" }) {
   const t = useTranslations("editForm");
@@ -106,15 +108,6 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
     }
   };
 
-  const getPriorityColor = (priority) => {
-    const colors = {
-      high: "border-red-500 bg-red-500/10 text-red-500",
-      medium: "border-yellow-500 bg-yellow-500/10 text-yellow-500",
-      low: "border-green-500 bg-green-500/10 text-green-500"
-    };
-    return colors[priority] || colors.medium;
-  };
-
   const handleAddSubtask = () => {
     if (!newSubtask.trim()) return;
     const subtask = {
@@ -169,40 +162,6 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
       e.preventDefault();
       handleAddTag();
     }
-  };
-
-  const SectionLabel = ({ children }) => (
-    <div className="flex items-center gap-2.5 pt-1 pb-0.5">
-      <span
-        className="text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
-        style={{ color: "var(--text-muted)" }}
-      >
-        {children}
-      </span>
-      <div className="flex-1 h-px" style={{ backgroundColor: "var(--border, var(--card-border))" }} />
-    </div>
-  );
-
-  const EndTimePreview = () => {
-    if (!formData.dateTime || !formData.duration) return null;
-    const start = new Date(formData.dateTime);
-    const end = calculateEndTime(start, formData.duration);
-    const fmt = (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    return (
-      <span className="text-[11px] ml-auto" style={{ color: "var(--text-muted)" }}>
-        {fmt(start)} → {fmt(end)}
-      </span>
-    );
-  };
-
-  const PriorityDot = ({ level }) => {
-    const colors = { high: "bg-red-500", medium: "bg-yellow-500", low: "bg-green-500" };
-    return <span className={`inline-block w-2 h-2 rounded-full ${colors[level]}`} />;
-  };
-
-  const StatusIcon = ({ status, className: cls }) => {
-    const Icon = getStatusIconComponent(status);
-    return <Icon className={cls} />;
   };
 
   return (
@@ -299,7 +258,7 @@ export default function TaskEditForm({ reminder, isActive, onSave, onCancel, var
                   {formData.duration} min
                 </span>
               )}
-              <EndTimePreview />
+              <EndTimePreview dateTime={formData.dateTime} duration={formData.duration} />
             </div>
             <div className="flex flex-wrap gap-2">
               {DURATION_PRESETS.map((preset) => (
