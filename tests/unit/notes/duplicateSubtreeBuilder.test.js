@@ -234,4 +234,47 @@ describe("buildSubtreeCopyDocs", () => {
 
     expect(rootCopyDoc.title).toBe("Hello (copy)");
   });
+
+  it("places root copy sortOrder strictly between source and next sibling", () => {
+    const sourceId = new ObjectId();
+    const source = {
+      _id: sourceId,
+      userId: "u",
+      title: "S",
+      content: [],
+      icon: null,
+      parentId: null,
+      sortOrder: "a0",
+    };
+
+    const { rootCopyDoc } = buildSubtreeCopyDocs({
+      source,
+      descendants: [],
+      nextSiblingSortOrder: "a4",
+    });
+
+    expect(rootCopyDoc.sortOrder > "a0").toBe(true);
+    expect(rootCopyDoc.sortOrder < "a4").toBe(true);
+  });
+
+  it("falls back to a key after source when there is no next sibling", () => {
+    const sourceId = new ObjectId();
+    const source = {
+      _id: sourceId,
+      userId: "u",
+      title: "S",
+      content: [],
+      icon: null,
+      parentId: null,
+      sortOrder: "a0",
+    };
+
+    const { rootCopyDoc } = buildSubtreeCopyDocs({
+      source,
+      descendants: [],
+      nextSiblingSortOrder: null,
+    });
+
+    expect(rootCopyDoc.sortOrder > "a0").toBe(true);
+  });
 });
