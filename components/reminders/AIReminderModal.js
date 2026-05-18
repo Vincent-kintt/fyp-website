@@ -6,7 +6,44 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import useScrollLock from "@/hooks/useScrollLock";
 import { DEFAULT_REMINDER_MODEL_ID } from "@/lib/ai/modelIds";
+import {
+  executeGeolocation,
+  executeReverseGeocode,
+} from "@/lib/reminders/aiReminderModalLocation";
 import { MUTATION_TOOLS, getToolName, isToolPart } from "./ai-modal/toolHelpers";
+
+// localStorage-backed cache shared between renders. Single bucket holding
+// { [key]: { data, timestamp } } so we keep one storage key while still
+// segregating by language (see getCacheKey rationale in the helper).
+const LOCATION_CACHE_KEY = "user_location";
+const LOCATION_CACHE_TTL_MS = 3600000;
+
+function readLocationCache() {
+  try {
+    const raw = localStorage.getItem(LOCATION_CACHE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    localStorage.removeItem(LOCATION_CACHE_KEY);
+    return {};
+  }
+}
+
+const locationCache = {
+  get(key) {
+    if (!key) return null;
+    const store = readLocationCache();
+    const entry = store[key];
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > LOCATION_CACHE_TTL_MS) return null;
+    return entry.data;
+  },
+  set(key, data) {
+    if (!key) return;
+    const store = readLocationCache();
+    store[key] = { data, timestamp: Date.now() };
+    localStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(store));
+  },
+};
 import ModalHeader from "./ai-modal/ModalHeader";
 import MessageList from "./ai-modal/MessageList";
 import InputBar from "./ai-modal/InputBar";
@@ -32,6 +69,7 @@ export default function AIReminderModal({
     language: "zh",
     reasoningLanguage: "zh",
   });
+  const [coords, setCoords] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const messagesEndRef = useRef(null);
   const hasPendingRefreshRef = useRef(false);
@@ -200,71 +238,60 @@ export default function AIReminderModal({
     }, 150);
   }, [onClose]);
 
-  // --- Get user location on mount (with permission) ---
+  // Effect 1: geolocation. Runs once per modal open. settings.language is
+  // intentionally NOT a dep -- language toggles must not re-prompt for GPS.
   useEffect(() => {
-    const getLocation = async () => {
-      const cached = localStorage.getItem("user_location");
-      if (cached) {
-        try {
-          const { data, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < 3600000) {
-            setUserLocation(data);
-            return;
-          }
-        } catch {
-          localStorage.removeItem("user_location");
-        }
-      }
-
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            try {
-              const { latitude, longitude } = position.coords;
-              const response = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=${settings.language === "zh" ? "zh-TW" : "en"}`,
-              );
-              const data = await response.json();
-              const locationData = {
-                city:
-                  data.address?.city ||
-                  data.address?.town ||
-                  data.address?.village ||
-                  data.address?.county,
-                region: data.address?.state || data.address?.province,
-                country: data.address?.country,
-                latitude,
-                longitude,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              };
-              setUserLocation(locationData);
-              localStorage.setItem(
-                "user_location",
-                JSON.stringify({ data: locationData, timestamp: Date.now() }),
-              );
-            } catch {
-              const locationData = {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              };
-              setUserLocation(locationData);
-            }
-          },
-          () => {
-            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            setUserLocation({ timezone, inferred: true });
-          },
-          { enableHighAccuracy: false, timeout: 5000, maximumAge: 3600000 },
-        );
+    if (!isOpen) return;
+    let cancelled = false;
+    (async () => {
+      const fix = await executeGeolocation({
+        navigator,
+        log: console.warn,
+      });
+      if (cancelled) return;
+      if (fix) {
+        setCoords(fix);
       } else {
+        // GPS denied / unavailable -- fall back to timezone-only location.
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         setUserLocation({ timezone, inferred: true });
       }
+    })();
+    return () => {
+      cancelled = true;
     };
+  }, [isOpen]);
 
-    getLocation();
-  }, [settings.language]);
+  // Effect 2: reverse-geocode label. Re-runs when coords OR language change.
+  // Cache key includes language (helper enforces) so EN/ZH stay separate but
+  // each language hits Nominatim at most once per coords per hour.
+  useEffect(() => {
+    if (!coords) return;
+    let cancelled = false;
+    (async () => {
+      const address = await executeReverseGeocode({
+        coords,
+        language: settings.language,
+        fetch,
+        cache: locationCache,
+        log: console.warn,
+      });
+      if (cancelled) return;
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (address) {
+        setUserLocation({ ...address, timezone });
+      } else {
+        setUserLocation({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          timezone,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [coords, settings.language]);
 
   // --- Load saved settings ---
   useEffect(() => {
