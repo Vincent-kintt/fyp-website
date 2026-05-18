@@ -43,4 +43,60 @@ describe("buildSubtreeCopyDocs", () => {
     expect(rootCopyDoc).not.toHaveProperty("confirmedTasks");
     expect(rootCopyDoc).not.toHaveProperty("depth");
   });
+
+  it("copies children with parentId rewritten to the new root id", () => {
+    const sourceId = new ObjectId();
+    const childAId = new ObjectId();
+    const childBId = new ObjectId();
+    const source = {
+      _id: sourceId,
+      userId: "user-1",
+      title: "Folder",
+      content: [],
+      icon: null,
+      parentId: null,
+      sortOrder: "a0",
+    };
+    const descendants = [
+      {
+        _id: childAId,
+        userId: "user-1",
+        title: "Child A",
+        content: [{ type: "paragraph", content: "A" }],
+        icon: null,
+        parentId: sourceId,
+        sortOrder: "b0",
+        depth: 0,
+      },
+      {
+        _id: childBId,
+        userId: "user-1",
+        title: "Child B",
+        content: [],
+        icon: null,
+        parentId: sourceId,
+        sortOrder: "b1",
+        depth: 0,
+      },
+    ];
+
+    const { rootCopyDoc, newDocs } = buildSubtreeCopyDocs({
+      source,
+      descendants,
+      nextSiblingSortOrder: null,
+    });
+
+    expect(newDocs).toHaveLength(3);
+    const childCopies = newDocs.filter((d) => d._id !== rootCopyDoc._id);
+    expect(childCopies).toHaveLength(2);
+    for (const copy of childCopies) {
+      expect(copy.parentId).toBeInstanceOf(ObjectId);
+      expect(copy.parentId.equals(rootCopyDoc._id)).toBe(true);
+      expect(copy._id.equals(childAId)).toBe(false);
+      expect(copy._id.equals(childBId)).toBe(false);
+    }
+    expect(childCopies.map((c) => c.title).sort()).toEqual(["Child A", "Child B"]);
+    expect(childCopies.find((c) => c.title === "Child A").sortOrder).toBe("b0");
+    expect(childCopies.find((c) => c.title === "Child B").sortOrder).toBe("b1");
+  });
 });
