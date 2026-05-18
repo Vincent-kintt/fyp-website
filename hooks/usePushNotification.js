@@ -18,6 +18,60 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 /**
+ * Mount-time consistency check for the push subscription.
+ *
+ * The legacy behavior was to POST the existing subscription to the backend on
+ * every mount, which (a) wasted bandwidth and (b) silently re-registered a
+ * subscription the user may have revoked at the browser-permission level.
+ *
+ * Decides between three actions:
+ *   - "cleanup": local sub exists but permission !== "granted" → unsubscribe +
+ *     DELETE backend so the server state mirrors the user's intent.
+ *   - "keep":    local sub exists and permission is granted → no POST.
+ *   - "no-op":   no local sub.
+ *
+ * POSTs to /api/push/subscribe happen only from the subscribe button click and
+ * from the SW's pushsubscriptionchange handler (per W3C Push API spec).
+ *
+ * @param {object} params
+ * @param {PushSubscription|null} params.subscription
+ * @param {NotificationPermission} params.permission
+ * @param {(endpoint: string) => Promise<unknown>} params.deleteBackend
+ * @param {(msg: string, err?: unknown) => void} params.log
+ * @returns {Promise<"cleanup"|"keep"|"no-op">}
+ */
+export async function executeMountConsistencyCheck({
+  subscription,
+  permission,
+  deleteBackend,
+  log,
+}) {
+  if (!subscription) return "no-op";
+  if (permission === "granted") return "keep";
+
+  try {
+    await subscription.unsubscribe();
+  } catch (err) {
+    log("[usePushNotification] consistency cleanup unsubscribe error:", err);
+  }
+  try {
+    await deleteBackend(subscription.endpoint);
+  } catch (err) {
+    log("[usePushNotification] consistency cleanup delete error:", err);
+  }
+  return "cleanup";
+}
+
+async function deleteSubscriptionOnBackend(endpoint) {
+  const res = await fetch("/api/push/subscribe", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endpoint }),
+  });
+  return res.ok;
+}
+
+/**
  * Hook for managing Web Push notification subscription.
  * Handles: permission request, SW registration, subscription, backend sync.
  */
@@ -55,7 +109,9 @@ export function usePushNotification() {
     }
   }, []);
 
-  // Check browser support and current state on mount
+  // Check browser support and run a consistency check on mount.
+  // POSTs do NOT happen here — only on subscribe-button click or
+  // on the SW's pushsubscriptionchange event.
   useEffect(() => {
     const supported =
       typeof window !== "undefined" &&
@@ -69,20 +125,25 @@ export function usePushNotification() {
     setPermission(Notification.permission);
 
     navigator.serviceWorker.ready
-      .then((registration) => {
+      .then(async (registration) => {
         swRegistrationRef.current = registration;
-        return registration.pushManager.getSubscription();
-      })
-      .then((existingSub) => {
-        if (existingSub) {
+        const existingSub = await registration.pushManager.getSubscription();
+        const action = await executeMountConsistencyCheck({
+          subscription: existingSub,
+          permission: Notification.permission,
+          deleteBackend: deleteSubscriptionOnBackend,
+          log: console.error,
+        });
+        if (action === "keep") {
           setSubscription(existingSub);
-          syncSubscriptionToBackend(existingSub);
+        } else {
+          setSubscription(null);
         }
       })
       .catch((err) => {
         console.error("[usePushNotification] init error:", err);
       });
-  }, [syncSubscriptionToBackend]);
+  }, []);
 
   // Subscribe — MUST be called from user gesture (click handler)
   const subscribe = useCallback(async () => {
