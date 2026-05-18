@@ -388,4 +388,66 @@ describe("POST /api/notes/[noteId]/duplicate", () => {
     expect(childCopies).toHaveLength(1);
     expect(childCopies[0].title).toBe("Normal");
   });
+
+  it(
+    "accepts 999 descendants (1000 docs total) at the cap boundary",
+    { timeout: 30000 },
+    async () => {
+      mockSession(TEST_USER);
+      const folderId = await insertNote({ title: "Big", parentId: null });
+      const db = getDb();
+
+      // Bulk-insert 999 children directly to keep the test fast.
+      const docs = Array.from({ length: 999 }, (_, i) => ({
+        userId: TEST_USER.id,
+        title: `c${i}`,
+        parentId: folderId,
+        content: [],
+        icon: null,
+        sortOrder: `b${i.toString(36).padStart(4, "0")}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      }));
+      await db.collection("notes").insertMany(docs);
+
+      const req = createRequest("POST", `/api/notes/${folderId.toString()}/duplicate`);
+      const res = await duplicateNote(req, params({ noteId: folderId.toString() }));
+      const { status, body } = await parseResponse(res);
+
+      expect(status).toBe(201);
+      expect(body.data.copiedCount).toBe(1000);
+    },
+  );
+
+  it(
+    "rejects 1000 descendants (1001 docs total) with 413",
+    { timeout: 30000 },
+    async () => {
+      mockSession(TEST_USER);
+      const folderId = await insertNote({ title: "Bigger", parentId: null });
+      const db = getDb();
+
+      const docs = Array.from({ length: 1000 }, (_, i) => ({
+        userId: TEST_USER.id,
+        title: `c${i}`,
+        parentId: folderId,
+        content: [],
+        icon: null,
+        sortOrder: `b${i.toString(36).padStart(4, "0")}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      }));
+      await db.collection("notes").insertMany(docs);
+
+      const req = createRequest("POST", `/api/notes/${folderId.toString()}/duplicate`);
+      const res = await duplicateNote(req, params({ noteId: folderId.toString() }));
+      const { status, body } = await parseResponse(res);
+
+      expect(status).toBe(413);
+      expect(body.success).toBe(false);
+      expect(body.error).toMatch(/1000 items/i);
+    },
+  );
 });
