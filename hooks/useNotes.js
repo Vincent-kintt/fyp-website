@@ -23,9 +23,9 @@ async function fetchTrashedNotes() {
 
 /**
  * Pure helper composing the single-round-trip duplicate flow. The server-side
- * POST /api/notes/[id]/duplicate performs the entire copy atomically — no
- * compensating mutation is needed because the operation either commits one
- * document or no document.
+ * POST /api/notes/[id]/duplicate copies the source note and (if it has any)
+ * its non-trashed, non-inbox descendants. Success toast text depends on the
+ * `copiedCount` returned by the server.
  *
  * Exported for unit testing without rendering React.
  */
@@ -43,6 +43,12 @@ export async function executeDuplicateNote({
     if (data.success) {
       await invalidateAll();
       router.push(`/notes/${data.data.id}`);
+      const count = data.data.copiedCount ?? 1;
+      if (count > 1) {
+        toast.success(t("notesDuplicatedCount", { count }));
+      } else {
+        toast.success(t("noteDuplicated"));
+      }
       return data.data;
     }
     toast.error(t("saveFailed"));
