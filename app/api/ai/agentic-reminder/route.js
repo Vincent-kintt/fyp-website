@@ -4,6 +4,7 @@ import { getModel, getAgentModelId } from "@/lib/ai/provider.js";
 import { createTools } from "@/lib/ai/tools.js";
 import { getSystemPrompt } from "@/lib/ai/prompt.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
+import { trimMessagesKeepingToolPairs } from "@/lib/ai/trimMessages.js";
 import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
@@ -59,12 +60,18 @@ export const POST = withAuth(
       stopWhen: stepCountIs(10),
       maxRetries: 2,
       prepareStep: async ({ messages: stepMessages }) => {
-        if (stepMessages.length > 30) {
-          return {
-            messages: [stepMessages[0], ...stepMessages.slice(-20)],
-          };
-        }
-        return {};
+        if (stepMessages.length <= 30) return {};
+        // keepFirst=1 preserves the system message; tailCount=20 keeps the
+        // most recent exchange. The pair-aware helper expands the boundary
+        // upward if a tool_result in the tail would otherwise lose its
+        // tool_call — providers reject orphaned tool_results.
+        return {
+          messages: trimMessagesKeepingToolPairs({
+            messages: stepMessages,
+            keepFirst: 1,
+            tailCount: 20,
+          }),
+        };
       },
       providerOptions: {
         openrouter: { reasoningEffort },
