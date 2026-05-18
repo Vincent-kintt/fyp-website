@@ -9,6 +9,7 @@ setupApiMocks(getDb);
 // `@/auth` for the rest of the suite — importing it here gives us a clean
 // slate for the register-specific assertions.
 const { POST } = await import("@/app/api/auth/register/route.js");
+const { createUserIndexes } = await import("@/scripts/createUserIndexes.js");
 
 beforeAll(async () => {
   await startDb("test_auth_register_api");
@@ -18,6 +19,10 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await clearDb();
+  // Register's collision-to-409 path now relies on the username/email unique
+  // indexes (see scripts/createUserIndexes.js); recreate them after each
+  // clearDb so the 409 paths can fire.
+  await createUserIndexes(getDb());
 });
 
 const VALID_BODY = {
