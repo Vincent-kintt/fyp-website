@@ -19,11 +19,14 @@ vi.mock("@/auth", () => ({
   auth: vi.fn(() => Promise.resolve({ user: { id: "user-stream-test" } })),
 }));
 
-const acquireLockMock = vi.fn(() => true);
-const releaseLockMock = vi.fn();
-vi.mock("@/lib/ai/notesConcurrency.js", () => ({
-  acquireNoteAILock: (...args) => acquireLockMock(...args),
-  releaseNoteAILock: (...args) => releaseLockMock(...args),
+// acquireUserAILock is async — the helper awaits a Mongo upsert and returns
+// the lock doc on success or null on contention. The mock mirrors that
+// shape: a truthy doc-like object when "acquired", null when "held".
+const acquireLockMock = vi.fn(async () => ({ _id: "notes-ai:user-stream-test" }));
+const releaseLockMock = vi.fn(async () => {});
+vi.mock("@/lib/locks/acquireUserAILock.js", () => ({
+  acquireUserAILock: (...args) => acquireLockMock(...args),
+  releaseUserAILock: (...args) => releaseLockMock(...args),
 }));
 
 const capturedStreamArgs = { value: null };
@@ -82,8 +85,9 @@ function jsonRequest(body) {
 
 beforeEach(() => {
   acquireLockMock.mockReset();
-  acquireLockMock.mockReturnValue(true);
+  acquireLockMock.mockResolvedValue({ _id: "notes-ai:user-stream-test" });
   releaseLockMock.mockReset();
+  releaseLockMock.mockResolvedValue(undefined);
   capturedStreamArgs.value = null;
 });
 
@@ -132,7 +136,7 @@ describe("notes-agentic stream lifecycle releases lock exactly once", () => {
   });
 
   it("returns 429 without acquiring the lock when already locked", async () => {
-    acquireLockMock.mockReturnValueOnce(false);
+    acquireLockMock.mockResolvedValueOnce(null);
     const res = await agenticPOST(jsonRequest({ input: "hello" }));
     expect(res.status).toBe(429);
     expect(releaseLockMock).not.toHaveBeenCalled();
@@ -181,7 +185,7 @@ describe("notes-rss stream lifecycle releases lock exactly once", () => {
   });
 
   it("returns 429 without acquiring the lock when already locked", async () => {
-    acquireLockMock.mockReturnValueOnce(false);
+    acquireLockMock.mockResolvedValueOnce(null);
     const res = await rssPOST(jsonRequest({ language: "zh" }));
     expect(res.status).toBe(429);
     expect(releaseLockMock).not.toHaveBeenCalled();

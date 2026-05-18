@@ -8,9 +8,9 @@ import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import {
-  acquireNoteAILock,
-  releaseNoteAILock,
-} from "@/lib/ai/notesConcurrency.js";
+  acquireUserAILock,
+  releaseUserAILock,
+} from "@/lib/locks/acquireUserAILock.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,7 +100,8 @@ Rules:
 
 export const POST = withAuth(
   async ({ request, userId }) => {
-    if (!acquireNoteAILock(userId)) {
+    const lockDoc = await acquireUserAILock(userId, "notes-ai");
+    if (!lockDoc) {
       return apiError("An agent request is already in progress", 429);
     }
 
@@ -110,7 +111,9 @@ export const POST = withAuth(
     const releaseOnce = () => {
       if (lockReleased) return;
       lockReleased = true;
-      releaseNoteAILock(userId);
+      // Fire-and-forget — stream-lifecycle callbacks are sync; the TTL index
+      // guarantees the lock disappears even if this delete fails.
+      releaseUserAILock(userId, "notes-ai").catch(() => {});
     };
 
     try {
