@@ -280,12 +280,24 @@ describe("getSystemPrompt", () => {
   });
 
   describe("timezone rule in prompt", () => {
-    it("instructs AI to use local timezone for dateTime output", () => {
+    it("instructs AI to output dateTime as ISO 8601 with the timezone offset", () => {
       const prompt = getSystemPrompt({
         userLocation: { timezone: "Asia/Taipei" },
       });
-      expect(prompt).toContain("local timezone");
-      expect(prompt).toContain("YYYY-MM-DDTHH:mm");
+      // The prompt now teaches ISO 8601 with offset (e.g. "+08:00") to match
+      // the strict zod schema in lib/schemas/reminder.js — naive
+      // YYYY-MM-DDTHH:mm is explicitly forbidden because the schema rejects it.
+      expect(prompt).toContain("ISO 8601");
+      expect(prompt).toContain("timezone offset");
+      expect(prompt).toMatch(/[+-]\d{2}:\d{2}/);
+    });
+
+    it("renders an offset on the Timezone context line", () => {
+      const prompt = getSystemPrompt({
+        userLocation: { timezone: "Asia/Taipei" },
+      });
+      // Asia/Taipei has no DST and is permanently +08:00.
+      expect(prompt).toContain("Timezone: Asia/Taipei (offset: +08:00)");
     });
   });
 });
