@@ -97,20 +97,11 @@ export const PATCH = withAuth(
 
     const notesCollection = await getNotesCollection();
 
-    // Guard: prevent modifying inbox document properties via generic route
-    const existingNote = await notesCollection.findOne({
-      _id: new ObjectId(noteId),
-      userId,
-    });
-    if (existingNote?.type === "inbox") {
-      if (
-        title !== undefined ||
-        parentId !== undefined ||
-        sortOrder !== undefined
-      ) {
-        return apiError("Cannot modify inbox note properties", 403);
-      }
-    }
+    // Inbox docs are managed solely by the dedicated inbox flow; title /
+    // parentId / sortOrder edits via this generic route must be rejected.
+    // Non-restricted fields (icon, content) remain editable on inbox.
+    const restrictedFields =
+      title !== undefined || parentId !== undefined || sortOrder !== undefined;
 
     if (updateData.parentId) {
       const parentExists = await notesCollection.findOne({
@@ -144,13 +135,27 @@ export const PATCH = withAuth(
       }
     }
 
+    const filter = restrictedFields
+      ? { _id: new ObjectId(noteId), userId, type: { $ne: "inbox" } }
+      : { _id: new ObjectId(noteId), userId };
+
     const updated = await notesCollection.findOneAndUpdate(
-      { _id: new ObjectId(noteId), userId },
+      filter,
       { $set: updateData },
       { returnDocument: "after" },
     );
 
     if (!updated) {
+      // Atomic write missed: either the doc doesn't exist (404) or it's an
+      // inbox doc and the caller hit the restrictedFields filter (403).
+      // One diagnostic findOne disambiguates.
+      const exists = await notesCollection.findOne(
+        { _id: new ObjectId(noteId), userId },
+        { projection: { type: 1 } },
+      );
+      if (exists?.type === "inbox" && restrictedFields) {
+        return apiError("Cannot modify inbox note properties", 403);
+      }
       return apiError("Note not found", 404);
     }
 

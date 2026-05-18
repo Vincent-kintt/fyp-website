@@ -227,6 +227,89 @@ describe("PATCH /api/notes/[noteId] cycle protection", () => {
   });
 });
 
+describe("PATCH inbox guard atomicity", () => {
+  it("returns 403 when changing title on an inbox note", async () => {
+    mockSession(TEST_USER);
+    const inboxId = await insertNote({ title: "Inbox", type: "inbox" });
+    const noteId = inboxId.toString();
+
+    const req = createRequest("PATCH", `/api/notes/${noteId}`, {
+      body: { title: "Renamed Inbox" },
+    });
+    const res = await PATCH(req, params({ noteId }));
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(403);
+    expect(body.success).toBe(false);
+    expect(body.error).toBe("Cannot modify inbox note properties");
+  });
+
+  it("allows icon change on an inbox note (non-restricted field)", async () => {
+    mockSession(TEST_USER);
+    const inboxId = await insertNote({ title: "Inbox", type: "inbox" });
+    const noteId = inboxId.toString();
+
+    const req = createRequest("PATCH", `/api/notes/${noteId}`, {
+      body: { icon: "inbox-icon" },
+    });
+    const res = await PATCH(req, params({ noteId }));
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.icon).toBe("inbox-icon");
+  });
+
+  it("allows content change on an inbox note (non-restricted field)", async () => {
+    mockSession(TEST_USER);
+    const inboxId = await insertNote({ title: "Inbox", type: "inbox" });
+    const noteId = inboxId.toString();
+    const newContent = [{ type: "paragraph", content: "Note in inbox" }];
+
+    const req = createRequest("PATCH", `/api/notes/${noteId}`, {
+      body: { content: newContent },
+    });
+    const res = await PATCH(req, params({ noteId }));
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.content).toEqual(newContent);
+  });
+
+  it("returns 404 when note does not exist (diagnostic path)", async () => {
+    mockSession(TEST_USER);
+    const noteId = new ObjectId().toString();
+
+    const req = createRequest("PATCH", `/api/notes/${noteId}`, {
+      body: { title: "Updated" },
+    });
+    const res = await PATCH(req, params({ noteId }));
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(404);
+    expect(body.success).toBe(false);
+  });
+
+  it("returns 403 when changing both title and content on an inbox note", async () => {
+    mockSession(TEST_USER);
+    const inboxId = await insertNote({ title: "Inbox", type: "inbox" });
+    const noteId = inboxId.toString();
+
+    const req = createRequest("PATCH", `/api/notes/${noteId}`, {
+      body: { title: "Renamed", content: [{ type: "paragraph", content: "x" }] },
+    });
+    const res = await PATCH(req, params({ noteId }));
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(403);
+    expect(body.success).toBe(false);
+    expect(body.error).toBe("Cannot modify inbox note properties");
+  });
+
+  // The atomic filter (type: {$ne: "inbox"} when restrictedFields) is the
+  // TOCTOU invariant — a concurrent type flip between read and write can no
+  // longer slip past the guard, because there is no read. The deterministic
+  // race-attacker setup needs control of the MongoDB internal write timing,
+  // which the memory server doesn't expose; we rely on the contract of
+  // findOneAndUpdate's atomic filter instead of a brittle timing test.
+});
+
 describe("DELETE /api/notes/[noteId]", () => {
   it("returns 401 when unauthenticated", async () => {
     mockSession(null);
