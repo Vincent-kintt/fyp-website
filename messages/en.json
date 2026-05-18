@@ -136,6 +136,7 @@
     "partialSuccess": "{success} created, {failed} failed",
     "clearTasks": "Clear extracted tasks",
     "resetInbox": "Reset inbox",
+    "resetFailed": "Reset failed",
     "syncFailed": "Failed to sync inbox state"
   },
   "calendar": {

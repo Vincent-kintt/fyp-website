@@ -8,6 +8,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import { blocksToText } from "@/lib/notes/blocksToText";
 import { buildInboxReminderPayload } from "@/lib/inbox/buildInboxReminderPayload.js";
+import { executeResetInbox } from "@/lib/inbox/executeResetInbox.js";
 import { useCreateReminder } from "@/hooks/useCreateReminder.js";
 import { useSyncInboxState } from "@/hooks/useSyncInboxState.js";
 import {
@@ -189,28 +190,25 @@ export default function InboxPage() {
   }, [syncExtractionState]);
 
   // Reset inbox — clear editor content + extracted tasks + confirmed history.
-  // Optimistically write the cleared shape into the cache so the remounted
-  // editor (driven by editorKey) renders empty immediately, matching the
-  // previous setInboxNote({...prev, content: []}) UX. The PATCH then persists
-  // the change; onSuccess invalidation reconciles with server truth.
-  const handleResetInbox = useCallback(async () => {
-    setExtractedTasks([]);
-    setConfirmedTasks([]);
-    queryClient.setQueryData(["inbox", "note"], (prev) =>
-      prev ? { ...prev, content: [] } : prev,
-    );
-    setEditorKey((k) => k + 1);
-    try {
-      await updateMutation.mutateAsync({
-        content: [],
-        extractedTasks: [],
-        confirmedTasks: [],
-      });
-    } catch {
-      // surfaces nowhere today (parity with previous swallowed error); rely on
-      // the editor remount + next refetch for UI consistency.
-    }
-  }, [queryClient, updateMutation]);
+  // Optimistically clears local state, cache, and remounts the keyed editor;
+  // on PATCH failure, restores all three so the user doesn't see a "ghost"
+  // reappearance on next refetch. Helper lives at module scope for DI-style
+  // unit testing — see lib/inbox/executeResetInbox.js.
+  const handleResetInbox = useCallback(
+    () =>
+      executeResetInbox({
+        queryClient,
+        updateMutation,
+        setExtractedTasks,
+        setConfirmedTasks,
+        setEditorKey,
+        toast,
+        t,
+        currentExtractedTasks: extractedTasks,
+        currentConfirmedTasks: confirmedTasks,
+      }),
+    [queryClient, updateMutation, t, extractedTasks, confirmedTasks],
+  );
 
   if (status === "loading" || inboxLoading) {
     return (
