@@ -10,10 +10,10 @@ import {
 describe("buildTree", () => {
   it("builds nested tree from flat notes array", () => {
     const flat = [
-      { id: "a", parentId: null, title: "Root A", sortOrder: 1000 },
-      { id: "b", parentId: "a", title: "Child B", sortOrder: 1000 },
-      { id: "c", parentId: "a", title: "Child C", sortOrder: 2000 },
-      { id: "d", parentId: null, title: "Root D", sortOrder: 2000 },
+      { id: "a", parentId: null, title: "Root A", sortOrder: "a0" },
+      { id: "b", parentId: "a", title: "Child B", sortOrder: "a0" },
+      { id: "c", parentId: "a", title: "Child C", sortOrder: "a1" },
+      { id: "d", parentId: null, title: "Root D", sortOrder: "a1" },
     ];
     const tree = buildTree(flat);
     expect(tree).toHaveLength(2);
@@ -29,19 +29,29 @@ describe("buildTree", () => {
     expect(buildTree([])).toEqual([]);
   });
 
-  it("sorts siblings by sortOrder", () => {
+  it("sorts siblings by sortOrder (lexicographic)", () => {
     const flat = [
-      { id: "a", parentId: null, title: "Second", sortOrder: 2000 },
-      { id: "b", parentId: null, title: "First", sortOrder: 1000 },
+      { id: "a", parentId: null, title: "Second", sortOrder: "a1" },
+      { id: "b", parentId: null, title: "First", sortOrder: "a0" },
     ];
     const tree = buildTree(flat);
     expect(tree[0].id).toBe("b");
     expect(tree[1].id).toBe("a");
   });
 
+  it("uses id as tiebreaker when sortOrder strings collide", () => {
+    const flat = [
+      { id: "z", parentId: null, sortOrder: "a0" },
+      { id: "a", parentId: null, sortOrder: "a0" },
+    ];
+    const tree = buildTree(flat);
+    expect(tree[0].id).toBe("a");
+    expect(tree[1].id).toBe("z");
+  });
+
   it("handles orphaned children gracefully", () => {
     const flat = [
-      { id: "a", parentId: "nonexistent", title: "Orphan", sortOrder: 1000 },
+      { id: "a", parentId: "nonexistent", title: "Orphan", sortOrder: "a0" },
     ];
     const tree = buildTree(flat);
     expect(tree).toHaveLength(1);
@@ -68,11 +78,11 @@ describe("findAncestors", () => {
 
 describe("flattenVisibleTree", () => {
   const flat = [
-    { id: "a", parentId: null, title: "Root A", sortOrder: 1000 },
-    { id: "b", parentId: "a", title: "Child B", sortOrder: 1000 },
-    { id: "c", parentId: "a", title: "Child C", sortOrder: 2000 },
-    { id: "d", parentId: null, title: "Root D", sortOrder: 2000 },
-    { id: "e", parentId: "b", title: "Grandchild E", sortOrder: 1000 },
+    { id: "a", parentId: null, title: "Root A", sortOrder: "a0" },
+    { id: "b", parentId: "a", title: "Child B", sortOrder: "a0" },
+    { id: "c", parentId: "a", title: "Child C", sortOrder: "a1" },
+    { id: "d", parentId: null, title: "Root D", sortOrder: "a1" },
+    { id: "e", parentId: "b", title: "Grandchild E", sortOrder: "a0" },
   ];
   const tree = buildTree(flat);
 
@@ -150,48 +160,59 @@ describe("getDescendantIds", () => {
 
 describe("computeTreeReorder", () => {
   const flat = [
-    { id: "a", parentId: null, sortOrder: 1000 },
-    { id: "b", parentId: "a", sortOrder: 1000 },
-    { id: "c", parentId: "a", sortOrder: 2000 },
-    { id: "d", parentId: null, sortOrder: 2000 },
+    { id: "a", parentId: null, sortOrder: "a0" },
+    { id: "b", parentId: "a", sortOrder: "a0" },
+    { id: "c", parentId: "a", sortOrder: "a1" },
+    { id: "d", parentId: null, sortOrder: "a1" },
   ];
 
-  it("reorders before a sibling", () => {
+  it("emits a single update for the moved note (fractional keys are stable for siblings)", () => {
+    const result = computeTreeReorder(flat, "c", "b", "before");
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("c");
+  });
+
+  it("reorders before a sibling — new key sorts before over", () => {
     // Move "c" before "b" under parent "a"
     const result = computeTreeReorder(flat, "c", "b", "before");
-    const cUpdate = result.find((u) => u.id === "c");
-    const bUpdate = result.find((u) => u.id === "b");
+    const cUpdate = result[0];
+    expect(cUpdate.id).toBe("c");
     expect(cUpdate.parentId).toBe("a");
-    expect(bUpdate.parentId).toBe("a");
-    expect(cUpdate.sortOrder).toBeLessThan(bUpdate.sortOrder);
+    expect(typeof cUpdate.sortOrder).toBe("string");
+    // The new key must sort before "b"'s key "a0"
+    expect(cUpdate.sortOrder < "a0").toBe(true);
   });
 
-  it("reorders after a sibling", () => {
-    const result = computeTreeReorder(flat, "c", "b", "after");
-    const cUpdate = result.find((u) => u.id === "c");
-    const bUpdate = result.find((u) => u.id === "b");
-    expect(bUpdate.sortOrder).toBeLessThan(cUpdate.sortOrder);
+  it("reorders after a sibling — new key sorts after over", () => {
+    const result = computeTreeReorder(flat, "b", "c", "after");
+    const bUpdate = result[0];
+    expect(bUpdate.id).toBe("b");
+    expect(bUpdate.sortOrder > "a1").toBe(true);
   });
 
-  it("reparents into another note", () => {
-    // Move "d" into "a" as child
+  it("reparents into another note as last child", () => {
+    // Move "d" into "a" as child — last position
     const result = computeTreeReorder(flat, "d", "a", "into");
-    const dUpdate = result.find((u) => u.id === "d");
-    expect(dUpdate.parentId).toBe("a");
-    expect(dUpdate.sortOrder).toBeDefined();
+    expect(result[0].id).toBe("d");
+    expect(result[0].parentId).toBe("a");
+    expect(typeof result[0].sortOrder).toBe("string");
+    // Last child of "a" was "c" at "a1" — new key must be after "a1"
+    expect(result[0].sortOrder > "a1").toBe(true);
   });
 
   it("reparents to root via before/after on root item", () => {
     // Move "b" (child of a) before "d" (root) → becomes root
     const result = computeTreeReorder(flat, "b", "d", "before");
-    const bUpdate = result.find((u) => u.id === "b");
+    const bUpdate = result[0];
+    expect(bUpdate.id).toBe("b");
     expect(bUpdate.parentId).toBeNull();
   });
 
-  it("uses 1000-increment sortOrder values", () => {
+  it("uses string sortOrder values (no integer increments)", () => {
     const result = computeTreeReorder(flat, "d", "b", "after");
     for (const update of result) {
-      expect(update.sortOrder % 1000).toBe(0);
+      expect(typeof update.sortOrder).toBe("string");
+      expect(update.sortOrder.length).toBeGreaterThan(0);
     }
   });
 });

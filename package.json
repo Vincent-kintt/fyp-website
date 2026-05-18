@@ -23,6 +23,7 @@
     "migrate-inbox-capture": "node --env-file=.env.local scripts/migrate-inbox-capture.js",
     "create-inbox-index": "node --env-file=.env.local scripts/create-inbox-index.js",
     "create-lock-indexes": "node --env-file=.env.local scripts/createLockIndexes.js",
+    "migrate-notes-sortorder": "node --env-file=.env.local scripts/migrateNotesSortOrder.js",
     "setup-db": "node --env-file=.env.local scripts/initUsers.js && node --env-file=.env.local scripts/createUserIndexes.js && node --env-file=.env.local scripts/createPushIndexes.js && node --env-file=.env.local scripts/create-notes-indexes.js && node --env-file=.env.local scripts/create-inbox-index.js && node --env-file=.env.local scripts/createLockIndexes.js && node --env-file=.env.local scripts/seed-rss-feeds.js"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "feedsmith": "^2.9.1",
+    "fractional-indexing": "3.2.0",
     "lucide-react": "^1.7.0",
     "mongodb": "^6.20.0",
     "next": "^15.5.9",

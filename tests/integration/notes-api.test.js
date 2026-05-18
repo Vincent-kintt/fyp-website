@@ -131,7 +131,8 @@ describe("POST /api/notes", () => {
     expect(body.success).toBe(true);
     expect(body.data.title).toBe("Root Note");
     expect(body.data.parentId).toBeNull();
-    expect(body.data.sortOrder).toBe(1000);
+    expect(typeof body.data.sortOrder).toBe("string");
+    expect(body.data.sortOrder.length).toBeGreaterThan(0);
     expect(body.data.id).toBeDefined();
   });
 
@@ -162,7 +163,7 @@ describe("POST /api/notes", () => {
     expect(body.data.parentId).toBe(parentId);
   });
 
-  it("auto-increments sortOrder for siblings", async () => {
+  it("assigns a fractional sortOrder key after the last sibling", async () => {
     mockSession(TEST_USER);
     const db = getDb();
     const now = new Date();
@@ -172,7 +173,7 @@ describe("POST /api/notes", () => {
       parentId: null,
       content: [],
       icon: null,
-      sortOrder: 1000,
+      sortOrder: "a0",
       createdAt: now,
       updatedAt: now,
     });
@@ -183,7 +184,9 @@ describe("POST /api/notes", () => {
     const res = await POST(req);
     const { status, body } = await parseResponse(res);
     expect(status).toBe(201);
-    expect(body.data.sortOrder).toBe(2000);
+    expect(typeof body.data.sortOrder).toBe("string");
+    // The new key must sort AFTER the existing "a0" lexicographically.
+    expect(body.data.sortOrder > "a0").toBe(true);
   });
 
   it("rejects empty title", async () => {

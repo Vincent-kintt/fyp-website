@@ -4,6 +4,7 @@ import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { getNotesCollection, formatNote } from "@/lib/notes/db";
+import { generateKeyAfter } from "@/lib/notes/sortOrder.js";
 
 const createNoteSchema = z.object({
   title: z
@@ -57,15 +58,22 @@ export const POST = withAuth(
       if (!parentExists) return apiError("Parent note not found", 404);
     }
 
+    // Find the current last sibling's fractional key. Two concurrent POSTs
+    // may both read the same lastSibling and both compute the same key;
+    // the (sortOrder, _id) compound sort breaks the tie at read time, so we
+    // don't need a unique index or random jitter here.
     const siblingQuery = { userId, parentId: resolvedParentId };
     const lastSibling = await notesCollection
       .find(siblingQuery)
-      .sort({ sortOrder: -1 })
+      .sort({ sortOrder: -1, _id: -1 })
       .limit(1)
       .toArray();
 
-    const sortOrder =
-      lastSibling.length > 0 ? (lastSibling[0].sortOrder || 0) + 1000 : 1000;
+    const lastKey =
+      typeof lastSibling[0]?.sortOrder === "string"
+        ? lastSibling[0].sortOrder
+        : null;
+    const sortOrder = generateKeyAfter(lastKey);
 
     const now = new Date();
     const newNote = {

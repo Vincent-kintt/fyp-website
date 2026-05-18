@@ -20,10 +20,10 @@ const notesReorderSchema = z
         });
         return;
       }
-      if (typeof item.sortOrder !== "number") {
+      if (typeof item.sortOrder !== "string" || item.sortOrder.length === 0) {
         ctx.addIssue({
           code: "custom",
-          message: `sortOrder must be a number for ID: ${item.id}`,
+          message: `sortOrder must be a non-empty string for ID: ${item.id}`,
         });
         return;
       }

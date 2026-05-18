@@ -19,7 +19,7 @@ const updateNoteSchema = z.object({
   content: z.array(z.unknown(), { error: "content must be an array" }).optional(),
   parentId: z.string().nullable().optional(),
   icon: z.string().nullable().optional(),
-  sortOrder: z.number().optional(),
+  sortOrder: z.string().min(1).optional(),
 });
 
 // GET /api/notes/[noteId] - Get a single note by ID

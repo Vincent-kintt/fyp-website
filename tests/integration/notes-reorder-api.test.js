@@ -67,14 +67,14 @@ describe("POST /api/notes/reorder", () => {
 
   it("batch updates sortOrder and parentId", async () => {
     mockSession(TEST_USER);
-    const id1 = await insertNote({ title: "Note A", sortOrder: 1000 });
-    const id2 = await insertNote({ title: "Note B", sortOrder: 2000 });
+    const id1 = await insertNote({ title: "Note A", sortOrder: "a0" });
+    const id2 = await insertNote({ title: "Note B", sortOrder: "a1" });
 
     const req = createRequest("POST", "/api/notes/reorder", {
       body: {
         updates: [
-          { id: id1, sortOrder: 3000, parentId: null },
-          { id: id2, sortOrder: 1000, parentId: id1 },
+          { id: id1, sortOrder: "a2", parentId: null },
+          { id: id2, sortOrder: "a0", parentId: id1 },
         ],
       },
     });
@@ -88,9 +88,9 @@ describe("POST /api/notes/reorder", () => {
     const db = getDb();
     const n1 = await db.collection("notes").findOne({ _id: new ObjectId(id1) });
     const n2 = await db.collection("notes").findOne({ _id: new ObjectId(id2) });
-    expect(n1.sortOrder).toBe(3000);
+    expect(n1.sortOrder).toBe("a2");
     expect(n1.parentId).toBeNull();
-    expect(n2.sortOrder).toBe(1000);
+    expect(n2.sortOrder).toBe("a0");
     expect(n2.parentId.toString()).toBe(id1);
   });
 
@@ -111,7 +111,7 @@ describe("POST /api/notes/reorder", () => {
     const otherId = result.insertedId.toString();
 
     const req = createRequest("POST", "/api/notes/reorder", {
-      body: { updates: [{ id: otherId, sortOrder: 9999, parentId: null }] },
+      body: { updates: [{ id: otherId, sortOrder: "z9", parentId: null }] },
     });
     const res = await POST(req);
     const { status, body } = await parseResponse(res);
@@ -121,13 +121,13 @@ describe("POST /api/notes/reorder", () => {
     // Verify sortOrder unchanged
     const doc = await db.collection("notes").findOne({ _id: result.insertedId });
     expect(doc.sortOrder).toBe(1000);
-  });
+  }); // legacy integer sortOrder seeded above stays untouched (user-isolation check)
 
   it("rejects self-parent", async () => {
     mockSession(TEST_USER);
-    const id1 = await insertNote({ title: "Note A" });
+    const id1 = await insertNote({ title: "Note A", sortOrder: "a0" });
     const req = createRequest("POST", "/api/notes/reorder", {
-      body: { updates: [{ id: id1, sortOrder: 1000, parentId: id1 }] },
+      body: { updates: [{ id: id1, sortOrder: "a0", parentId: id1 }] },
     });
     const res = await POST(req);
     const { status, body } = await parseResponse(res);
@@ -137,12 +137,12 @@ describe("POST /api/notes/reorder", () => {
 
   it("rejects circular reference (parent set to own descendant)", async () => {
     mockSession(TEST_USER);
-    const id1 = await insertNote({ title: "Parent", sortOrder: 1000 });
-    const id2 = await insertNote({ title: "Child", parentId: new ObjectId(id1), sortOrder: 1000 });
-    const id3 = await insertNote({ title: "Grandchild", parentId: new ObjectId(id2), sortOrder: 1000 });
+    const id1 = await insertNote({ title: "Parent", sortOrder: "a0" });
+    const id2 = await insertNote({ title: "Child", parentId: new ObjectId(id1), sortOrder: "a0" });
+    const id3 = await insertNote({ title: "Grandchild", parentId: new ObjectId(id2), sortOrder: "a0" });
     // Try to make "Parent" a child of "Grandchild"
     const req = createRequest("POST", "/api/notes/reorder", {
-      body: { updates: [{ id: id1, sortOrder: 1000, parentId: id3 }] },
+      body: { updates: [{ id: id1, sortOrder: "a0", parentId: id3 }] },
     });
     const res = await POST(req);
     const { status, body } = await parseResponse(res);
@@ -152,10 +152,10 @@ describe("POST /api/notes/reorder", () => {
 
   it("rejects nonexistent parentId", async () => {
     mockSession(TEST_USER);
-    const id1 = await insertNote({ title: "Note A" });
+    const id1 = await insertNote({ title: "Note A", sortOrder: "a0" });
     const fakeId = new ObjectId().toString();
     const req = createRequest("POST", "/api/notes/reorder", {
-      body: { updates: [{ id: id1, sortOrder: 1000, parentId: fakeId }] },
+      body: { updates: [{ id: id1, sortOrder: "a0", parentId: fakeId }] },
     });
     const res = await POST(req);
     const { status, body } = await parseResponse(res);
@@ -165,9 +165,9 @@ describe("POST /api/notes/reorder", () => {
 
   it("rejects invalid parentId format (non-ObjectId string)", async () => {
     mockSession(TEST_USER);
-    const id1 = await insertNote({ title: "Note A" });
+    const id1 = await insertNote({ title: "Note A", sortOrder: "a0" });
     const req = createRequest("POST", "/api/notes/reorder", {
-      body: { updates: [{ id: id1, sortOrder: 1000, parentId: "not-valid" }] },
+      body: { updates: [{ id: id1, sortOrder: "a0", parentId: "not-valid" }] },
     });
     const res = await POST(req);
     const { status, body } = await parseResponse(res);
