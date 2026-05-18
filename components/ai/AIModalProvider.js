@@ -47,6 +47,13 @@ export default function AIModalProvider({ children }) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [toggle]);
 
+  // Scope: this provider renders AIReminderModal whose tools (`createTools`
+  // in lib/ai/tools/index.js) are REMINDER tools only — listReminders,
+  // createReminder, updateReminder, deleteReminder, snoozeReminder, etc.
+  // Note tools live behind separate endpoints (/api/ai/notes-agent,
+  // /api/ai/notes-agentic, /api/ai/notes-rss) and are NOT loaded here.
+  // Invalidating reminderKeys.all is therefore complete; do NOT add
+  // noteKeys here unless note tools are also wired into this modal.
   const handleSuccess = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: reminderKeys.all });
   }, [queryClient]);
