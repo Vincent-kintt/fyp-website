@@ -5,6 +5,7 @@ import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
+import { ALLOWED_AGENT_MODELS } from "@/lib/ai/allowedModels.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +18,9 @@ const notesAgentSchema = z.object({
   noteTitle: z.string().optional(),
   noteContext: z.string().optional(),
   language: z.string().optional(),
-  model: z.string().optional(),
+  // Enum (not z.string()) prevents a buggy/malicious client from requesting
+  // an off-allowlist provider model (cost-control boundary — H9).
+  model: z.enum(ALLOWED_AGENT_MODELS).optional(),
 });
 
 function getNotesSystemPrompt({ language, noteTitle, noteContext }) {

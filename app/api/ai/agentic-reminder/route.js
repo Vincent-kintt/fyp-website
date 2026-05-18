@@ -6,6 +6,7 @@ import { getSystemPrompt } from "@/lib/ai/prompt.js";
 import { logAIEvent } from "@/lib/ai/logAIEvent.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
+import { ALLOWED_AGENT_MODELS } from "@/lib/ai/allowedModels.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +14,9 @@ export const dynamic = "force-dynamic";
 const agenticReminderSchema = z.object({
   // messages is loose because items pass through convertToModelMessages.
   messages: z.array(z.unknown()).min(1),
-  model: z.string().optional(),
+  // Enum (not z.string()) prevents a buggy/malicious client from requesting
+  // an off-allowlist provider model (cost-control boundary — H9).
+  model: z.enum(ALLOWED_AGENT_MODELS).optional(),
   reasoningEffort: z.string().optional(),
   language: z.string().optional(),
   userLocation: z.unknown().optional(),
