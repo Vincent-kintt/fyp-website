@@ -189,4 +189,49 @@ describe("buildSubtreeCopyDocs", () => {
       expect(doc).not.toHaveProperty("depth");
     }
   });
+
+  it("truncates source title to fit within the 200-char schema cap", () => {
+    const sourceId = new ObjectId();
+    const longTitle = "A".repeat(200);
+    const source = {
+      _id: sourceId,
+      userId: "u",
+      title: longTitle,
+      content: [],
+      icon: null,
+      parentId: null,
+      sortOrder: "a0",
+    };
+
+    const { rootCopyDoc } = buildSubtreeCopyDocs({
+      source,
+      descendants: [],
+      nextSiblingSortOrder: null,
+    });
+
+    expect(rootCopyDoc.title.length).toBe(200);
+    expect(rootCopyDoc.title.endsWith(" (copy)")).toBe(true);
+    expect(rootCopyDoc.title.startsWith("A".repeat(193))).toBe(true);
+  });
+
+  it("does not truncate short titles", () => {
+    const sourceId = new ObjectId();
+    const source = {
+      _id: sourceId,
+      userId: "u",
+      title: "Hello",
+      content: [],
+      icon: null,
+      parentId: null,
+      sortOrder: "a0",
+    };
+
+    const { rootCopyDoc } = buildSubtreeCopyDocs({
+      source,
+      descendants: [],
+      nextSiblingSortOrder: null,
+    });
+
+    expect(rootCopyDoc.title).toBe("Hello (copy)");
+  });
 });
