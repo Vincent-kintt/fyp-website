@@ -154,4 +154,39 @@ describe("buildSubtreeCopyDocs", () => {
       }
     }
   });
+
+  it("orders newDocs BFS so partial insertMany commits a connected subtree", () => {
+    const rootId = new ObjectId();
+    const l1Id = new ObjectId();
+    const l2Id = new ObjectId();
+    const source = {
+      _id: rootId,
+      userId: "u",
+      title: "R",
+      content: [],
+      icon: null,
+      parentId: null,
+      sortOrder: "a0",
+    };
+    // $graphLookup output order is unspecified — simulate grandchild-before-child
+    // by feeding descendants in reverse-depth order.
+    const descendants = [
+      { _id: l2Id, userId: "u", title: "L2", content: [], icon: null, parentId: l1Id, sortOrder: "c0", depth: 1 },
+      { _id: l1Id, userId: "u", title: "L1", content: [], icon: null, parentId: rootId, sortOrder: "b0", depth: 0 },
+    ];
+
+    const { newDocs } = buildSubtreeCopyDocs({
+      source,
+      descendants,
+      nextSiblingSortOrder: null,
+    });
+
+    // Required order: root first, then L1 (depth 0), then L2 (depth 1).
+    expect(newDocs.map((d) => d.title)).toEqual(["R (copy)", "L1", "L2"]);
+
+    // `depth` is a $graphLookup query-only annotation, not persisted on docs.
+    for (const doc of newDocs) {
+      expect(doc).not.toHaveProperty("depth");
+    }
+  });
 });
