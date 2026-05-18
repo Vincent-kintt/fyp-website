@@ -1,14 +1,14 @@
 import { getCollection } from "@/lib/db";
-import { normalizeTags, getMainCategory, validateDuration } from "@/lib/utils";
+import { validateDuration } from "@/lib/utils";
 import {
   formatReminder,
-  normalizeSubtasks,
   validateReminderFields,
 } from "@/lib/reminderUtils";
 import { apiSuccess, apiError } from "@/lib/api/response.js";
 import { withAuth } from "@/lib/api/auth.js";
 import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import { createReminderSchema } from "@/lib/schemas/reminder.js";
+import { buildReminderDoc } from "@/lib/reminders/buildReminderDoc.js";
 
 // GET /api/reminders - Get all reminders for logged-in user
 export const GET = withAuth(
@@ -94,77 +94,37 @@ export const GET = withAuth(
 
 // POST /api/reminders - Create a new reminder for logged-in user
 export const POST = withAuth(
-  async ({ request, session, userId }) => {
+  async ({ request, session }) => {
     const { data: body, error } = await parseJsonBodyWithSchema(
       request,
       createReminderSchema,
     );
     if (error) return error;
-    const {
-      title,
-      description,
-      dateTime,
-      duration,
-      category,
-      tags,
-      recurring,
-      recurringType,
-      priority,
-      subtasks,
-      remark,
-    } = body;
-
     const inboxState = body.inboxState || "processed";
-    if (inboxState !== "inbox" && !dateTime) {
+    if (inboxState !== "inbox" && !body.dateTime) {
       return apiError(
         "Missing required field (dateTime) for non-inbox tasks",
         400,
       );
     }
 
-    const fieldError = validateReminderFields({
-      title,
-      description,
-      remark,
-      tags,
-    });
+    const fieldError = validateReminderFields(body);
     if (fieldError) return fieldError;
 
-    if (duration !== undefined && duration !== null) {
-      const durationValidation = validateDuration(duration);
+    if (body.duration !== undefined && body.duration !== null) {
+      const durationValidation = validateDuration(body.duration);
       if (!durationValidation.isValid) {
         return apiError(durationValidation.error, 400);
       }
     }
 
-    const processedTags = normalizeTags(tags || []);
-    const effectiveCategory =
-      category || getMainCategory(processedTags) || "personal";
-
     const remindersCollection = await getCollection("reminders");
 
-    const newReminder = {
-      userId,
-      username: session.user.username,
-      title,
-      description: description || "",
-      remark: remark || "",
-      dateTime: dateTime ? new Date(dateTime) : null,
-      inboxState,
-      duration: duration || null,
-      category: effectiveCategory,
-      tags: processedTags,
-      recurring: recurring || false,
-      recurringType: recurring ? recurringType : null,
-      priority: priority || "medium",
-      status: "pending",
-      completed: false,
-      subtasks: normalizeSubtasks(subtasks),
-      sortOrder: body.sortOrder || 0,
-      notificationSent: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const newReminder = buildReminderDoc({
+      mode: "create",
+      patch: body,
+      session,
+    });
 
     const result = await remindersCollection.insertOne(newReminder);
     const insertedDoc = { ...newReminder, _id: result.insertedId };
