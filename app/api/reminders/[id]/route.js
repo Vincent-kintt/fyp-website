@@ -94,12 +94,27 @@ export const PUT = withAuth(
       patch: body,
     });
 
-    const result = await remindersCollection.updateOne(
-      { _id: new ObjectId(id), userId },
-      { $set: updateData },
-    );
+    // H2: embed existing.status in the filter when the body would change
+    // status, so two concurrent PUTs against the same baseline can't both
+    // succeed. matchedCount === 0 then signals a concurrent change, not a
+    // missing document. See CLAUDE.md anti-pattern entry.
+    const filter = { _id: new ObjectId(id), userId };
+    const isStatusChange = body.status !== undefined;
+    if (isStatusChange) {
+      filter.status = existing.status || "pending";
+    }
+
+    const result = await remindersCollection.updateOne(filter, {
+      $set: updateData,
+    });
 
     if (result.matchedCount === 0) {
+      if (isStatusChange) {
+        return apiError(
+          "Reminder status changed by another request, please retry",
+          409,
+        );
+      }
       return apiError("Reminder not found", 404);
     }
 
@@ -228,12 +243,30 @@ export const PATCH = withAuth(
       patch: body,
     });
 
-    const result = await remindersCollection.updateOne(
-      { _id: new ObjectId(id), userId },
-      { $set: updateData },
-    );
+    // H2: embed existing.status in the filter when the patch would change
+    // status (explicit body.status, or the legacy completed boolean). Two
+    // concurrent status writes against the same baseline can otherwise both
+    // pass JS-side validation and both succeed; the second is an invalid
+    // transition already authorized. matchedCount === 0 then signals a
+    // concurrent change. See CLAUDE.md anti-pattern entry.
+    const filter = { _id: new ObjectId(id), userId };
+    const isStatusChange =
+      body.status !== undefined || typeof body.completed === "boolean";
+    if (isStatusChange) {
+      filter.status = existing.status || "pending";
+    }
+
+    const result = await remindersCollection.updateOne(filter, {
+      $set: updateData,
+    });
 
     if (result.matchedCount === 0) {
+      if (isStatusChange) {
+        return apiError(
+          "Reminder status changed by another request, please retry",
+          409,
+        );
+      }
       return apiError("Reminder not found", 404);
     }
 
