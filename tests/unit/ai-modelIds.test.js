@@ -30,8 +30,8 @@ afterEach(() => {
 // without updating this test (and consciously confirming the new value)
 // trips the contract assertions below.
 const EXPECTED_DEFAULT_MODEL_IDS = {
-  parse: "x-ai/grok-4.1-fast",
-  reminder: "x-ai/grok-4.1-fast",
+  parse: "deepseek/deepseek-v3.2",
+  reminder: "deepseek/deepseek-v3.2",
   agent: "openai/gpt-4o-mini",
 };
 

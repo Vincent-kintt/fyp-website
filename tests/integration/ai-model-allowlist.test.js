@@ -128,11 +128,11 @@ describe("allowedModels module — canonical source of truth", () => {
   });
 
   it("includes the reminder-modal UI default", () => {
-    expect(ALLOWED_AGENT_MODELS).toContain("x-ai/grok-4.1-fast");
+    expect(ALLOWED_AGENT_MODELS).toContain("deepseek/deepseek-v3.2");
   });
 
-  it("includes deepseek/deepseek-v3.2 (the alternative UI option)", () => {
-    expect(ALLOWED_AGENT_MODELS).toContain("deepseek/deepseek-v3.2");
+  it("does not include the deprecated Grok 4.1 Fast id", () => {
+    expect(ALLOWED_AGENT_MODELS).not.toContain("x-ai/grok-4.1-fast");
   });
 });
 

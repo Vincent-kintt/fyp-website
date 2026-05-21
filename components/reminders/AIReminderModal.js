@@ -6,6 +6,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import useScrollLock from "@/hooks/useScrollLock";
 import { DEFAULT_REMINDER_MODEL_ID } from "@/lib/ai/modelIds";
+import { ALLOWED_AGENT_MODELS } from "@/lib/ai/allowedModels";
 import {
   executeGeolocation,
   executeReverseGeocode,
@@ -300,7 +301,9 @@ export default function AIReminderModal({
     try {
       const parsed = JSON.parse(savedSettings);
       setSettings({
-        model: parsed.model || DEFAULT_REMINDER_MODEL_ID,
+        model: ALLOWED_AGENT_MODELS.includes(parsed.model)
+          ? parsed.model
+          : DEFAULT_REMINDER_MODEL_ID,
         reasoningEffort: parsed.reasoningEffort || "medium",
         reasoningEnabled:
           parsed.reasoningEnabled !== undefined

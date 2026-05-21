@@ -79,7 +79,7 @@ AUTH_SECRET=<your-secret>
 # LLM (OpenRouter 或 OpenAI)
 LLM_API_URL=https://openrouter.ai/api/v1/chat/completions
 LLM_API_KEY=<your-api-key>
-LLM_MODEL=x-ai/grok-4.1-fast
+LLM_MODEL=deepseek/deepseek-v3.2
 
 # Perplexity (for web search)
 PERPLEXITY_API_KEY=<your-api-key>
