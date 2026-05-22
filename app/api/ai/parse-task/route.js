@@ -178,6 +178,11 @@ Extract structured data from user input.
         prompt: text,
         temperature: 0.2,
         maxTokens: 300,
+        providerOptions: {
+          openrouter: {
+            reasoning: { enabled: false },
+          },
+        },
       });
       llmParsed = result.output;
     } catch (error) {
