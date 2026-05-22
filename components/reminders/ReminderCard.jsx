@@ -14,6 +14,7 @@ import { formatDateMedium } from "@/lib/format";
 export default function ReminderCard({ reminder, onDelete, onUpdate }) {
   const t = useTranslations("reminders");
   const tStatus = useTranslations("status");
+  const tTask = useTranslations("taskItem");
   const locale = useLocale();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentReminder, setCurrentReminder] = useState(reminder);
@@ -43,10 +44,16 @@ export default function ReminderCard({ reminder, onDelete, onUpdate }) {
         <div className="flex justify-between items-start mb-3">
           <h3 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>{currentReminder.title}</h3>
           <div className="flex space-x-2">
-            <button onClick={() => setIsEditModalOpen(true)}>
+            <button
+              aria-label={tTask("editReminder")}
+              onClick={() => setIsEditModalOpen(true)}
+            >
               <FaEdit className="text-primary hover:text-primary-hover cursor-pointer" />
             </button>
-            <button onClick={() => onDelete(currentReminder.id)}>
+            <button
+              aria-label={tTask("deleteReminder")}
+              onClick={() => onDelete(currentReminder.id)}
+            >
               <FaTrash className="text-danger hover:text-danger-hover" />
             </button>
           </div>
