@@ -74,3 +74,6 @@ CLAUDE.md
 ticket.md
 docs
 AGENTS.md
+
+# Local dev/review notes (architecture reviews, bug logs, smoke-test logs — kept out of the repo)
+dev-notes/
