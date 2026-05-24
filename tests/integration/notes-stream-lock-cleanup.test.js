@@ -24,9 +24,11 @@ vi.mock("@/auth", () => ({
 // shape: a truthy doc-like object when "acquired", null when "held".
 const acquireLockMock = vi.fn(async () => ({ _id: "notes-ai:user-stream-test" }));
 const releaseLockMock = vi.fn(async () => {});
+const renewLockMock = vi.fn(async () => {});
 vi.mock("@/lib/locks/acquireUserAILock.js", () => ({
   acquireUserAILock: (...args) => acquireLockMock(...args),
   releaseUserAILock: (...args) => releaseLockMock(...args),
+  renewUserAILock: (...args) => renewLockMock(...args),
 }));
 
 const capturedStreamArgs = { value: null };
@@ -95,6 +97,8 @@ beforeEach(() => {
   acquireLockMock.mockResolvedValue({ _id: "notes-ai:user-stream-test" });
   releaseLockMock.mockReset();
   releaseLockMock.mockResolvedValue(undefined);
+  renewLockMock.mockReset();
+  renewLockMock.mockResolvedValue(undefined);
   capturedStreamArgs.value = null;
 });
 
@@ -155,6 +159,12 @@ describe("notes-agentic stream lifecycle releases lock exactly once", () => {
     expect(res.status).toBe(400);
     expect(releaseLockMock).toHaveBeenCalledTimes(1);
   });
+
+  it("renews the lease (heartbeat) on each agent step via onStepFinish", async () => {
+    const args = await startStream();
+    args.onStepFinish({ usage: {}, toolResults: [] });
+    expect(renewLockMock).toHaveBeenCalledWith("user-stream-test", "notes-ai");
+  });
 });
 
 describe("notes-rss stream lifecycle releases lock exactly once", () => {
@@ -196,5 +206,11 @@ describe("notes-rss stream lifecycle releases lock exactly once", () => {
     const res = await rssPOST(jsonRequest({ language: "zh" }));
     expect(res.status).toBe(429);
     expect(releaseLockMock).not.toHaveBeenCalled();
+  });
+
+  it("renews the lease (heartbeat) on each agent step via onStepFinish", async () => {
+    const args = await startStream();
+    args.onStepFinish({ usage: {}, toolResults: [] });
+    expect(renewLockMock).toHaveBeenCalledWith("user-stream-test", "notes-ai");
   });
 });

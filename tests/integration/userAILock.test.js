@@ -36,6 +36,7 @@ vi.mock("@/lib/db.js", () => ({
 const {
   acquireUserAILock,
   releaseUserAILock,
+  renewUserAILock,
 } = await import("@/lib/locks/acquireUserAILock.js");
 const { createLockIndexes } = await import("@/scripts/createLockIndexes.js");
 
@@ -124,6 +125,40 @@ describe("acquireUserAILock / releaseUserAILock", () => {
     const winners = attempts.filter((r) => r !== null);
     expect(winners).toHaveLength(1);
     expect(winners[0]._id).toBe("notes-ai:alice");
+  });
+});
+
+describe("renewUserAILock", () => {
+  it("extends an existing lock's expiresAt (lease renewal / heartbeat)", async () => {
+    const lock = await acquireUserAILock("alice", "reminder-ai");
+    expect(lock).toBeTruthy();
+    const originalExpiry = lock.expiresAt.getTime();
+
+    // Advance wall clock so the renewed expiresAt (Date.now() + ttl) is
+    // strictly greater than the original — proving renew pushes the lease out.
+    await new Promise((r) => setTimeout(r, 5));
+    await renewUserAILock("alice", "reminder-ai");
+
+    const doc = await getDb()
+      .collection("locks")
+      .findOne({ _id: "reminder-ai:alice" });
+    expect(doc).toBeTruthy();
+    expect(doc.expiresAt.getTime()).toBeGreaterThan(originalExpiry);
+  });
+
+  it("on an absent doc is a no-op — never creates a lock (zombie guard)", async () => {
+    // No-upsert contract: a renew firing after release (doc already deleted)
+    // must match zero docs and resurrect nothing. The collection stays empty.
+    await renewUserAILock("ghost", "reminder-ai");
+
+    const count = await getDb().collection("locks").countDocuments({});
+    expect(count).toBe(0);
+  });
+
+  it("with no userId is a no-op and does not throw", async () => {
+    await expect(renewUserAILock(undefined, "reminder-ai")).resolves.toBeUndefined();
+    const count = await getDb().collection("locks").countDocuments({});
+    expect(count).toBe(0);
   });
 });
 

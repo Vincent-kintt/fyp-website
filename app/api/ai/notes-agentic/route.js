@@ -10,6 +10,7 @@ import { parseJsonBodyWithSchema } from "@/lib/api/body.js";
 import {
   acquireUserAILock,
   releaseUserAILock,
+  renewUserAILock,
 } from "@/lib/locks/acquireUserAILock.js";
 import { consumeAILimit } from "@/lib/rateLimit/aiRateLimiter.js";
 
@@ -154,6 +155,12 @@ export const POST = withAuth(
         maxRetries: 2,
         abortSignal: request.signal,
         onStepFinish: ({ usage, toolResults }) => {
+          // Heartbeat: extend the lease so a multi-step run that outlives the
+          // lock TTL doesn't self-expire mid-stream. Fire-and-forget; a renew
+          // failure is logged (not swallowed) so a dropped lease surfaces.
+          renewUserAILock(userId, "notes-ai").catch((err) =>
+            logAIEvent("lock_renew_failed", { message: err.message }, "error"),
+          );
           logAIEvent("notes_agent_step", {
             inputTokens: usage?.promptTokens,
             outputTokens: usage?.completionTokens,

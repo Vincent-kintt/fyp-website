@@ -94,6 +94,17 @@ vi.mock("@/lib/rateLimit/aiRateLimiter.js", () => ({
   consumeAILimit: vi.fn(async () => ({ ok: true })),
 }));
 
+// agentic-reminder now acquires a per-user concurrency lock before parsing the
+// body (matching notes-agentic/notes-rss). This suite exercises the model
+// allowlist, not the lock, so mock the lock to a successful acquire + no-op
+// release/renew. The dedicated tests/integration/reminder-stream-lock-cleanup.test.js
+// and userAILock.test.js cover the lock contract.
+vi.mock("@/lib/locks/acquireUserAILock.js", () => ({
+  acquireUserAILock: vi.fn(async () => ({ _id: "reminder-ai:user-allowlist-test" })),
+  releaseUserAILock: vi.fn(async () => {}),
+  renewUserAILock: vi.fn(async () => {}),
+}));
+
 const { POST: agenticReminderPOST } = await import(
   "@/app/api/ai/agentic-reminder/route.js"
 );
