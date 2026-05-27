@@ -29,6 +29,7 @@ vi.mock("@/lib/rateLimit/aiRateLimiter.js", () => ({
 }));
 
 const { POST } = await import("@/app/api/ai/parse-task/route.js");
+const { REMINDER_CATEGORIES } = await import("@/lib/utils.js");
 
 function makeRequest(body) {
   return new Request("http://localhost/api/ai/parse-task", {
@@ -44,10 +45,12 @@ describe("parse-task with Output.object()", () => {
   });
 
   it("uses structured output when model returns valid object", async () => {
+    // Canonical tag ("work") passes the code-side taxonomy filter unchanged —
+    // verifies the pipeline forwards a valid auto-classified tag end to end.
     mockGenerateText.mockResolvedValue({
       output: {
         title: "Buy groceries",
-        tags: ["shopping"],
+        tags: ["work"],
         priority: "medium",
         date_expression: "tomorrow at 3:00 pm",
         is_task: true,
@@ -63,9 +66,51 @@ describe("parse-task with Output.object()", () => {
 
     expect(json.success).toBe(true);
     expect(json.data.title).toBe("Buy groceries");
-    expect(json.data.tags).toEqual(["shopping"]);
+    expect(json.data.tags).toEqual(["work"]);
     expect(json.data.isTask).toBe(true);
     expect(json.data.dateTime).toBeDefined();
+  });
+
+  it("instructs the model to classify into the canonical categories", async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        title: "Task",
+        tags: [],
+        priority: "medium",
+        date_expression: "",
+        is_task: true,
+        matched_text: "task",
+      },
+      text: "",
+    });
+
+    await POST(makeRequest({ text: "task" }));
+
+    const systemPrompt = mockGenerateText.mock.calls[0][0].system;
+    expect(systemPrompt).toContain("classify");
+    for (const category of REMINDER_CATEGORIES) {
+      expect(systemPrompt).toContain(category);
+    }
+  });
+
+  it("filters out auto-classified tags outside the canonical taxonomy", async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        title: "Finish report",
+        tags: ["work", "shopping"],
+        priority: "medium",
+        date_expression: "",
+        is_task: true,
+        matched_text: "finish report",
+      },
+      text: "",
+    });
+
+    const res = await POST(makeRequest({ text: "finish report" }));
+    const json = await res.json();
+
+    expect(json.success).toBe(true);
+    expect(json.data.tags).toEqual(["work"]);
   });
 
   it("falls back to manual parse when NoObjectGeneratedError is thrown", async () => {

@@ -1,4 +1,4 @@
-import { normalizeTags } from "@/lib/utils";
+import { normalizeTags, REMINDER_CATEGORIES } from "@/lib/utils";
 import { getModel, getParseModelId } from "@/lib/ai/provider.js";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
@@ -166,7 +166,8 @@ Extract structured data from user input.
 - "title": Clean task title with date/time words removed
 - "date_expression": normalized English date/time string for a parser (empty string if no date)
 - "is_task": true only if the input contains a clear actionable task. false for observations, notes, thoughts.
-- "matched_text": the exact verbatim substring from the input that represents the task. Must appear in the original input unchanged.`;
+- "matched_text": the exact verbatim substring from the input that represents the task. Must appear in the original input unchanged.
+- "tags": classify the task into the most relevant of: ${REMINDER_CATEGORIES.join(", ")}. Assign one (rarely two) only when clearly applicable. Leave empty [] if none clearly fit. Use these exact lowercase English values.`;
 
     let llmParsed;
 
@@ -228,9 +229,16 @@ Extract structured data from user input.
     const isTask = llmParsed.is_task === true;
     const matchedText = llmParsed.matched_text || text;
 
+    // Auto-classified tags, constrained to the canonical taxonomy. The LLM
+    // prompt lists the categories as a hint; this filter is the source of
+    // truth (out-of-taxonomy values like "shopping" are dropped).
+    const tags = normalizeTags(llmParsed.tags || []).filter((tag) =>
+      REMINDER_CATEGORIES.includes(tag),
+    );
+
     const confidence = {
       title: 0.9,
-      tags: llmParsed.tags?.length > 0 ? 0.8 : 0.5,
+      tags: tags.length > 0 ? 0.8 : 0.5,
       priority: 0.7,
     };
 
@@ -242,7 +250,7 @@ Extract structured data from user input.
 
     const result = {
       title: llmParsed.title || text.trim(),
-      tags: normalizeTags(llmParsed.tags || []),
+      tags,
       priority: llmParsed.priority || "medium",
       ...(chronoResult ? { dateTime: chronoResult.dateTime } : {}),
       isTask,
