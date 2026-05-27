@@ -5,6 +5,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { isValidElement } from "react";
 import TagsSection from "@/components/tasks/taskEditForm/TagsSection.jsx";
+import { SUGGESTED_TAGS } from "@/lib/utils.js";
 
 function flatten(node, acc = []) {
   if (node == null || typeof node === "boolean") return acc;
@@ -87,6 +88,30 @@ describe("TagsSection — quick tag click", () => {
     workBtn.props.onClick();
     expect(onRemoveTag).toHaveBeenCalledWith("work");
     expect(onAddTag).not.toHaveBeenCalled();
+  });
+});
+
+describe("TagsSection — quick tag vocabulary", () => {
+  it("renders one quick-tag button per SUGGESTED_TAGS value", () => {
+    const tree = renderTree(
+      <TagsSection
+        formData={{ tags: [] }}
+        newTag=""
+        onNewTagChange={vi.fn()}
+        onTagKeyDown={vi.fn()}
+        onAddTag={vi.fn()}
+        onRemoveTag={vi.fn()}
+        t={T}
+      />,
+    );
+
+    const buttonLabels = flatten(tree)
+      .filter((el) => el.type === "button")
+      .map((el) => el.props.children);
+
+    for (const tag of SUGGESTED_TAGS) {
+      expect(buttonLabels).toContain(tag);
+    }
   });
 });
 

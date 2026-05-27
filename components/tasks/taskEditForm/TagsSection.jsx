@@ -4,10 +4,8 @@
 // hook's dedupe + normalize gates apply uniformly.
 
 import { FaPlus, FaTimes } from "react-icons/fa";
-import { getTagClasses } from "@/lib/utils";
+import { getTagClasses, SUGGESTED_TAGS } from "@/lib/utils";
 import { SectionLabel } from "./parts.jsx";
-
-const QUICK_TAGS = ["personal", "work", "health", "urgent"];
 
 export default function TagsSection({
   formData,
@@ -23,7 +21,7 @@ export default function TagsSection({
       <SectionLabel>{t("tags")}</SectionLabel>
 
       <div className="flex flex-wrap gap-2">
-        {QUICK_TAGS.map((tag) => (
+        {SUGGESTED_TAGS.map((tag) => (
           <button
             key={tag}
             type="button"
