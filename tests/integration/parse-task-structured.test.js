@@ -185,6 +185,121 @@ describe("parse-task with Output.object()", () => {
     expect(json.data.priority).toBe("high");
   });
 
+  // Scratchpad-leak guard: DeepSeek json_schema occasionally returns a
+  // degenerate object containing ONLY `title` (chain-of-thought stuffed into
+  // the title value). Zod .default() masks this in result.output, so we
+  // inspect the raw model text and key on the absence of `is_task`.
+  it("overrides title with raw input when raw model text is a scratchpad leak", async () => {
+    const LONG_COT_PROSE =
+      "buy milk tomorrow. Note: this is a routine errand the user wants to remember. Date/time: tomorrow morning makes sense based on typical grocery runs. Priority: medium since no urgency indicated. Tags: personal, shopping. The user did not specify a particular store or quantity, but milk is implied to be a standard household purchase.";
+    mockGenerateText.mockResolvedValue({
+      // Zod .default() masks the missing fields in result.output —
+      // priority/is_task/matched_text/tags/date_expression all defaulted.
+      output: {
+        title: LONG_COT_PROSE,
+        tags: [],
+        priority: "medium",
+        date_expression: "",
+        is_task: false,
+        matched_text: "",
+      },
+      // Raw text contains ONLY the title key — `is_task` absent is the
+      // discriminator (present 108/108 clean captures, absent 3/3 leaks).
+      text: JSON.stringify({ title: LONG_COT_PROSE }),
+    });
+
+    const res = await POST(makeRequest({ text: "buy milk tomorrow" }));
+    const json = await res.json();
+
+    expect(json.success).toBe(true);
+    expect(json.data.title).toBe("buy milk tomorrow");
+  });
+
+  it("keeps the model's title when raw model text contains is_task (clean response)", async () => {
+    const cleanOutput = {
+      title: "buy milk",
+      tags: ["personal"],
+      priority: "medium",
+      date_expression: "tomorrow",
+      is_task: true,
+      matched_text: "buy milk",
+    };
+    mockGenerateText.mockResolvedValue({
+      output: cleanOutput,
+      text: JSON.stringify(cleanOutput),
+    });
+
+    const res = await POST(makeRequest({ text: "buy milk tomorrow" }));
+    const json = await res.json();
+
+    expect(json.success).toBe(true);
+    expect(json.data.title).toBe("buy milk");
+  });
+
+  // Discriminator: key-absent ("is_task" missing) is the leak signal, NOT
+  // value-false. A legitimate non-task response includes "is_task":false
+  // and must not be overridden.
+  it("keeps the model's title for legit non-task with is_task:false in raw text", async () => {
+    const nonTaskOutput = {
+      title: "grocery ideas",
+      tags: [],
+      priority: "medium",
+      date_expression: "",
+      is_task: false,
+      matched_text: "",
+    };
+    mockGenerateText.mockResolvedValue({
+      output: nonTaskOutput,
+      text: JSON.stringify(nonTaskOutput),
+    });
+
+    const res = await POST(makeRequest({ text: "grocery ideas" }));
+    const json = await res.json();
+
+    expect(json.success).toBe(true);
+    expect(json.data.title).toBe("grocery ideas");
+  });
+
+  it("treats null raw text as ambiguous and trusts parsed output", async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        title: "write report",
+        tags: ["work"],
+        priority: "medium",
+        date_expression: "",
+        is_task: true,
+        matched_text: "write report",
+      },
+      text: null,
+    });
+
+    const res = await POST(makeRequest({ text: "write the quarterly report" }));
+    const json = await res.json();
+
+    expect(json.success).toBe(true);
+    expect(json.data.title).toBe("write report");
+  });
+
+  it("treats non-JSON raw text as ambiguous and trusts parsed output", async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        title: "call dentist",
+        tags: ["personal"],
+        priority: "medium",
+        date_expression: "",
+        is_task: true,
+        matched_text: "call dentist",
+      },
+      text: "garbage not json",
+    });
+
+    const res = await POST(makeRequest({ text: "call the dentist" }));
+    const json = await res.json();
+
+    expect(json.success).toBe(true);
+    expect(json.data.title).toBe("call dentist");
+  });
+
   it("rejects unauthenticated requests", async () => {
     const { auth } = await import("@/auth");
     auth.mockResolvedValueOnce(null);
