@@ -256,7 +256,7 @@ describe("executeRenameNote — optimistic title update with rollback", () => {
 // executeDeleteNote
 // ---------------------------------------------------------------------------
 describe("executeDeleteNote — optimistic removal with rollback + cache cleanup", () => {
-  it("optimistically filters the deleted note from the list, calls DELETE, removes detail cache, and returns true on success", async () => {
+  it("optimistically filters the deleted note from the list, calls DELETE, and returns true on success", async () => {
     const target = makeNote({ id: "n1" });
     const other = makeNote({ id: "n2" });
     const previous = [target, other];
@@ -297,16 +297,64 @@ describe("executeDeleteNote — optimistic removal with rollback + cache cleanup
     // DELETE issued.
     expect(fetch).toHaveBeenCalledWith("/api/notes/n1", { method: "DELETE" });
 
-    // Detail cache removed for the deleted id.
-    expect(queryClient.removeQueries).toHaveBeenCalledWith({
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("on success: marks the deleted detail stale WITHOUT refetching it, and refreshes only list + trash — no removeQueries, no broad all-invalidate (bug #7 regression guard)", async () => {
+    const target = makeNote({ id: "n1" });
+    const other = makeNote({ id: "n2" });
+    const previous = [target, other];
+
+    const queryClient = {
+      cancelQueries: vi.fn(() => Promise.resolve()),
+      getQueryData: vi.fn(() => previous),
+      setQueryData: vi.fn(),
+      removeQueries: vi.fn(),
+      invalidateQueries: vi.fn(() => Promise.resolve()),
+    };
+    const fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      }),
+    );
+    const toast = makeToast();
+    const t = makeT();
+
+    const ok = await executeDeleteNote({
+      id: "n1",
+      fetch,
+      queryClient,
+      noteKeys,
+      toast,
+      t,
+    });
+    expect(ok).toBe(true);
+
+    // (a) the deleted detail must NOT be force-removed: removeQueries on a
+    //     still-mounted observer re-creates the query and triggers a 404 refetch.
+    expect(queryClient.removeQueries).not.toHaveBeenCalled();
+
+    // (b) detail is marked stale WITHOUT an immediate refetch.
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
       queryKey: noteKeys.detail("n1"),
+      refetchType: "none",
     });
 
-    // Invalidation on settled.
+    // (c) the broad ["notes"] invalidate (prefix-matches detail, default
+    //     refetchType:"active") must be gone from the delete path.
+    const invalidateKeys = queryClient.invalidateQueries.mock.calls.map(
+      (c) => c[0]?.queryKey,
+    );
+    expect(invalidateKeys).not.toContainEqual(noteKeys.all);
+
+    // (d) list + trash are refreshed explicitly (so sidebar + trash update live).
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: noteKeys.all,
+      queryKey: noteKeys.lists(),
     });
-    expect(toast.error).not.toHaveBeenCalled();
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: noteKeys.trash(),
+    });
   });
 
   it("rolls back to the snapshot, shows deleteFailed, and returns false when fetch fails", async () => {
