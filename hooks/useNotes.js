@@ -137,9 +137,10 @@ export async function executeRenameNote({
 
 /**
  * DELETE /api/notes/[id] (soft delete to trash). Optimistically removes the
- * note from the active list. On success additionally drops the detail cache
- * so a stale detail doesn't survive the soft-delete (the note moves to the
- * trash query, not the list query).
+ * note from the active list. On success marks the deleted note's detail query
+ * stale WITHOUT refetching it (refetchType:"none") so the still-mounted
+ * detail observer doesn't fire a 404 refetch, then refreshes the list + trash
+ * queries (the note moves from the list query to the trash query).
  *
  * Returns true on success so the caller can decide to navigate away from the
  * deleted note's page.
@@ -164,7 +165,15 @@ export async function executeDeleteNote({
     if (!res?.ok) throw new Error("Failed");
     const data = await res.json();
     if (!data.success) throw new Error(data.error || "Failed");
-    removeNoteCaches({ queryClient, id });
+    // The deleted note's detail observer (useNote) is still mounted on the
+    // page until router.replace unmounts it (App Router defers unmount into an
+    // async transition). removeQueries here would re-create + refetch that
+    // observer -> 404. Mark the detail stale WITHOUT refetching instead; a
+    // later remount still refetches (-> 404 -> the page's noteError redirect).
+    queryClient.invalidateQueries({
+      queryKey: noteKeys.detail(id),
+      refetchType: "none",
+    });
     return true;
   } catch {
     if (previous !== undefined) {
@@ -173,7 +182,13 @@ export async function executeDeleteNote({
     toast.error(t("deleteFailed"));
     return false;
   } finally {
-    await queryClient.invalidateQueries({ queryKey: noteKeys.all });
+    // Refresh list + trash explicitly. NOT noteKeys.all: ["notes"] prefix-
+    // matches noteKeys.detail(id) and (default refetchType:"active") would
+    // refetch the still-mounted deleted-detail observer -> 404.
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: noteKeys.lists() }),
+      queryClient.invalidateQueries({ queryKey: noteKeys.trash() }),
+    ]);
   }
 }
 
@@ -236,7 +251,7 @@ export default function useNotes() {
   });
 
   const { data: trashedNotes = [] } = useQuery({
-    queryKey: [...noteKeys.all, "trash"],
+    queryKey: noteKeys.trash(),
     queryFn: fetchTrashedNotes,
     enabled: !!session,
   });

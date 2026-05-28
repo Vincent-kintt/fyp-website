@@ -46,4 +46,8 @@ describe("noteKeys", () => {
   it("detail(id) returns the canonical detail key", () => {
     expect(noteKeys.detail("n1")).toEqual(["notes", "detail", "n1"]);
   });
+
+  it("trash() nests under all", () => {
+    expect(noteKeys.trash()).toEqual(["notes", "trash"]);
+  });
 });

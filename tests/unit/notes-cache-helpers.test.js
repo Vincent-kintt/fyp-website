@@ -1,7 +1,7 @@
 /**
  * Tests for the removeNoteCaches helper exported from hooks/useNotes.js.
  *
- * Why it exists: when a note is deleted (soft or permanent), the detail
+ * Why it exists: when a note is permanently deleted, the detail
  * cache (noteKeys.detail(id)) must be GONE — not just stale — so the next
  * mount of useNote(id) re-fetches and the API can return 404. Otherwise a
  * stale detail page persists after deletion.
