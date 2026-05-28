@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { getTagClasses } from "@/lib/utils";
+import { getTagClasses, SUGGESTED_TAGS } from "@/lib/utils";
 
 export default function ReminderFilter({ filters, onFilterChange, availableTags = [] }) {
   const t = useTranslations("reminders");
@@ -35,7 +35,7 @@ export default function ReminderFilter({ filters, onFilterChange, availableTags 
 
         {/* Tag Filter - Quick Tags */}
         <div className="flex flex-wrap gap-1.5 items-center">
-          {["work", "personal", "health", "urgent"].map((tag) => (
+          {SUGGESTED_TAGS.map((tag) => (
             <button
               key={tag}
               onClick={() => {

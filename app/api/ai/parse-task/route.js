@@ -1,4 +1,4 @@
-import { normalizeTags } from "@/lib/utils";
+import { normalizeTags, REMINDER_CATEGORIES } from "@/lib/utils";
 import { getModel, getParseModelId } from "@/lib/ai/provider.js";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
@@ -112,6 +112,27 @@ function salvageFromText(rawText) {
   }
 }
 
+/**
+ * Detects the DeepSeek json_schema "scratchpad leak": the model occasionally
+ * returns a degenerate object containing ONLY `title` (chain-of-thought stuffed
+ * into the title value), dropping every other field. Zod .default() masks this
+ * in result.output, so inspect the RAW model text and key on the absence of
+ * `is_task` (present 108/108 clean captures, absent 3/3 leaks). Returns true
+ * ONLY on a positively-confirmed degenerate object; any ambiguity
+ * (missing/unparseable/non-object text) → false (trust parsed output) so we
+ * never false-positive a clean response.
+ */
+function isScratchpadLeak(rawText) {
+  if (typeof rawText !== "string" || !rawText.trim()) return false;
+  let parsed;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    return false;
+  }
+  return parsed != null && typeof parsed === "object" && !("is_task" in parsed);
+}
+
 export const POST = withAuth(
   async ({ request, userId }) => {
     const limit = await consumeAILimit(userId);
@@ -166,9 +187,11 @@ Extract structured data from user input.
 - "title": Clean task title with date/time words removed
 - "date_expression": normalized English date/time string for a parser (empty string if no date)
 - "is_task": true only if the input contains a clear actionable task. false for observations, notes, thoughts.
-- "matched_text": the exact verbatim substring from the input that represents the task. Must appear in the original input unchanged.`;
+- "matched_text": the exact verbatim substring from the input that represents the task. Must appear in the original input unchanged.
+- "tags": classify the task into the most relevant of: ${REMINDER_CATEGORIES.join(", ")}. Assign one (rarely two) only when clearly applicable. Leave empty [] if none clearly fit. Use these exact lowercase English values.`;
 
     let llmParsed;
+    let rawModelText = null;
 
     try {
       const result = await generateText({
@@ -177,7 +200,7 @@ Extract structured data from user input.
         system: systemPrompt,
         prompt: text,
         temperature: 0.2,
-        maxTokens: 300,
+        maxOutputTokens: 300,
         providerOptions: {
           openrouter: {
             reasoning: { enabled: false },
@@ -185,6 +208,7 @@ Extract structured data from user input.
         },
       });
       llmParsed = result.output;
+      rawModelText = result.text;
     } catch (error) {
       if (NoObjectGeneratedError.isInstance(error)) {
         logAIEvent("parse_task_structured_output_fallback", {
@@ -228,9 +252,16 @@ Extract structured data from user input.
     const isTask = llmParsed.is_task === true;
     const matchedText = llmParsed.matched_text || text;
 
+    // Auto-classified tags, constrained to the canonical taxonomy. The LLM
+    // prompt lists the categories as a hint; this filter is the source of
+    // truth (out-of-taxonomy values like "shopping" are dropped).
+    const tags = normalizeTags(llmParsed.tags || []).filter((tag) =>
+      REMINDER_CATEGORIES.includes(tag),
+    );
+
     const confidence = {
       title: 0.9,
-      tags: llmParsed.tags?.length > 0 ? 0.8 : 0.5,
+      tags: tags.length > 0 ? 0.8 : 0.5,
       priority: 0.7,
     };
 
@@ -240,9 +271,17 @@ Extract structured data from user input.
 
     confidence.overall = computeOverallConfidence(confidence);
 
+    // Scratchpad leak → title is untrusted; fall back to the user's raw input.
+    // NOTE: on this path `is_task` is also unreliable (Zod-defaulted to false),
+    // so the response's `isTask` is meaningless here too — currently no consumer
+    // (QuickAdd always submits status:"pending"); revisit if isTask gets one.
+    const title = isScratchpadLeak(rawModelText)
+      ? text.trim()
+      : llmParsed.title || text.trim();
+
     const result = {
-      title: llmParsed.title || text.trim(),
-      tags: normalizeTags(llmParsed.tags || []),
+      title,
+      tags,
       priority: llmParsed.priority || "medium",
       ...(chronoResult ? { dateTime: chronoResult.dateTime } : {}),
       isTask,

@@ -17,6 +17,7 @@ import {
   hasTimeOverlap,
   REMINDER_STATUSES,
   REMINDER_CATEGORIES,
+  SUGGESTED_TAGS,
   minutesToMs,
 } from "@/lib/utils.js";
 
@@ -301,5 +302,20 @@ describe("REMINDER_CATEGORIES contract", () => {
       expect(getMainCategory([cat])).toBe(cat);
     }
     expect(getMainCategory(["foo"])).toBe("other");
+  });
+});
+
+// ============================================
+// Suggested Tags — UI quick-tag vocabulary derived from the categories plus
+// the cross-cutting "urgent" tag. Single source of truth for the quick-tag
+// buttons in ReminderFilter + TagsSection (previously duplicated literals).
+// ============================================
+describe("SUGGESTED_TAGS contract", () => {
+  it("equals the categories plus 'urgent'", () => {
+    expect(SUGGESTED_TAGS).toEqual(["work", "personal", "health", "urgent"]);
+  });
+
+  it("is derived from REMINDER_CATEGORIES (no independent literal)", () => {
+    expect(SUGGESTED_TAGS).toEqual([...REMINDER_CATEGORIES, "urgent"]);
   });
 });
