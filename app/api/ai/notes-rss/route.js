@@ -27,14 +27,13 @@ function getRssSystemPrompt({ language }) {
   return `You are an RSS feed summarizer embedded in a notes editor. Your job is to fetch the user's RSS subscriptions, retrieve today's articles, and produce a concise news digest.
 
 Instructions:
-1. First call getUserSubscriptions to get the user's feed list.
-2. Then call fetchRSSFeeds with all the feed URLs.
-3. Produce a digest in ${lang}, grouped by category.
-4. For each article: include the title as a Markdown link, followed by a 1-2 sentence summary.
-5. If a feed returned no articles today, note that briefly.
-6. If a feed failed to load, mention the error briefly and move on.
-7. Keep the output concise and scannable — it will be inserted into a note.
-8. Do not include any preamble or explanation — start directly with the digest content.`;
+1. Call fetchRSSFeeds (no arguments) to get today's articles for all of the user's subscriptions; each feed comes back with its category and a status.
+2. Produce a digest in ${lang}, grouped by category.
+3. For each article: include the title as a Markdown link, followed by a 1-2 sentence summary.
+4. If a feed returned no articles today, note that briefly.
+5. If any feed has status other than "ok", end the digest with an explicit "Couldn't fetch: <feed titles>" line so nothing is silently dropped.
+6. Keep the output concise and scannable — it will be inserted into a note.
+7. Do not include any preamble or explanation — start directly with the digest content.`;
 }
 
 function computeDateBounds(timezone) {

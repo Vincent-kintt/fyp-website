@@ -72,7 +72,6 @@ function makeEditor({
 }
 
 const DEFAULT_LABELS = {
-  getUserSubscriptions: "rssLoadingSubscriptions",
   fetchRSSFeeds: "rssFetchingFeeds",
 };
 
