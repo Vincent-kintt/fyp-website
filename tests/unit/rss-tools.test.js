@@ -5,7 +5,7 @@ vi.mock("@/lib/db.js", () => ({
 }));
 
 import { getCollection } from "@/lib/db.js";
-import { createRssTools, MAX_FEED_URLS } from "@/lib/ai/rssTools.js";
+import { createRssTools } from "@/lib/ai/rssTools.js";
 
 describe("createRssTools", () => {
   const userId = "user-123";
@@ -36,43 +36,17 @@ describe("createRssTools", () => {
     tools = createRssTools(userId, todayStart, todayEnd);
   });
 
-  describe("getUserSubscriptions", () => {
-    it("returns empty array when no subscriptions", async () => {
-      const result = await tools.getUserSubscriptions.execute({});
-      expect(result.success).toBe(true);
-      expect(result.subscriptions).toEqual([]);
-    });
-
-    it("returns subscriptions with feed details", async () => {
-      const feedId = { toString: () => "feed-1" };
-      mockSubsCol.toArray.mockResolvedValue([
-        { _id: { toString: () => "sub-1" }, userId, feedId },
-      ]);
-      mockFeedsCol.find.mockReturnThis();
-      mockFeedsCol.toArray.mockResolvedValue([
-        { _id: feedId, url: "https://example.com/feed", title: "Example", category: "technology" },
-      ]);
-
-      const result = await tools.getUserSubscriptions.execute({});
-      expect(result.success).toBe(true);
-      expect(result.subscriptions).toHaveLength(1);
-      expect(result.subscriptions[0].url).toBe("https://example.com/feed");
-    });
-  });
-
   describe("fetchRSSFeeds", () => {
-    const catalogUrl = "https://example.com/feed";
-
-    // Configure the name-branched collection mocks so getSubscribedUrls()
-    // resolves the given canonical feed URLs from the user's subscriptions.
-    // getSubscribedUrls reads rssSubscriptions (carry feedId) then rssFeeds
-    // (carry url), so the two collections must stay distinct for the
-    // canonical-fetch assertion to be meaningful.
-    function subscribeTo(urls) {
-      const feedDocs = urls.map((url, i) => {
-        const id = { toString: () => `feed-${i}` };
-        return { _id: id, url };
-      });
+    // getSubscribedFeeds joins rssSubscriptions (carry feedId) with rssFeeds
+    // (carry url/title/category). Configure both, branched by collection name,
+    // so the join produces the given subscribed feeds.
+    function subscribeTo(feeds) {
+      const feedDocs = feeds.map((feed, i) => ({
+        _id: { toString: () => `feed-${i}` },
+        url: feed.url,
+        title: feed.title,
+        category: feed.category,
+      }));
       mockSubsCol.toArray.mockResolvedValue(
         feedDocs.map((f, i) => ({
           _id: { toString: () => `sub-${i}` },
@@ -108,70 +82,91 @@ describe("createRssTools", () => {
       vi.unstubAllGlobals();
     });
 
-    it("rejects non-subscribed urls before fetching (allowlist gate is pre-fetch)", async () => {
-      subscribeTo([catalogUrl]);
+    it("fetches all subscribed feeds with no arguments, returning url/title/category/status/articles", async () => {
+      subscribeTo([
+        { url: "https://a.example.com/feed", title: "Feed A", category: "technology" },
+        { url: "https://b.example.com/feed", title: "Feed B", category: "science" },
+      ]);
       const fetchMock = vi.fn(() =>
         okResponse(rssXml({ pubDate: "Tue, 07 Apr 2026 08:00:00 +0800" })),
       );
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await tools.fetchRSSFeeds.execute({
-        feedUrls: [catalogUrl, "https://evil.com/feed"],
-      });
+      const result = await tools.fetchRSSFeeds.execute({});
 
-      const evilEntry = result.feeds.find((f) => f.url === "https://evil.com/feed");
-      expect(evilEntry).toBeDefined();
-      expect(evilEntry.error).toBe("Not in your subscriptions");
-      expect(evilEntry.articles).toEqual([]);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(true);
+      expect(result.feeds).toHaveLength(2);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      for (const feed of result.feeds) {
+        expect(feed).toHaveProperty("url");
+        expect(feed).toHaveProperty("title");
+        expect(feed).toHaveProperty("category");
+        expect(feed.status).toBe("ok");
+        expect(Array.isArray(feed.articles)).toBe(true);
+      }
     });
 
-    it("blocks internal/reserved addresses even when present in subscriptions", async () => {
-      const internalUrl = "http://169.254.169.254/feed";
-      subscribeTo([internalUrl]);
-      const fetchMock = vi.fn(() => okResponse(rssXml({ pubDate: "Tue, 07 Apr 2026 08:00:00 +0800" })));
+    it("carries the feed category into the output (grouping data preserved)", async () => {
+      subscribeTo([
+        { url: "https://a.example.com/feed", title: "Feed A", category: "world_news" },
+      ]);
+      const fetchMock = vi.fn(() =>
+        okResponse(rssXml({ pubDate: "Tue, 07 Apr 2026 08:00:00 +0800" })),
+      );
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await tools.fetchRSSFeeds.execute({ feedUrls: [internalUrl] });
+      const result = await tools.fetchRSSFeeds.execute({});
+
+      expect(result.feeds[0].category).toBe("world_news");
+    });
+
+    it("blocks internal/reserved addresses without fetching (defense-in-depth)", async () => {
+      const internalUrl = "http://169.254.169.254/feed";
+      subscribeTo([{ url: internalUrl, title: "Poisoned", category: "technology" }]);
+      const fetchMock = vi.fn(() =>
+        okResponse(rssXml({ pubDate: "Tue, 07 Apr 2026 08:00:00 +0800" })),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      const result = await tools.fetchRSSFeeds.execute({});
 
       const entry = result.feeds.find((f) => f.url === internalUrl);
       expect(entry).toBeDefined();
-      expect(entry.error).toBe("Internal/reserved address blocked");
+      expect(entry.status).toBe("error");
+      expect(entry.error).toContain("Internal/reserved address blocked");
+      expect(entry.articles).toEqual([]);
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it("matches scheme-insensitively and fetches the canonical (subscribed) url", async () => {
-      const canonical = "http://feeds.arstechnica.com/arstechnica/index/";
-      subscribeTo([canonical]);
-      const fetchMock = vi.fn(() => okResponse(rssXml({ pubDate: "Tue, 07 Apr 2026 08:00:00 +0800" })));
+    it("isolates per-feed transport failures (Promise.allSettled)", async () => {
+      const urlA = "https://a.example.com/feed";
+      const urlB = "https://b.example.com/feed";
+      subscribeTo([
+        { url: urlA, title: "Feed A", category: "technology" },
+        { url: urlB, title: "Feed B", category: "science" },
+      ]);
+      const fetchMock = vi.fn((url) => {
+        if (url === urlA) return Promise.reject(new Error("ECONNREFUSED"));
+        return okResponse(
+          rssXml({ itemTitle: "From B", pubDate: "Tue, 07 Apr 2026 09:00:00 +0800" }),
+        );
+      });
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await tools.fetchRSSFeeds.execute({
-        feedUrls: ["https://feeds.arstechnica.com/arstechnica/index/"],
-      });
+      const result = await tools.fetchRSSFeeds.execute({});
 
-      const hasRejection = result.feeds.some(
-        (f) => f.error === "Not in your subscriptions",
-      );
-      expect(hasRejection).toBe(false);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(fetchMock).toHaveBeenCalledWith(canonical, expect.anything());
-    });
-
-    it("enforces MAX_FEED_URLS on the input schema", () => {
-      const tooMany = Array(MAX_FEED_URLS + 1).fill("https://x.com/feed");
-      expect(
-        tools.fetchRSSFeeds.inputSchema.safeParse({ feedUrls: tooMany }).success,
-      ).toBe(false);
-
-      const atLimit = Array(MAX_FEED_URLS).fill("https://x.com/feed");
-      expect(
-        tools.fetchRSSFeeds.inputSchema.safeParse({ feedUrls: atLimit }).success,
-      ).toBe(true);
+      expect(result.success).toBe(true);
+      const entryA = result.feeds.find((f) => f.url === urlA);
+      const entryB = result.feeds.find((f) => f.url === urlB);
+      expect(entryA.status).toBe("error");
+      expect(entryA.articles).toEqual([]);
+      expect(entryB.status).toBe("ok");
+      expect(entryB.articles[0].title).toBe("From B");
     });
 
     it("parses articles within today's window on the happy path", async () => {
-      subscribeTo([catalogUrl]);
+      const url = "https://a.example.com/feed";
+      subscribeTo([{ url, title: "Feed A", category: "technology" }]);
       const fetchMock = vi.fn(() =>
         okResponse(
           rssXml({ itemTitle: "Hello World", pubDate: "Tue, 07 Apr 2026 12:00:00 +0800" }),
@@ -179,33 +174,22 @@ describe("createRssTools", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await tools.fetchRSSFeeds.execute({ feedUrls: [catalogUrl] });
+      const result = await tools.fetchRSSFeeds.execute({});
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(result.feeds[0].error).toBeUndefined();
+      expect(result.feeds[0].status).toBe("ok");
       expect(result.feeds[0].totalCount).toBe(1);
       expect(result.feeds[0].articles[0].title).toBe("Hello World");
     });
 
-    it("isolates per-feed transport failures (Promise.allSettled)", async () => {
-      const urlA = "https://a.example.com/feed";
-      const urlB = "https://b.example.com/feed";
-      subscribeTo([urlA, urlB]);
-      const fetchMock = vi.fn((url) => {
-        if (url === urlA) return Promise.reject(new Error("ECONNREFUSED"));
-        return okResponse(rssXml({ itemTitle: "From B", pubDate: "Tue, 07 Apr 2026 09:00:00 +0800" }));
-      });
+    it("returns an empty feeds list and does not fetch when there are no subscriptions", async () => {
+      const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await tools.fetchRSSFeeds.execute({ feedUrls: [urlA, urlB] });
+      const result = await tools.fetchRSSFeeds.execute({});
 
-      expect(result.success).toBe(true);
-      const entryA = result.feeds.find((f) => f.url === urlA);
-      const entryB = result.feeds.find((f) => f.url === urlB);
-      expect(entryA.error).toBeTruthy();
-      expect(entryA.articles).toEqual([]);
-      expect(entryB.error).toBeUndefined();
-      expect(entryB.articles[0].title).toBe("From B");
+      expect(result).toEqual({ success: true, feeds: [] });
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });
